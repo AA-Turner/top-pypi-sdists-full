@@ -29,10 +29,23 @@ TRAINERS_PY = Path(__file__).resolve().parents[1] / "geocif" / "ml" / "trainers.
 
 def test_annotate_values_does_not_bypass_suppression():
     """diagnostics hardcodes annotate_values=True, so `or annotate_values`
-    re-enabled labels on every county map."""
+    re-enabled labels on every county map.
+
+    The invariant: ``annotate_values`` must be folded INTO the suppression
+    decision (``effective_annotate_regions(annotate_regions or annotate_values,
+    ...)``), never OR-ed with its result. Whitespace is normalised so the test
+    guards that invariant rather than one particular line-wrapping — an earlier
+    literal-string version broke merely because the call gained a ``gdf=``
+    argument and wrapped onto two lines.
+    """
     source = PLOT_PY.read_text(encoding="utf-8", errors="replace")
-    assert "(effective_annotate_regions(annotate_regions, len(gdf)) or annotate_values)" not in source
-    assert "effective_annotate_regions(annotate_regions or annotate_values, len(gdf))" in source
+    flat = " ".join(source.split())
+    # the broken form: suppression computed first, then bypassed by values
+    assert "effective_annotate_regions(annotate_regions, len(gdf)) or annotate_values" not in flat
+    assert "effective_annotate_regions(annotate_regions, len(df_comb)) or annotate_values" not in flat
+    # the correct form: both flags feed the decision. Once per backend path.
+    assert flat.count("effective_annotate_regions( annotate_regions or annotate_values") \
+        + flat.count("effective_annotate_regions(annotate_regions or annotate_values") == 2
 
 
 def test_county_scale_suppresses_even_with_values():

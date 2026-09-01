@@ -1,8 +1,11 @@
 import pytest
 
+from nameparser import FAMILY_FIRST, HumanName, Parser, Policy, parse
 from nameparser._lexicon import Lexicon
 from nameparser._render import _collapse, render
-from nameparser._types import Ambiguity, AmbiguityKind, ParsedName, Role, Span, Token
+from nameparser._types import (FOLDED_TAG, UNCLASSIFIED_TAG, UNJOINED_TAG,
+                               Ambiguity, AmbiguityKind, ParsedName, Role,
+                               Span, Token)
 
 
 def test_collapse_is_the_254_algorithm() -> None:
@@ -124,6 +127,204 @@ def test_initials_skips_tagged_particles_outside_given() -> None:
     assert pn.initials("{family}") == "S."
 
 
+def test_repair_keeps_a_conjunction_lowercase_in_a_particle_part() -> None:
+    """rules.md#R4's conjunction carve-out, which no shipped name reaches.
+
+    The unjoined mark makes the words of an all-particle part
+    ordinary name words, since none of them is acting as a particle
+    there -- but repair's conjunction conjunct is deliberately UNGATED
+    on that mark, R4 keeping a conjunction lowercase "even inside such
+    a part". Witnessing it needs a word in `particles` AND
+    `conjunctions`; the shipped sets are disjoint, in the default
+    vocabulary and in every locale pack, so no input string can
+    witness it and rules.md can carry no example line for it. Gating
+    the conjunct on the mark passed the entire suite until this test
+    existed.
+
+    Only the FORCED call gets here: R5's gate returns a mixed-case
+    name before any of this is consulted.
+    """
+    # mechanisms.md#VOCABULARY-OVERLAP-AS-PRECONDITION: "assert the
+    # intersection as a precondition" -- built here rather than found,
+    # so what has to hold is the half not being added.
+    assert "y" in Lexicon.default().conjunctions, (
+        "'y' left the default conjunctions; this test builds the "
+        "particle/conjunction overlap it needs from the other side and "
+        "no longer has one. Pick another shipped conjunction.")
+    lex = Lexicon.default().add(particles={"y"})
+    p = Parser(lexicon=lex)
+
+    van = p.parse("Anh y Van")
+    tags = [t.tags for t in van.tokens if t.text == "y"][0]
+    assert {"conjunction", "particle", UNJOINED_TAG} <= tags, sorted(tags)
+    assert van.capitalized(lex, force=True).family == "y Van"
+
+
+def test_initials_readmits_a_conjunction_in_a_particle_part() -> None:
+    """Today's answer on an OPEN question (#461), pinned as such.
+
+    rules.md#R3 says a conjunction never initials "even then" -- even
+    inside the all-particle part R2 turns into ordinary name words --
+    and `initials()` does not do that: the mark readmits the part's
+    words whichever skip tag they carry. #461 made the code match the
+    clause and was backed out, the clause rather than the code being
+    what is now in question (decisions.md, under R2).
+
+    So this pins what a `deviates:` marker would pin if one could
+    hang here -- TODAY's output, strictly, so that settling #461
+    fails the suite until this moves with it. It cannot be a marker:
+    markers hang on rules.md example lines and every line there names
+    an input string parsed with the DEFAULT vocabulary, over which
+    `particles` and `conjunctions` are disjoint and no string reaches
+    this shape. It is also what keeps the values quoted in prose by
+    decisions.md, mechanisms.md#RENDER-HONORS-THE-PARSE and
+    `_render.py` from going stale unnoticed.
+    """
+    assert "y" in Lexicon.default().conjunctions, (
+        "'y' left the default conjunctions; this test builds the "
+        "particle/conjunction overlap it needs from the other side and "
+        "no longer has one. Pick another shipped conjunction.")
+    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+
+    # the part the mark has turned into name words: every word of it
+    # initials, the conjunction included, and the base agrees
+    de_y = p.parse("Juan de y")
+    assert de_y.family_base == "de y"
+    assert de_y.initials() == "J. d. y."
+    assert p.parse("Anh y Van").initials() == "A. y. V."
+    assert p.parse("johnny y").initials() == "j. y."
+
+    # and OUTSIDE such a part the skip stands, joining or not --
+    # these are what the readmission must not reach
+    assert p.parse("Juan Velasquez y Garcia").initials() == "J. V. G."
+    assert p.parse("Juan y Garcia").initials() == "J. G."
+    # including under the default vocabulary, where 'y' is no particle
+    # and the family is therefore not all-particle
+    assert parse("Juan de y").initials() == "J."
+
+
+def test_initials_order_folded_words_first_like_the_family_field() -> None:
+    """#408: the view and the field must read one parse the same way.
+
+    O3's fold and P6's attachment both tag rather than move (spans
+    cannot reorder), and the family field reads that tag. `initials()`
+    walked tokens in written order and did not, so the two views
+    disagreed about the same parse -- 'der, y van' gave family
+    'van der' and initials 'y. d. v.'
+    (mechanisms.md#RENDER-HONORS-THE-PARSE names #408 as that shape).
+
+    Each assertion pairs the field with the view deliberately: a
+    regression that reordered BOTH would still be caught by the
+    literal, and one that reordered neither by the pairing.
+    """
+    # P6's attachment, the one CORPUS name the default policy moves
+    # -- constructed ones move too (`de la, y van`, `der, e van`),
+    # so the count is the corpus's reach and not the rule's
+    van_der = parse("der, y van")
+    assert van_der.family == "van der"
+    assert van_der.initials() == "y. v. d."
+    # and the facade, which reached this answer by its own route
+    # (its *_list views prepend the carriers) -- so the core view was
+    # the one out of step
+    assert HumanName("der, y van").initials() == "y. v. d."
+
+    # O3's fold, which is where the reach is (71 of the corpus's 1094
+    # names move under this policy at the default order, measured
+    # 2026-08-30)
+    maf = Parser(policy=Policy(middle_as_family=True))
+    hassan = maf.parse("Hassan, Mohamad Ahmad Ali")
+    assert hassan.family == "Ahmad Ali Hassan"
+    assert hassan.initials() == "M. A. A. H."
+    # The folded RUN needs two elements too, and distinguishable
+    # ones: hassan's run is `Ahmad Ali`, which both initial to
+    # `A.`, so reversing the folded half alone passes every test
+    # above. Same arity trap as the fixture drafts, one level
+    # down -- the partition BUILDS a group, and that group needs
+    # the treatment too (mechanisms.md#TWO-ELEMENT-GROUPS).
+    doe2 = maf.parse("Doe, John A. Kenneth")
+    assert doe2.family == "A. Kenneth Doe"
+    assert doe2.initials() == "J. A. K. D."
+
+    doe = maf.parse("Doe, Dr. John A.")
+    assert doe.family == "A. Doe"
+    assert doe.initials() == "J. A. D."
+
+    # under a non-default order too: the fold is not order-specific
+    ff = Parser(policy=Policy(name_order=FAMILY_FIRST,
+                              middle_as_family=True))
+    vega = ff.parse("Smith Juan Vega")
+    assert vega.family == "Vega Smith"
+    assert vega.initials() == "J. V. S."
+
+
+def test_folded_tag_lands_only_on_family_today() -> None:
+    """The guard under the per-role claim three prose sites make.
+
+    `_render.initials`, its sibling test and mechanics.md#FOLDED_TAG all
+    say the pipeline puts the tag on FAMILY tokens alone, which is why
+    the GIVEN and MIDDLE arms of the partition are uniformity rather
+    than reachable behavior. That claim was true and tested nowhere: a
+    rule that ever folded into another part would falsify all three
+    silently, and turn `initials()`'s "would otherwise reopen #408
+    there" from a hypothetical into a live gap with nothing to fail.
+    """
+    from .cases import CASES
+    seen = 0
+    for policy in (Policy(), Policy(middle_as_family=True)):
+        p = Parser(policy=policy)
+        for case in CASES:
+            if case.locale is not None:
+                continue
+            for tok in p.parse(case.text).tokens:
+                if FOLDED_TAG in tok.tags:
+                    seen += 1
+                    assert tok.role is Role.FAMILY, (
+                        f"{case.text!r}: {tok.text!r} carries FOLDED_TAG in "
+                        f"{tok.role}. Both producers re-role to FAMILY today; "
+                        f"if that changed on purpose, the per-role claims in "
+                        f"_render.initials, its sibling test and "
+                        f"mechanisms.md#FOLDED_TAG all move with it")
+    assert seen, "no case row exercises the fold; this guard is inert"
+
+
+def test_initials_folds_in_every_role_it_renders() -> None:
+    """The partition is applied per role, exactly as _text_for applies
+    it -- not scoped to FAMILY, where the pipeline's two producers put
+    the tag today.
+
+    Both producers (O3's fold, P6's attachment) re-role to FAMILY, so
+    no input string reaches this and it is pinned from a hand-built
+    name instead. Uniformity with the mechanism is the point: a
+    producer that ever folded into another part would otherwise
+    reopen #408 there, silently, with nothing to fail.
+    """
+    pn = _pn("Ann Bea Cyd Dee Eve Fay", [
+        Token("Ann", Span(0, 3), Role.GIVEN),
+        Token("Bea", Span(4, 7), Role.MIDDLE),
+        Token("Cyd", Span(8, 11), Role.GIVEN, frozenset({FOLDED_TAG})),
+        Token("Dee", Span(12, 15), Role.MIDDLE, frozenset({FOLDED_TAG})),
+        Token("Eve", Span(16, 19), Role.FAMILY),
+        Token("Fay", Span(20, 23), Role.FAMILY, frozenset({FOLDED_TAG})),
+    ])
+    # the fields already order this way; the view now agrees. All
+    # THREE roles carry two tokens, per
+    # mechanisms.md#TWO-ELEMENT-GROUPS: "on a one-element group a
+    # partition is the identity" and the mutation that should expose
+    # it passes. Two drafts got this wrong in the same way one role
+    # apart, the first carrying both misses: it gave MIDDLE one token,
+    # and skipping the
+    # partition for MIDDLE alone passed the whole suite; the second
+    # gave FAMILY none, so skipping it for FAMILY passed THIS test
+    # and was caught only by its siblings and by R3's example line. A group with zero elements
+    # is the identity too, and reads even less like a gap.
+    assert pn.given == "Cyd Ann"
+    assert pn.initials("{given}") == "C. A."
+    assert pn.middle == "Dee Bea"
+    assert pn.initials("{middle}") == "D. B."
+    assert pn.family == "Fay Eve"
+    assert pn.initials("{family}") == "F. E."
+
+
 def test_initials_custom_delimiter_and_separator() -> None:
     assert _bobdole().initials(delimiter="", separator="") == "B A D"
 
@@ -211,11 +412,12 @@ def test_capitalized_with_explicit_lexicon() -> None:
     assert out.suffix == "Phd"
 
 
-def test_capitalized_lowers_conjunctions_but_not_initial_shapes() -> None:
-    # v1's is_conjunction excludes initial-shaped words: a lowercase
-    # 'y' lowers, but an uppercase 'Y' looks like an initial and
-    # capitalizes ('JOSE ORTEGA Y GASSET' -> 'Jose Ortega Y Gasset',
-    # pinned live against v1.4 2026-07-17)
+def test_capitalized_lowers_the_words_the_parse_tagged_conjunction() -> None:
+    # #458: whether a word is the conjunction or an initial is
+    # classify's decision, recorded as the tag; repair honors the tag
+    # and never asks the word. Both halves of that are asserted here,
+    # since a repair that lowered every conjunction-vocabulary word
+    # would pass the first alone.
     #  01234567890123456789
     pn = _pn("juan ortega y gasset", [
         Token("juan", Span(0, 4), Role.GIVEN),
@@ -225,13 +427,162 @@ def test_capitalized_lowers_conjunctions_but_not_initial_shapes() -> None:
     ])
     out = pn.capitalized(force=True)
     assert out.family == "Ortega y Gasset"
+    # v1's is_conjunction excludes initial-shaped words, so classify
+    # withholds the tag from an uppercase 'Y' and repair capitalizes it
+    # ('JOSE ORTEGA Y GASSET' -> 'Jose Ortega Y Gasset', pinned live
+    # against v1.4 2026-07-17 and pinned end to end in
+    # tests/test_capitalization.py). These tokens are what a parse of
+    # the uppercase name builds.
     upper = _pn("JUAN ORTEGA Y GASSET", [
+        Token("JUAN", Span(0, 4), Role.GIVEN),
+        Token("ORTEGA", Span(5, 11), Role.FAMILY),
+        Token("Y", Span(12, 13), Role.FAMILY),
+        Token("GASSET", Span(14, 20), Role.FAMILY),
+    ])
+    assert upper.capitalized(force=True).family == "Ortega Y Gasset"
+    # The tag decides even against the shape: a token tagged
+    # conjunction lowers however it is written. Nothing shipped builds
+    # this token -- that is the point, since the old predicate could
+    # not have honored it.
+    tagged = _pn("JUAN ORTEGA Y GASSET", [
         Token("JUAN", Span(0, 4), Role.GIVEN),
         Token("ORTEGA", Span(5, 11), Role.FAMILY),
         Token("Y", Span(12, 13), Role.FAMILY, frozenset({"conjunction"})),
         Token("GASSET", Span(14, 20), Role.FAMILY),
     ])
-    assert upper.capitalized(force=True).family == "Ortega Y Gasset"
+    assert tagged.capitalized(force=True).family == "Ortega y Gasset"
+    # ... and an untagged word of the conjunction vocabulary is an
+    # ordinary name word. The reachable shape is a token whose text is
+    # more than one word, since the repair walks a token's words while
+    # the tag is the whole token's: 'juan e-f smith' capitalized to
+    # 'Juan e-F Smith' while the old predicate re-decided per word.
+    hyphenated = _pn("juan e-f smith", [
+        Token("juan", Span(0, 4), Role.GIVEN),
+        Token("e-f", Span(5, 8), Role.MIDDLE),
+        Token("smith", Span(9, 14), Role.FAMILY),
+    ])
+    assert hyphenated.capitalized(force=True).middle == "E-F"
+
+
+def test_case_repair_falls_back_for_text_the_parse_never_read() -> None:
+    """A token carrying UNCLASSIFIED_TAG holds raw text no parse read,
+    so there is no decision to honor and case repair -- which is handed
+    a lexicon -- asks the vocabulary instead, getting the answer the
+    parser would have given, v1's initial carve-out included.
+
+    ONE view falls back. `initials()` takes no lexicon, so it has none
+    to ask; the sibling test below pins what that costs.
+    """
+    p = Parser()
+    base = p.parse("john smith")
+
+    spliced = base.replace(family="velasquez y garcia")
+    assert all(UNCLASSIFIED_TAG in t.tags for t in spliced.tokens[1:])
+    assert spliced.capitalized(force=True).family == "Velasquez y Garcia"
+    # the carve-out rides along: an assigned middle initial is an
+    # initial, not the Italian conjunction
+    assert base.replace(middle="e.").capitalized(force=True).middle == "E."
+
+    # the per-part particle question is NOT asked: re-deriving it needs
+    # a reading on every word of the part and these words have none, so
+    # it falls through to plain particle treatment
+    assert base.replace(family="de la").capitalized(force=True).family == "de la"
+    assert (base.replace(family="de la vega")
+            .capitalized(force=True).family == "de la Vega")
+    # ... and revise(), which classifies, crosses it
+    assert p.revise(base, family="de la").capitalized(force=True).family == "De La"
+    assert (p.revise(base, family="velasquez y garcia")
+            .capitalized(force=True).family == "Velasquez y Garcia")
+
+    # a token the parse DID see is decided by its tags, so a hyphenated
+    # word it read as one ordinary name word stays one
+    assert p.parse("juan e-f smith").capitalized(force=True).middle == "E-F"
+
+
+def test_the_mark_and_not_the_span_says_a_token_was_never_read() -> None:
+    """`span is None` means SYNTHETIC, which is a wider set than
+    unclassified, and keying the fallback on it was a measured
+    regression (#463 review).
+
+    `Parser.revise()` builds span-less tokens too, from a full
+    sub-parse whose tags it keeps on purpose, and its docstring
+    promises the tag-driven views "behave as if the text had been
+    parsed". Under the span discriminator the fallback overrode exactly
+    those tags: `revise(middle='e-f')` repaired to 'e-F' where the same
+    words parsed gave 'E-F'. A HAND-BUILT span-less token is not marked
+    either, so it takes the tag path like every other token in the
+    library -- tag-driven semantics, not span-driven.
+    """
+    p = Parser()
+    base = p.parse("john smith")
+
+    revised = p.revise(base, middle="e-f")
+    assert [t.span for t in revised.tokens if t.role is Role.MIDDLE] == [None]
+    assert UNCLASSIFIED_TAG not in revised.tokens_for(Role.MIDDLE)[0].tags
+    # both sides of the pair the span discriminator split
+    assert p.parse("john e-f smith").capitalized(force=True).middle == "E-F"
+    assert revised.capitalized(force=True).middle == "E-F"
+
+    # the initials half of the same regression, which needs a lexicon
+    # holding no particles at all to witness -- under the default one
+    # 'de la vega' is particle vocabulary and the parse skips it too.
+    # segment_scripts off because a from-scratch Lexicon covers no
+    # script the default policy activates, and the warning is an error
+    # under this suite's filters.
+    empty = Parser(lexicon=Lexicon(),
+                   policy=Policy(segment_scripts=frozenset()))
+    assert (empty.parse("john de la vega").initials()
+            == empty.revise(empty.parse("john smith"),
+                            family="de la vega").initials()
+            == "j. d. l. v.")
+
+    # hand-built, span-less, untagged: classified by default
+    handbuilt = _pn("john de la vega", [
+        Token("john", None, Role.GIVEN),
+        Token("de", None, Role.FAMILY),
+        Token("la", None, Role.FAMILY),
+        Token("vega", None, Role.FAMILY),
+    ])
+    assert handbuilt.initials() == "j. d. l. v."
+    assert handbuilt.capitalized(force=True).family == "de la Vega"
+    # ... and the same tokens MARKED take the fallback, which is the
+    # only thing that moves them
+    marked = _pn("john de la vega", [
+        Token("john", None, Role.GIVEN),
+        Token("de", None, Role.FAMILY),
+        Token("la", None, Role.FAMILY),
+        Token("y", None, Role.FAMILY, frozenset({UNCLASSIFIED_TAG})),
+        Token("vega", None, Role.FAMILY),
+    ])
+    assert marked.capitalized(force=True).family == "de la y Vega"
+
+
+def test_initials_has_no_lexicon_so_a_spliced_field_is_all_name_words()\
+        -> None:
+    """The accepted cost of `initials()` taking no lexicon: a field
+    spliced in as raw text has no reading, and this view has nothing to
+    read one from, so every word of it initials.
+
+    That disagrees with the facade and with the same name parsed, and
+    it is a 2.0-core defect rather than a decision -- see #464, filed
+    for giving `Parser` an `initials` crossing. A fallback to
+    `Lexicon.default()` was written and dropped: it guesses a
+    vocabulary, and under a caller's own the guess erases a whole
+    field (`Lexicon.default().add(particles={'y'})`, family 'de y').
+    """
+    p = Parser()
+    base = p.parse("john smith")
+
+    assert base.replace(family="de la vega").initials() == "j. d. l. v."
+    assert p.parse("john de la vega").initials() == "j. v."
+    assert HumanName("john de la vega").initials() == "j. v."
+
+    # the vocabulary a fallback would have had to guess, and the field
+    # it erased when it guessed wrong
+    y_lex = Lexicon.default().add(particles={"y"})
+    py = Parser(lexicon=y_lex)
+    assert py.parse("Juan de y").initials() == "J. d. y."
+    assert py.parse("Juan Perez").replace(family="de y").initials() == "J. d. y."
 
 
 def test_capitalized_rebuilds_ambiguity_tokens() -> None:

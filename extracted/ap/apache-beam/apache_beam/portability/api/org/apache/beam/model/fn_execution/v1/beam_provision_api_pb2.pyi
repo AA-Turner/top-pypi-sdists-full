@@ -114,7 +114,7 @@ class ProvisionInfo(google.protobuf.message.Message):
         """(optional) The control endpoint this SDK should use."""
     @property
     def dependencies(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.ArtifactInformation]:
-        """The set of dependencies that should be staged into this environment."""
+        """(optional) The set of dependencies that should be staged into this environment."""
     @property
     def runner_capabilities(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """(optional) A set of capabilities that this SDK is allowed to use in its

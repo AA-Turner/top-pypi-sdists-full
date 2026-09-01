@@ -7,7 +7,9 @@ from ...pipeline.v1 import beam_runner_api_pb2 as org_dot_apache_dot_beam_dot_mo
 
 
 class TestStreamServiceStub(object):
-    """Missing associated documentation comment in .proto file."""
+    """A gRPC service that serves cached TestStream events to a TestStream source.
+    Used by Interactive Beam to replay recorded pipeline elements from a streaming cache.
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -23,7 +25,9 @@ class TestStreamServiceStub(object):
 
 
 class TestStreamServiceServicer(object):
-    """Missing associated documentation comment in .proto file."""
+    """A gRPC service that serves cached TestStream events to a TestStream source.
+    Used by Interactive Beam to replay recorded pipeline elements from a streaming cache.
+    """
 
     def Events(self, request, context):
         """A TestStream will request for events using this RPC.
@@ -48,7 +52,9 @@ def add_TestStreamServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class TestStreamService(object):
-    """Missing associated documentation comment in .proto file."""
+    """A gRPC service that serves cached TestStream events to a TestStream source.
+    Used by Interactive Beam to replay recorded pipeline elements from a streaming cache.
+    """
 
     @staticmethod
     def Events(request,

@@ -19,9 +19,9 @@ Icon={icon:s}
 Exec={execstring:s}
 """
 
-def get_desktop():
+def get_desktop(public=False):
     "get desktop location"
-    homedir = get_homedir()
+    homedir = get_homedir(public=public)
     desktop = Path(homedir, 'Desktop').resolve().as_posix()
 
     if sys.platform.startswith('linux'):
@@ -39,14 +39,19 @@ def get_desktop():
             desktop = val
     return desktop
 
-def get_startmenu():
+def get_startmenu(public=False):
     "get start menu location"
-    homedir = get_homedir()
+    homedir = get_homedir(public=public)
     return Path(homedir, '.local', 'share', 'applications').resolve().as_posix()
 
 
-def get_folders():
+def get_folders(public=False):
     """get user-specific folders
+
+    Arguments:
+    ----------
+    public (bool) whether to use Public Desktop folder [False]
+
 
     Returns:
     -------
@@ -60,11 +65,13 @@ def get_folders():
     ...       folders.home, folders.desktop, folders.startmenu)
     """
     UserFolders = namedtuple("UserFolders", ("home", "desktop", "startmenu"))
-    return UserFolders(get_homedir(), get_desktop(), get_startmenu())
+    return UserFolders(get_homedir(public=public),
+                       get_desktop(public=public),
+                       get_startmenu(public=public))
 
 
 def make_shortcut(script, name=None, description=None, icon=None, working_dir=None,
-                  folder=None, terminal=True, desktop=True,
+                  folder=None, terminal=True, public=False, desktop=True,
                   startmenu=True, executable=None, noexe=False):
     """create shortcut
 
@@ -77,6 +84,7 @@ def make_shortcut(script, name=None, description=None, icon=None, working_dir=No
     working_dir (str, None) directory where to run the script in
     folder      (str, None) subfolder of Desktop for shortcut [None] (See Note 1)
     terminal    (bool) whether to run in a Terminal [True]
+    public      (bool) whether to use public folders [False]
     desktop     (bool) whether to add shortcut to Desktop [True]
     startmenu   (bool) whether to add shortcut to Start Menu [True] (See Note 2)
     executable  (str, None) name of executable to use [this Python] (see Note 3)
@@ -90,7 +98,7 @@ def make_shortcut(script, name=None, description=None, icon=None, working_dir=No
     """
     from .shortcut import shortcut
 
-    userfolders = get_folders()
+    userfolders = get_folders(public=public)
     if working_dir is None:
         working_dir = userfolders.home
     scut = shortcut(script, userfolders, name=name, description=description,

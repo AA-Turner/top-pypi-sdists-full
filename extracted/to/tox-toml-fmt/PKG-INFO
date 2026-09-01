@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-toml-fmt
-Version: 1.10.0
+Version: 1.10.2
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -12,7 +12,6 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
-Requires-Dist: toml-fmt-common
 License-File: LICENSE.txt
 Summary: Format your pyproject.toml file
 Keywords: format,pyproject

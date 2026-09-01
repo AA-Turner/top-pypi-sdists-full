@@ -4,7 +4,13 @@ from chalk.client.client_grpc import ChalkGRPCClient
 from chalk.client.exc import ChalkAuthException
 from chalk.client.models import RegisterModelArtifactResponse
 from chalk.config.auth_config import load_token
-from chalk.ml.utils import MODEL_TRAIN_METADATA_RUN_NAME, get_model_metadata_run_name_from_env
+from chalk.ml.utils import (
+    CHALK_TRAINING_RUN_ID_ENV_VAR,
+    MODEL_TRAIN_METADATA_RUN_ID,
+    MODEL_TRAIN_METADATA_RUN_NAME,
+    get_model_metadata_run_name_from_env,
+    get_model_training_run_id_from_env,
+)
 
 
 class Checkpointer(Protocol):
@@ -50,8 +56,15 @@ class ClientCheckpointer:
             metadata = {}
         metadata[MODEL_TRAIN_METADATA_RUN_NAME] = run_name if run_name else get_model_metadata_run_name_from_env()
 
-        return client._upload_model_artifact(  # pyright: ignore[reportPrivateUsage]
-            model=model, additional_files=additional_files, metadata=metadata
+        training_run_id = get_model_training_run_id_from_env()
+        if not training_run_id:
+            raise RuntimeError(f"No training run ID found. Expected env var {CHALK_TRAINING_RUN_ID_ENV_VAR} to be set.")
+        metadata[MODEL_TRAIN_METADATA_RUN_ID] = training_run_id
+        return client._checkpoint_training_run(  # pyright: ignore[reportPrivateUsage]
+            training_run_id=training_run_id,
+            model=model,
+            additional_files=additional_files,
+            metadata=metadata,
         )
 
 

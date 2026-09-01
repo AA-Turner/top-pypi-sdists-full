@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.98.0
+Version: 1.99.0
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: httpx>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0
@@ -37,8 +37,8 @@ Requires-Dist: boto3>=1.43.1,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-identity>=1.25.2,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=1.28.1,<2.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.86 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.56 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.89 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.59 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.1,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'
@@ -50,6 +50,7 @@ Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'cli'
 Requires-Dist: pyyaml>=6.0.3,<7.0 ; extra == 'cli'
 Requires-Dist: requests>=2.32.0,<3.0 ; extra == 'cli'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'cli'
+Requires-Dist: keyring>=25.6.0,<26.0 ; extra == 'cli'
 Requires-Dist: prisma>=0.11.0,<1.0 ; extra == 'extra-proxy'
 Requires-Dist: azure-identity>=1.25.2,<2.0 ; extra == 'extra-proxy'
 Requires-Dist: azure-keyvault-secrets>=4.10.0,<5.0 ; extra == 'extra-proxy'
@@ -406,6 +407,7 @@ curl -X POST 'http://0.0.0.0:4000/v1/chat/completions' \
 | [Clarifai (`clarifai`)](https://docs.litellm.ai/docs/providers/clarifai) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Cloudflare AI Workers (`cloudflare`)](https://docs.litellm.ai/docs/providers/cloudflare_workers) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Codestral (`codestral`)](https://docs.litellm.ai/docs/providers/codestral) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
+| [Cognition (`cognition`)](https://docs.litellm.ai/docs/providers/cognition) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Cohere (`cohere`)](https://docs.litellm.ai/docs/providers/cohere) | ✅ | ✅ | ✅ | ✅ |  |  |  |  |  | ✅ |
 | [Cohere Chat (`cohere_chat`)](https://docs.litellm.ai/docs/providers/cohere) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [CometAPI (`cometapi`)](https://docs.litellm.ai/docs/providers/cometapi) | ✅ | ✅ | ✅ | ✅ |  |  |  |  |  |  |

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-indices-managed-llama-cloud
-Version: 0.11.1
+Version: 0.12.0
 Summary: llama-index indices llama-cloud integration
 Author-email: Logan Markewich <logan@llamaindex.ai>
 License-Expression: MIT

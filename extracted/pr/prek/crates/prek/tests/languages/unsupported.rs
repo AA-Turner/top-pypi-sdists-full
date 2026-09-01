@@ -1,11 +1,11 @@
 /// Test `language: unsupported` and `language: unsupported_script` works.
 #[cfg(unix)]
 #[test]
-fn unsupported_language() -> anyhow::Result<()> {
+fn unsupported_language() {
     use crate::common::{TestEnv, cmd_snapshot};
-    use assert_fs::fixture::{FileWriteStr, PathChild};
 
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -19,15 +19,15 @@ fn unsupported_language() -> anyhow::Result<()> {
                 language: unsupported_script
                 entry: ./script.sh
                 verbose: true
-    "});
-    context
-        .work_dir()
-        .child("script.sh")
-        .write_str(indoc::indoc! {r#"
+    "})
+        .with_file(
+            "script.sh",
+            indoc::indoc! {r#"
             #!/usr/bin/env bash
             echo "Hello, World!"
-        "#})?;
-    context.git_add_all();
+        "#},
+        )
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r#"
     success: true
@@ -46,6 +46,4 @@ fn unsupported_language() -> anyhow::Result<()> {
 
     ----- stderr -----
     "#);
-
-    Ok(())
 }

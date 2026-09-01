@@ -63,6 +63,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListWorkerConfigurationsRequestTypeDef,
     ListWorkerConfigurationsResponseTypeDef,
+    RestartConnectorRequestTypeDef,
+    RestartConnectorResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateConnectorRequestTypeDef,
@@ -270,6 +272,16 @@ class KafkaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafkaconnect/client/list_worker_configurations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafkaconnect/client/#list_worker_configurations)
+        """
+
+    def restart_connector(
+        self, **kwargs: Unpack[RestartConnectorRequestTypeDef]
+    ) -> RestartConnectorResponseTypeDef:
+        """
+        Restarts the specified connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafkaconnect/client/restart_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafkaconnect/client/#restart_connector)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:

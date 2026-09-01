@@ -13,6 +13,7 @@ Usage::
     from types_boto3_kinesis.client import KinesisClient
     from types_boto3_kinesis.paginator import (
         DescribeStreamPaginator,
+        ListChannelsPaginator,
         ListShardsPaginator,
         ListStreamConsumersPaginator,
         ListStreamsPaginator,
@@ -22,6 +23,7 @@ Usage::
     client: KinesisClient = session.client("kinesis")
 
     describe_stream_paginator: DescribeStreamPaginator = client.get_paginator("describe_stream")
+    list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
     list_shards_paginator: ListShardsPaginator = client.get_paginator("list_shards")
     list_stream_consumers_paginator: ListStreamConsumersPaginator = client.get_paginator("list_stream_consumers")
     list_streams_paginator: ListStreamsPaginator = client.get_paginator("list_streams")
@@ -38,6 +40,8 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     DescribeStreamInputPaginateTypeDef,
     DescribeStreamOutputTypeDef,
+    ListChannelsInputPaginateTypeDef,
+    ListChannelsOutputTypeDef,
     ListShardsInputPaginateTypeDef,
     ListShardsOutputTypeDef,
     ListStreamConsumersInputPaginateTypeDef,
@@ -53,6 +57,7 @@ else:
 
 __all__ = (
     "DescribeStreamPaginator",
+    "ListChannelsPaginator",
     "ListShardsPaginator",
     "ListStreamConsumersPaginator",
     "ListStreamsPaginator",
@@ -74,6 +79,24 @@ class DescribeStreamPaginator(_DescribeStreamPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/paginator/DescribeStream.html#Kinesis.Paginator.DescribeStream.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/paginators/#describestreampaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListChannelsPaginatorBase = Paginator[ListChannelsOutputTypeDef]
+else:
+    _ListChannelsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListChannelsPaginator(_ListChannelsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/paginator/ListChannels.html#Kinesis.Paginator.ListChannels)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/paginators/#listchannelspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListChannelsInputPaginateTypeDef]
+    ) -> PageIterator[ListChannelsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/paginator/ListChannels.html#Kinesis.Paginator.ListChannels.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/paginators/#listchannelspaginator)
         """
 
 if TYPE_CHECKING:

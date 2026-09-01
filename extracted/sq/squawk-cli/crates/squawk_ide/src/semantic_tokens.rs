@@ -41,6 +41,33 @@ fn highlight_param_mode(out: &mut SemanticTokenBuilder, mode: ast::ParamMode) {
     }
 }
 
+fn highlight_timezone(out: &mut SemanticTokenBuilder, timezone: ast::Timezone) {
+    match timezone {
+        ast::Timezone::WithTimezone(with_timezone) => {
+            if let Some(token) = with_timezone.with_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = with_timezone.time_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = with_timezone.zone_token() {
+                out.push_type(token.into());
+            }
+        }
+        ast::Timezone::WithoutTimezone(without_timezone) => {
+            if let Some(token) = without_timezone.without_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = without_timezone.time_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = without_timezone.zone_token() {
+                out.push_type(token.into());
+            }
+        }
+    }
+}
+
 fn highlight_type(out: &mut SemanticTokenBuilder, ty: ast::Type) {
     match ty {
         ast::Type::ArrayType(_) => (),
@@ -51,27 +78,49 @@ fn highlight_type(out: &mut SemanticTokenBuilder, ty: ast::Type) {
             if let Some(token) = bit_type.bit_token() {
                 out.push_type(token.into());
             }
-            if let Some(token) = bit_type.varying_token() {
+        }
+        ast::Type::BitVaryingType(bit_varying_type) => {
+            if let Some(token) = bit_varying_type.setof_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = bit_varying_type.bit_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = bit_varying_type.varying_token() {
                 out.push_type(token.into());
             }
         }
-        ast::Type::CharType(char_type) => {
-            if let Some(token) = char_type.setof_token() {
+        ast::Type::VarcharType(varchar_type) => {
+            if let Some(token) = varchar_type.setof_token() {
                 out.push_type(token.into());
             }
-            if let Some(token) = char_type.national_token() {
+            if let Some(token) = varchar_type.national_token() {
                 out.push_type(token.into());
             }
-
-            if let Some(token) = char_type
+            if let Some(token) = varchar_type
                 .varchar_token()
-                .or_else(|| char_type.nchar_token())
-                .or_else(|| char_type.character_token())
-                .or_else(|| char_type.char_token())
+                .or_else(|| varchar_type.nchar_token())
+                .or_else(|| varchar_type.character_token())
+                .or_else(|| varchar_type.char_token())
             {
                 out.push_type(token.into());
             }
-            if let Some(token) = char_type.varying_token() {
+            if let Some(token) = varchar_type.varying_token() {
+                out.push_type(token.into());
+            }
+        }
+        ast::Type::CharacterType(character_type) => {
+            if let Some(token) = character_type.setof_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = character_type.national_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = character_type
+                .nchar_token()
+                .or_else(|| character_type.character_token())
+                .or_else(|| character_type.char_token())
+            {
                 out.push_type(token.into());
             }
         }
@@ -86,7 +135,6 @@ fn highlight_type(out: &mut SemanticTokenBuilder, ty: ast::Type) {
                 out.push_type(token.into());
             }
         }
-        ast::Type::ExprType(_) => (),
         ast::Type::IntervalType(interval_type) => {
             if let Some(token) = interval_type.setof_token() {
                 out.push_type(token.into());
@@ -100,43 +148,26 @@ fn highlight_type(out: &mut SemanticTokenBuilder, ty: ast::Type) {
                 out.push_type(token.into());
             }
         }
-        ast::Type::PercentType(_) => (),
         ast::Type::TimeType(time_type) => {
             if let Some(token) = time_type.setof_token() {
                 out.push_type(token.into());
             }
-            if let Some(token) = time_type
-                .timestamp_token()
-                .or_else(|| time_type.time_token())
-            {
+            if let Some(token) = time_type.time_token() {
                 out.push_type(token.into());
             }
-
             if let Some(timezone) = time_type.timezone() {
-                match timezone {
-                    ast::Timezone::WithTimezone(with_timezone) => {
-                        if let Some(token) = with_timezone.with_token() {
-                            out.push_type(token.into());
-                        }
-                        if let Some(token) = with_timezone.time_token() {
-                            out.push_type(token.into());
-                        }
-                        if let Some(token) = with_timezone.zone_token() {
-                            out.push_type(token.into());
-                        }
-                    }
-                    ast::Timezone::WithoutTimezone(without_timezone) => {
-                        if let Some(token) = without_timezone.without_token() {
-                            out.push_type(token.into());
-                        }
-                        if let Some(token) = without_timezone.time_token() {
-                            out.push_type(token.into());
-                        }
-                        if let Some(token) = without_timezone.zone_token() {
-                            out.push_type(token.into());
-                        }
-                    }
-                }
+                highlight_timezone(out, timezone);
+            }
+        }
+        ast::Type::TimestampType(timestamp_type) => {
+            if let Some(token) = timestamp_type.setof_token() {
+                out.push_type(token.into());
+            }
+            if let Some(token) = timestamp_type.timestamp_token() {
+                out.push_type(token.into());
+            }
+            if let Some(timezone) = timestamp_type.timezone() {
+                highlight_timezone(out, timezone);
             }
         }
     }

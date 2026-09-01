@@ -51,10 +51,6 @@ static PyObject *moduleinit(void) {
   m = Py_InitModule("_scs_mkl", scs_module_methods);
 #elif defined PY_CUDSS
   m = Py_InitModule("_scs_cudss", scs_module_methods);
-#elif defined PY_ACCELERATE
-  m = Py_InitModule("_scs_accelerate", scs_module_methods);
-#elif defined PY_DENSE
-  m = Py_InitModule("_scs_dense", scs_module_methods);
 #else
   m = Py_InitModule("_scs_direct", scs_module_methods);
 #endif
@@ -63,10 +59,6 @@ static PyObject *moduleinit(void) {
   if (m == NULL) {
     return NULL;
   }
-
-#ifdef Py_GIL_DISABLED
-  PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
-#endif
 
   /* Initialize SCS_Type */
   SCS_Type.tp_new = PyType_GenericNew;
@@ -91,10 +83,6 @@ PyInit__scs_gpu(void)
 PyInit__scs_mkl(void)
 #elif defined PY_CUDSS
 PyInit__scs_cudss(void)
-#elif defined PY_ACCELERATE
-PyInit__scs_accelerate(void)
-#elif defined PY_DENSE
-PyInit__scs_dense(void)
 #else
 PyInit__scs_direct(void)
 #endif
@@ -112,10 +100,6 @@ init_scs_gpu(void)
 init_scs_mkl(void)
 #elif defined PY_CUDSS
 init_scs_cudss(void)
-#elif defined PY_ACCELERATE
-init_scs_accelerate(void)
-#elif defined PY_DENSE
-init_scs_dense(void)
 #else
 init_scs_direct(void)
 #endif

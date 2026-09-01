@@ -36,8 +36,11 @@ class TestProviderConfig(unittest.TestCase):
         model = ProviderConfig()
         if include_optional:
             return ProviderConfig(
-                provider_type = 'azure_blob',
-                credentials = None,
+                provider_type = 'rtsp',
+                credentials = mixpeek.models.rtsp_basic_credentials.RTSPBasicCredentials(
+                    type = 'basic', 
+                    username = '0', 
+                    password = '0', ),
                 shared_drive_id = '',
                 impersonate_user = '',
                 region = 'auto',
@@ -92,11 +95,23 @@ class TestProviderConfig(unittest.TestCase):
                 bucket = '',
                 prefix = '',
                 account_name = '',
-                container = ''
+                container = '',
+                url = '',
+                transport = 'tcp',
+                segment_seconds = 5.0,
+                segments_per_run = 1.0,
+                connect_timeout_seconds = 5.0,
+                scene_change_threshold = 0.0,
+                gate_inference_name = '',
+                gate_on_error = 'publish',
+                gate_timeout_seconds = 1.0
             )
         else:
             return ProviderConfig(
-                credentials = None,
+                credentials = mixpeek.models.rtsp_basic_credentials.RTSPBasicCredentials(
+                    type = 'basic', 
+                    username = '0', 
+                    password = '0', ),
                 region = 'auto',
                 account = '',
                 warehouse = '',
@@ -105,6 +120,7 @@ class TestProviderConfig(unittest.TestCase):
                 item_id_field = '',
                 bucket = '',
                 container = '',
+                url = '',
         )
         """
 

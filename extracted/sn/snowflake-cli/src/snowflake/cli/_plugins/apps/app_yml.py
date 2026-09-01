@@ -133,7 +133,8 @@ class _AppYmlServiceConfig(UpdatableModel):
     target's set fields onto the baseline, so any of these may be declared once
     at the top level and selectively overridden per target. This covers the
     service/deployment fields plus the package-build fields (``package_name`` /
-    ``artifact_repo`` / ``build_eai``) and the code-storage fields (``code_stage``
+    ``artifact_repo`` / ``build_eai`` / ``build_job_location``) and the
+    code-storage fields (``code_stage``
     / ``code_workspace`` / ``ignore``). Only the builder ``install`` / ``build``
     / ``run`` / ``dev`` sections are *not* part of this set — they are top-level
     only (optional, with defaults).
@@ -161,6 +162,18 @@ class _AppYmlServiceConfig(UpdatableModel):
     )
     build_eai: Optional[str] = Field(
         title="External access integration used by the builder", default=None
+    )
+    # Location (``<database>.<schema>``) where the builder service runs the
+    # ephemeral build job. When unset, the builder defaults to the current
+    # user's personal database (PDB); when set, the value is forwarded to the
+    # builder service, which creates the build job in that schema instead. The
+    # backend gates and enforces this override (via the
+    # ENABLE_APP_BUILDER_CUSTOM_JOB_LOCATION parameter plus the standard
+    # privilege checks), so the CLI only passes the value through without
+    # validating it.
+    build_job_location: Optional[str] = Field(
+        title="Location (database.schema) where the builder runs the build job",
+        default=None,
     )
     # ── Code storage (where uploaded source lives; overridable per target) ─────
     # ``code_stage`` and ``code_workspace`` name the same thing (where uploaded
@@ -240,8 +253,8 @@ class _AppYmlServiceConfig(UpdatableModel):
         title="Maximum number of running instances", default=None
     )
     # Backend for the application service (the write-once ``COMPUTE_RESOURCE`` DDL
-    # field). CNG (serverless) support lives only in the ``app.yml`` v2 deploy
-    # path.
+    # field). Parsed unconditionally but only applied at deploy time when the
+    # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is on.
     compute_resource: Optional[str] = Field(
         title="Compute resource backing the service (SERVERLESS or "
         "MANAGED_COMPUTE_POOL)",
@@ -249,6 +262,9 @@ class _AppYmlServiceConfig(UpdatableModel):
     )
     url_prefix: Optional[str] = Field(
         title="URL prefix for the application service", default=None
+    )
+    health_check: Optional[str] = Field(
+        title="Health check endpoint path for the application service", default=None
     )
     external_access_integrations: Optional[List[str]] = Field(
         title="External access integrations active for the service", default=None

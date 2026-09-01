@@ -174,6 +174,7 @@ impl EnvVars {
 
     // Conda related
     pub const CONDA_PREFIX: &'static str = "CONDA_PREFIX";
+    pub const PREK_CONDA_INSTALLER: &'static str = "PREK_CONDA_INSTALLER";
     pub const PRE_COMMIT_USE_MAMBA: &'static str = "PRE_COMMIT_USE_MAMBA";
     pub const PRE_COMMIT_USE_MICROMAMBA: &'static str = "PRE_COMMIT_USE_MICROMAMBA";
 
@@ -192,6 +193,7 @@ impl EnvVars {
 
     // Rust related
     pub const PREK_RUST_PROFILE: &'static str = "PREK_RUST_PROFILE";
+    pub const PREK_USE_CARGO_BINSTALL: &'static str = "PREK_USE_CARGO_BINSTALL";
     pub const RUSTUP_TOOLCHAIN: &'static str = "RUSTUP_TOOLCHAIN";
     pub const RUSTUP_AUTO_INSTALL: &'static str = "RUSTUP_AUTO_INSTALL";
     pub const CARGO_HOME: &'static str = "CARGO_HOME";

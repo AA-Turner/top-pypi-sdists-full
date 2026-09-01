@@ -10,6 +10,9 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.instance_usage import InstanceUsage
+    from ..models.run_bucket_data_duration_seconds_by_type import (
+        RunBucketDataDurationSecondsByType,
+    )
     from ..models.status_counts import StatusCounts
 
 
@@ -22,17 +25,20 @@ class RunBucketData:
 
     Attributes:
         status_counts (StatusCounts): Breakdown by terminal run status
-        total_duration_seconds (float): Weighted compute-seconds: sum of run durations scaled by each run's instance-
-            size multiplier.
+        total_duration_seconds (float): Weighted run-seconds: sum of run durations scaled by each run's instance-size
+            multiplier.
         total_runs (int): Number of runs that started in this bucket
         by_instance (list[InstanceUsage] | Unset): Per-instance-size split of this bucket; only populated sizes appear,
             unordered (the client orders for display).
+        duration_seconds_by_type (RunBucketDataDurationSecondsByType | Unset): Weighted run-seconds keyed by job type
+            (batch, interactive, stream); values sum to total_duration_seconds.
     """
 
     status_counts: StatusCounts
     total_duration_seconds: float
     total_runs: int
     by_instance: list[InstanceUsage] | Unset = UNSET
+    duration_seconds_by_type: RunBucketDataDurationSecondsByType | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,6 +55,10 @@ class RunBucketData:
                 by_instance_item = by_instance_item_data.to_dict()
                 by_instance.append(by_instance_item)
 
+        duration_seconds_by_type: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.duration_seconds_by_type, Unset):
+            duration_seconds_by_type = self.duration_seconds_by_type.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -60,12 +70,17 @@ class RunBucketData:
         )
         if by_instance is not UNSET:
             field_dict["by_instance"] = by_instance
+        if duration_seconds_by_type is not UNSET:
+            field_dict["duration_seconds_by_type"] = duration_seconds_by_type
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.instance_usage import InstanceUsage
+        from ..models.run_bucket_data_duration_seconds_by_type import (
+            RunBucketDataDurationSecondsByType,
+        )
         from ..models.status_counts import StatusCounts
 
         d = dict(src_dict)
@@ -84,11 +99,21 @@ class RunBucketData:
 
                 by_instance.append(by_instance_item)
 
+        _duration_seconds_by_type = d.pop("duration_seconds_by_type", UNSET)
+        duration_seconds_by_type: RunBucketDataDurationSecondsByType | Unset
+        if isinstance(_duration_seconds_by_type, Unset):
+            duration_seconds_by_type = UNSET
+        else:
+            duration_seconds_by_type = RunBucketDataDurationSecondsByType.from_dict(
+                _duration_seconds_by_type
+            )
+
         run_bucket_data = cls(
             status_counts=status_counts,
             total_duration_seconds=total_duration_seconds,
             total_runs=total_runs,
             by_instance=by_instance,
+            duration_seconds_by_type=duration_seconds_by_type,
         )
 
         run_bucket_data.additional_properties = d

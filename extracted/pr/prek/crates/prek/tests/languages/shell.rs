@@ -1,11 +1,10 @@
-use assert_fs::fixture::{FileWriteStr, PathChild};
-
 use crate::common::{TestEnv, cmd_snapshot};
 
 #[cfg(unix)]
 #[test]
-fn bash_shell_adapter_runs_entry() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+fn bash_shell_adapter_runs_entry() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -19,9 +18,9 @@ fn bash_shell_adapter_runs_entry() -> anyhow::Result<()> {
                   printf 'bash:%s:%s\n' "${items[0]}" "${items[1]}"
                 args: [configured]
                 verbose: true
-    "#});
-    context.work_dir().child("input.txt").write_str("input")?;
-    context.git_add_all();
+    "#})
+        .with_file("input.txt", "input")
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -35,17 +34,16 @@ fn bash_shell_adapter_runs_entry() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[test]
-fn pwsh_shell_adapter_runs_entry() -> anyhow::Result<()> {
+fn pwsh_shell_adapter_runs_entry() {
     if which::which("pwsh").is_err() {
-        return Ok(());
+        return;
     }
 
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -58,9 +56,9 @@ fn pwsh_shell_adapter_runs_entry() -> anyhow::Result<()> {
                   Write-Output "pwsh:$($args[0]):$($args[1])"
                 args: [configured]
                 verbose: true
-    "#});
-    context.work_dir().child("input.txt").write_str("input")?;
-    context.git_add_all();
+    "#})
+        .with_file("input.txt", "input")
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -74,14 +72,13 @@ fn pwsh_shell_adapter_runs_entry() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[cfg(windows)]
 #[test]
-fn powershell_shell_adapter_runs_entry() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+fn powershell_shell_adapter_runs_entry() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -94,9 +91,9 @@ fn powershell_shell_adapter_runs_entry() -> anyhow::Result<()> {
                   Write-Output "powershell:$($args[0]):$($args[1])"
                 args: [configured]
                 verbose: true
-    "#});
-    context.work_dir().child("input.txt").write_str("input")?;
-    context.git_add_all();
+    "#})
+        .with_file("input.txt", "input")
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -110,14 +107,13 @@ fn powershell_shell_adapter_runs_entry() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[cfg(windows)]
 #[test]
-fn cmd_shell_adapter_runs_entry() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+fn cmd_shell_adapter_runs_entry() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -131,9 +127,9 @@ fn cmd_shell_adapter_runs_entry() -> anyhow::Result<()> {
                   echo cmd:%1:%2
                 args: [configured]
                 verbose: true
-    "});
-    context.work_dir().child("input.txt").write_str("input")?;
-    context.git_add_all();
+    "})
+        .with_file("input.txt", "input")
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -147,13 +143,12 @@ fn cmd_shell_adapter_runs_entry() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[test]
 fn shell_rejected_for_pygrep() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -164,8 +159,8 @@ fn shell_rejected_for_pygrep() {
                 shell: sh
                 always_run: true
                 pass_filenames: false
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: false

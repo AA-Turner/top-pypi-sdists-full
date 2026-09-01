@@ -8,7 +8,7 @@ description= "A robust implementation of concurrent.futures.ProcessPoolExecutor"
 authors = [{name = "Thomas Moreau", email = "thomas.moreau.2010@gmail.com"}]
 license= {file = "LICENSE.txt"}
 dependencies = ["cloudpickle"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers=[
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -17,11 +17,11 @@ classifiers=[
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries",
@@ -66,3 +66,19 @@ exclude = '''
   | dist
 )/
 '''
+
+# Because pre-commit uses explicit filenames, you need to use force-exclude in
+# order for pre-commit black to leave the stdlib files untouched
+force-exclude = '''
+  loky/backend/stdlib_py.*resource_tracker\.py
+'''
+
+[tool.pytest.ini_options]
+# No test should last longer than 1 minute, even on the CI. Otherwise, dump
+# per-thread tracebacks. Note that this value can be overriden from the
+# commandline using: pytest -o faulthandler_timeout=<seconds> ...
+faulthandler_timeout=60
+# Interrupt in pytest in case of deadlock. This will only work once the
+# following PR has been merged and released:
+# https://github.com/pytest-dev/pytest/pull/13679
+faulthandler_exit_on_timeout=true

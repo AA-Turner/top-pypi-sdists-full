@@ -1,19 +1,11 @@
-from asyncio import (
-    iscoroutinefunction,
-)
 import collections
+from collections.abc import Callable, Coroutine, Sequence
 import hashlib
+import inspect
 import threading
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Sequence,
-    Tuple,
-    Union,
 )
 
 from eth_typing import (
@@ -99,8 +91,8 @@ class RequestInformation:
         self,
         method: RPCEndpoint,
         params: Any,
-        response_formatters: Tuple[
-            Union[Dict[str, Callable[..., Any]], Callable[..., Any]],
+        response_formatters: tuple[
+            dict[str, Callable[..., Any]] | Callable[..., Any],
             Callable[..., Any],
             Callable[..., Any],
         ],
@@ -110,13 +102,13 @@ class RequestInformation:
         self.params = params
         self.response_formatters = response_formatters
         self.subscription_id = subscription_id
-        self.middleware_response_processors: List[Callable[..., Any]] = []
+        self.middleware_response_processors: list[Callable[..., Any]] = []
 
 
 DEFAULT_VALIDATION_THRESHOLD = 60 * 60  # 1 hour
 
-CHAIN_VALIDATION_THRESHOLD_DEFAULTS: Dict[
-    int, Union[RequestCacheValidationThreshold, int]
+CHAIN_VALIDATION_THRESHOLD_DEFAULTS: dict[
+    int, RequestCacheValidationThreshold | int
 ] = {
     # Suggested safe values as defaults for each chain. Users can configure a different
     # value if desired.
@@ -136,7 +128,7 @@ CHAIN_VALIDATION_THRESHOLD_DEFAULTS: Dict[
 
 
 def is_cacheable_request(
-    provider: Union[ASYNC_PROVIDER_TYPE, SYNC_PROVIDER_TYPE],
+    provider: ASYNC_PROVIDER_TYPE | SYNC_PROVIDER_TYPE,
     method: RPCEndpoint,
     params: Any,
 ) -> bool:
@@ -160,8 +152,6 @@ BLOCKNUM_IN_PARAMS = {
     RPC.eth_getBlockByNumber,
     RPC.eth_getRawTransactionByBlockNumberAndIndex,
     RPC.eth_getBlockTransactionCountByNumber,
-    RPC.eth_getUncleByBlockNumberAndIndex,
-    RPC.eth_getUncleCountByBlockNumber,
 }
 BLOCK_IN_RESULT = {
     RPC.eth_getBlockByHash,
@@ -172,14 +162,12 @@ BLOCK_IN_RESULT = {
 }
 BLOCKHASH_IN_PARAMS = {
     RPC.eth_getRawTransactionByBlockHashAndIndex,
-    RPC.eth_getUncleByBlockHashAndIndex,
-    RPC.eth_getUncleCountByBlockHash,
 }
 
-INTERNAL_VALIDATION_MAP: Dict[
+INTERNAL_VALIDATION_MAP: dict[
     RPCEndpoint,
     Callable[
-        [SYNC_PROVIDER_TYPE, Sequence[Any], Dict[str, Any]],
+        [SYNC_PROVIDER_TYPE, Sequence[Any], dict[str, Any]],
         bool,
     ],
 ] = {
@@ -268,11 +256,11 @@ def handle_request_caching(
 # -- async -- #
 
 ASYNC_VALIDATOR_TYPE = Callable[
-    ["AsyncBaseProvider", Sequence[Any], Dict[str, Any]],
-    Union[bool, Coroutine[Any, Any, bool]],
+    ["AsyncBaseProvider", Sequence[Any], dict[str, Any]],
+    bool | Coroutine[Any, Any, bool],
 ]
 
-ASYNC_INTERNAL_VALIDATION_MAP: Dict[RPCEndpoint, ASYNC_VALIDATOR_TYPE] = {
+ASYNC_INTERNAL_VALIDATION_MAP: dict[RPCEndpoint, ASYNC_VALIDATOR_TYPE] = {
     **{endpoint: always_cache_request for endpoint in ALWAYS_CACHE},
     **{
         endpoint: async_validate_from_block_id_in_params
@@ -331,11 +319,10 @@ async def _async_should_cache_response(
         and provider.request_cache_validation_threshold is not None
     ):
         cache_validator = ASYNC_INTERNAL_VALIDATION_MAP[method]
-        return (
-            await cache_validator(provider, params, result)
-            if iscoroutinefunction(cache_validator)
-            else cache_validator(provider, params, result)
-        )
+        validation_result = cache_validator(provider, params, result)
+        if inspect.isawaitable(validation_result):
+            return await validation_result
+        return validation_result
     return True
 
 
@@ -387,9 +374,9 @@ def async_handle_send_caching(
             )
             cached_response = request_cache.get_cache_entry(cache_key)
             if cached_response is not None:
-                # The request data isn't used, this just prevents a cached request from
-                # being sent - return an empty request object
-                return {"id": -1, "method": RPCEndpoint(""), "params": []}
+                # Skip sending a real request; preserve method/params so
+                # async_handle_recv_caching computes the same cache key.
+                return {"id": -1, "method": method, "params": params}
         return await func(provider, method, params)
 
     # save a reference to the decorator on the wrapped function

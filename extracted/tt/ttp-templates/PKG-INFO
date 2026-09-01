@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ttp_templates
-Version: 0.5.12
+Version: 0.5.13
 Summary: Template Text Parser Templates collections
 License: MIT
 License-File: LICENSE
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Provides-Extra: docs
-Requires-Dist: mkdocs ; extra == "docs"
+Requires-Dist: mkdocs (>=1.6.1) ; extra == "docs"
 Requires-Dist: mkdocs-material ; extra == "docs"
 Requires-Dist: mkdocs-material-extensions ; extra == "docs"
 Requires-Dist: mkdocstrings[python] ; extra == "docs"

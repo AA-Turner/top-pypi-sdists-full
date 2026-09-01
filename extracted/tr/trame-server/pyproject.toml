@@ -1,6 +1,6 @@
 [project]
 name = "trame-server"
-version = "3.14.0"
+version = "3.14.1"
 description = "Internal server side implementation of trame"
 authors = [
     {name = "Kitware Inc."},
@@ -31,6 +31,7 @@ dev = [
     "ruff",
     "pytest",
     "pytest-asyncio",
+    "pytest-benchmark",
     "pytest-cov",
     "nox",
     "trame",

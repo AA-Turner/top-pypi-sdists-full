@@ -21,6 +21,8 @@ except ImportError:
     import_error("Please install pytest to run tests.")
     raise
 
+np.random.seed(1)
+
 # cone:
 K = {
     "z": 10,
@@ -39,9 +41,8 @@ try:
     from scs import _scs_cudss
 
     def test_solve_feasible():
-        rng = np.random.RandomState(3000)
-        data, p_star = tools.gen_feasible(K, n=m // 3, density=0.1, rng=rng)
-        solver = scs.SCS(data, K, linear_solver=scs.LinearSolver.CUDSS, **params)
+        data, p_star = tools.gen_feasible(K, n=m // 3, density=0.1)
+        solver = scs.SCS(data, K, cudss=True, **params)
         sol = solver.solve()
         x = sol["x"]
         y = sol["y"]
@@ -59,9 +60,8 @@ try:
         np.testing.assert_almost_equal(y, tools.proj_dual_cone(y, K), decimal=4)
 
     def test_solve_infeasible():
-        rng = np.random.RandomState(3001)
-        data = tools.gen_infeasible(K, n=m // 2, rng=rng)
-        solver = scs.SCS(data, K, linear_solver=scs.LinearSolver.CUDSS, **params)
+        data = tools.gen_infeasible(K, n=m // 2)
+        solver = scs.SCS(data, K, cudss=True, **params)
         sol = solver.solve()
         y = sol["y"]
         np.testing.assert_array_less(np.linalg.norm(data["A"].T @ y), 1e-3)
@@ -69,9 +69,8 @@ try:
         np.testing.assert_almost_equal(y, tools.proj_dual_cone(y, K), decimal=4)
 
     def test_solve_unbounded():
-        rng = np.random.RandomState(3002)
-        data = tools.gen_unbounded(K, n=m // 2, rng=rng)
-        solver = scs.SCS(data, K, linear_solver=scs.LinearSolver.CUDSS, **params)
+        data = tools.gen_unbounded(K, n=m // 2)
+        solver = scs.SCS(data, K, cudss=True, **params)
         sol = solver.solve()
         x = sol["x"]
         s = sol["s"]

@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from aviary.core import Message, Tool, ToolCall, ToolRequestMessage, ToolResponseMessage
 from aviary.utils import encode_image_to_base64
+from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 from openai.types.responses import (
     ResponseFunctionToolCall,
     ResponseOutputMessage,
@@ -1245,6 +1246,28 @@ async def test_gemini3_tool_patch(
 class TestResponsesAPI:
     """Tests for Responses API support (conversion functions, delta detection, stateful calls)."""
 
+    @staticmethod
+    def _tool_pair(call_id: str) -> list[Message]:
+        return [
+            ToolRequestMessage(
+                role="assistant",
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id=call_id,
+                        type="function",
+                        function={"name": "get_weather", "arguments": {"city": "NYC"}},
+                    )
+                ],
+            ),
+            ToolResponseMessage(
+                role="tool",
+                content="72°F",
+                tool_call_id=call_id,
+                name="get_weather",
+            ),
+        ]
+
     def test_extract_previous_response_id_none(self) -> None:
         msgs = [
             Message(content="hi", role="user"),
@@ -1412,6 +1435,42 @@ class TestResponsesAPI:
             {"type": "function_call_output", "call_id": "call_1", "output": "72°F"},
         ]
 
+    def test_convert_to_responses_input_normalizes_long_paired_call_id(self) -> None:
+        long_id = "provider_call_" + "x" * 80
+
+        result = _convert_to_responses_input(self._tool_pair(long_id))
+
+        normalized_ids = [item["call_id"] for item in result]
+        assert len(set(normalized_ids)) == 1
+        assert len(normalized_ids[0]) <= 64
+        assert normalized_ids[0] != long_id
+
+    def test_long_call_id_normalization_is_deterministic_and_distinct(self) -> None:
+        first_id = "a" * 65
+        second_id = "b" * 65
+
+        first = _convert_to_responses_input(self._tool_pair(first_id))[0]["call_id"]
+        first_again = _convert_to_responses_input(self._tool_pair(first_id))[0][
+            "call_id"
+        ]
+        second = _convert_to_responses_input(self._tool_pair(second_id))[0]["call_id"]
+
+        assert first == first_again
+        assert first != second
+
+    def test_convert_to_responses_input_rejects_long_output_only_call_id(self) -> None:
+        msgs: list[Message] = [
+            ToolResponseMessage(
+                role="tool",
+                content="72°F",
+                tool_call_id="x" * 65,
+                name="get_weather",
+            ),
+        ]
+
+        with pytest.raises(ValueError, match="both its function call and output"):
+            _convert_to_responses_input(msgs)
+
     def test_convert_tools_for_responses(self) -> None:
         tools = [
             {
@@ -1471,6 +1530,37 @@ class TestResponsesAPI:
         assert isinstance(messages[0], ToolRequestMessage)
         assert messages[0].tool_calls[0].function.name == "get_weather"
         assert messages[0].tool_calls[0].id == "call_1"
+
+    @pytest.mark.asyncio
+    async def test_cache_usage_propagated(self) -> None:
+        usage = ResponseAPIUsage(
+            input_tokens=21,
+            input_tokens_details={"cached_tokens": 3, "cache_write_tokens": 4},
+            output_tokens=8,
+            output_tokens_details={"reasoning_tokens": 0},
+            total_tokens=29,
+        )
+        response = ResponsesAPIResponse(
+            id="resp_1",
+            created_at=0,
+            model="gpt-4o-mini-2024-07-18",
+            output=[],
+            usage=usage,
+        )
+        model = LiteLLMModel(name="gpt-4o-mini-2024-07-18")
+
+        with (
+            patch("lmi.llms.litellm.aresponses", new=AsyncMock(return_value=response)),
+            patch("lmi.llms.completion_cost", return_value=0.001),
+        ):
+            non_streaming = (await model._aresponses([], None))[0]
+        streaming = model._build_result_from_response(response, [])
+
+        for result in (non_streaming, streaming):
+            assert result.prompt_count == 21
+            assert result.completion_count == 8
+            assert result.cache_read_tokens == 3
+            assert result.cache_creation_tokens == 4
 
 
 class TestResponsesAPIIntegration:

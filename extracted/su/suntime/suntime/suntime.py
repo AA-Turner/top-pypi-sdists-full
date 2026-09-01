@@ -8,9 +8,21 @@ TO_RAD = math.pi/180.0
 
 
 class SunTimeException(Exception):
+    pass
 
-    def __init__(self, message):
-        super(SunTimeException, self).__init__(message)
+
+class MidnightSunException(SunTimeException):
+    """
+    Sun is always up (24h of daylight)
+    """
+    pass
+
+
+class PolarNightException(SunTimeException):
+    """
+    Sun is always down (0h of daylight)
+    """
+    pass
 
 
 class Sun:
@@ -24,20 +36,20 @@ class Sun:
 
         self.lngHour = self._lon / 15
 
-    def get_sunrise_time(self, at_date=datetime.now(), time_zone=timezone.utc):
+    def get_sunrise_time(self, at_date=None, time_zone=timezone.utc):
         """
         :param at_date: Reference date. datetime.now() if not provided.
         :param time_zone: pytz object with .tzinfo() or None
         :return: sunrise datetime.
         :raises: SunTimeException when there is no sunrise and sunset on given location and date.
         """
-        time_delta = self.get_sun_timedelta(at_date, time_zone=time_zone, is_rise_time=True)
-        if time_delta is None:
-            raise SunTimeException('The sun never rises on this location (on the specified date)')
-        else:
-            return datetime.combine(at_date, time(tzinfo=time_zone)) + time_delta
+        if at_date is None:
+            at_date = datetime.now()
 
-    def get_sunset_time(self, at_date=datetime.now(), time_zone=timezone.utc):
+        time_delta = self.get_sun_timedelta(at_date, time_zone=time_zone, is_rise_time=True)
+        return datetime.combine(at_date, time(tzinfo=time_zone)) + time_delta
+
+    def get_sunset_time(self, at_date=None, time_zone=timezone.utc):
         """
         Calculate the sunset time for given date.
         :param at_date: Reference date. datetime.now() if not provided.
@@ -45,20 +57,19 @@ class Sun:
         :return: sunset datetime.
         :raises: SunTimeException when there is no sunrise and sunset on given location and date.
         """
+        if at_date is None:
+            at_date = datetime.now()
         time_delta = self.get_sun_timedelta(at_date, time_zone=time_zone, is_rise_time=False)
-        if time_delta is None:
-            raise SunTimeException('The sun never rises on this location (on the specified date)')
-        else:
-            return datetime.combine(at_date, time(tzinfo=time_zone)) + time_delta
+        return datetime.combine(at_date, time(tzinfo=time_zone)) + time_delta
 
-    def get_local_sunrise_time(self, at_date=datetime.now(), time_zone=None):
+    def get_local_sunrise_time(self, at_date=None, time_zone=None):
         """ DEPRECATED: Use get_sunrise_time() instead. """
         warnings.warn("get_local_sunrise_time is deprecated and will be removed in future versions."
                       "Use get_sunrise_time with proper time zone", DeprecationWarning)
 
         return self.get_sunrise_time(at_date, time_zone)
 
-    def get_local_sunset_time(self, at_date=datetime.now(), time_zone=None):
+    def get_local_sunset_time(self, at_date=None, time_zone=None):
         """ DEPRECATED: Use get_sunset_time() instead. """
         warnings.warn("get_local_sunset_time is deprecated and will be removed in future versions."
                       "Use get_sunset_time with proper time zone.", DeprecationWarning)
@@ -76,7 +87,7 @@ class Sun:
 
         # If not set get local timezone from datetime
         if time_zone is None:
-            time_zone = datetime.now().tzinfo
+            time_zone = datetime.now().astimezone().tzinfo
 
         # 1. first get the day of the year
         N = at_date.timetuple().tm_yday
@@ -102,9 +113,9 @@ class Sun:
         cosH = (math.cos(TO_RAD*zenith) - (sinDec * math.sin(TO_RAD*self._lat))) / (cosDec * math.cos(TO_RAD*self._lat))
 
         if cosH > 1:
-            return None     # The sun never rises on this location (on the specified date)
+            raise PolarNightException("The sun is always down on this location on the specified date")
         if cosH < -1:
-            return None     # The sun never sets on this location (on the specified date)
+            raise MidnightSunException("The sun is always up on this location on the specified date")
 
         # 4c. finish calculating H and convert into hours
         if is_rise_time:
@@ -131,17 +142,22 @@ class Sun:
         # 7a. adjust back to UTC
         UT = T - self.lngHour
 
-        if time_zone:
-            # 7b. adjust back to local time
-            UT += time_zone.utcoffset(at_date).total_seconds() / 3600
-
-        # 7c. rounding and impose range bounds
+        # 7b. Round and normalize the UTC clock time. Keep track of its date
+        # relative to the requested solar date; western sunsets can occur on
+        # the following UTC date, while eastern sunrises can occur on the
+        # previous UTC date.
         UT = round(UT, 2)
-        if is_rise_time:
-            UT = self._force_range(UT, 24)
+        UT = self._force_range(UT, 24)
+        utc_day_offset = -math.floor((UT + self.lngHour) / 24)
+
+        utc_datetime = (
+            datetime.combine(at_date, time(tzinfo=timezone.utc))
+            + timedelta(days=utc_day_offset, hours=UT)
+        )
+        timezone_offset = utc_datetime.astimezone(time_zone).utcoffset().total_seconds() / 3600
 
         # 8. return timedelta
-        return timedelta(hours=UT)
+        return timedelta(days=utc_day_offset, hours=UT + timezone_offset)
 
     @staticmethod
     def _force_range(v, max):

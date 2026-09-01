@@ -1,12 +1,7 @@
 ---
 name: Build and Test cudss
 
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * 1'
+on: [push, pull_request]
 
 jobs:
   linux:
@@ -16,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
-      - uses: Jimver/cuda-toolkit@v0.2.35
+      - uses: actions/checkout@v6
+      - uses: Jimver/cuda-toolkit@v0.2.30
         id: cuda-toolkit
         with:
           method: network

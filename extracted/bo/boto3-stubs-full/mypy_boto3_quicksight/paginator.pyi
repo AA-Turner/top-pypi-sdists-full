@@ -17,6 +17,7 @@ Usage::
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
         ListApprovalPoliciesPaginator,
+        ListAppsPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
         ListBrandsPaginator,
@@ -50,6 +51,7 @@ Usage::
         ListUsersPaginator,
         SearchActionConnectorsPaginator,
         SearchAnalysesPaginator,
+        SearchAppsPaginator,
         SearchDashboardsPaginator,
         SearchDataSetsPaginator,
         SearchDataSourcesPaginator,
@@ -69,6 +71,7 @@ Usage::
     list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
     list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
+    list_apps_paginator: ListAppsPaginator = client.get_paginator("list_apps")
     list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
     list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
     list_brands_paginator: ListBrandsPaginator = client.get_paginator("list_brands")
@@ -102,6 +105,7 @@ Usage::
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
     search_analyses_paginator: SearchAnalysesPaginator = client.get_paginator("search_analyses")
+    search_apps_paginator: SearchAppsPaginator = client.get_paginator("search_apps")
     search_dashboards_paginator: SearchDashboardsPaginator = client.get_paginator("search_dashboards")
     search_data_sets_paginator: SearchDataSetsPaginator = client.get_paginator("search_data_sets")
     search_data_sources_paginator: SearchDataSourcesPaginator = client.get_paginator("search_data_sources")
@@ -132,6 +136,8 @@ from .type_defs import (
     ListAnalysesResponseTypeDef,
     ListApprovalPoliciesRequestPaginateTypeDef,
     ListApprovalPoliciesResponseTypeDef,
+    ListAppsRequestPaginateTypeDef,
+    ListAppsResponseTypeDef,
     ListAssetBundleExportJobsRequestPaginateTypeDef,
     ListAssetBundleExportJobsResponseTypeDef,
     ListAssetBundleImportJobsRequestPaginateTypeDef,
@@ -198,6 +204,8 @@ from .type_defs import (
     SearchActionConnectorsResponseTypeDef,
     SearchAnalysesRequestPaginateTypeDef,
     SearchAnalysesResponseTypeDef,
+    SearchAppsRequestPaginateTypeDef,
+    SearchAppsResponseTypeDef,
     SearchDashboardsRequestPaginateTypeDef,
     SearchDashboardsResponseTypeDef,
     SearchDataSetsRequestPaginateTypeDef,
@@ -229,6 +237,7 @@ __all__ = (
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
     "ListApprovalPoliciesPaginator",
+    "ListAppsPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
     "ListBrandsPaginator",
@@ -262,6 +271,7 @@ __all__ = (
     "ListUsersPaginator",
     "SearchActionConnectorsPaginator",
     "SearchAnalysesPaginator",
+    "SearchAppsPaginator",
     "SearchDashboardsPaginator",
     "SearchDataSetsPaginator",
     "SearchDataSourcesPaginator",
@@ -363,6 +373,24 @@ class ListApprovalPoliciesPaginator(_ListApprovalPoliciesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApprovalPolicies.html#QuickSight.Paginator.ListApprovalPolicies.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listapprovalpoliciespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAppsPaginatorBase = Paginator[ListAppsResponseTypeDef]
+else:
+    _ListAppsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAppsPaginator(_ListAppsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApps.html#QuickSight.Paginator.ListApps)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listappspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAppsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAppsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApps.html#QuickSight.Paginator.ListApps.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listappspaginator)
         """
 
 if TYPE_CHECKING:
@@ -961,6 +989,24 @@ class SearchAnalysesPaginator(_SearchAnalysesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchAnalyses.html#QuickSight.Paginator.SearchAnalyses.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchanalysespaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchAppsPaginatorBase = Paginator[SearchAppsResponseTypeDef]
+else:
+    _SearchAppsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchAppsPaginator(_SearchAppsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchApps.html#QuickSight.Paginator.SearchApps)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchappspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchAppsRequestPaginateTypeDef]
+    ) -> PageIterator[SearchAppsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchApps.html#QuickSight.Paginator.SearchApps.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchappspaginator)
         """
 
 if TYPE_CHECKING:

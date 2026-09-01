@@ -1,4 +1,3 @@
-use assert_fs::fixture::{FileWriteStr, PathChild};
 use prek_consts::PRE_COMMIT_CONFIG_YAML;
 
 use crate::common::{TestEnv, cmd_snapshot};
@@ -6,8 +5,8 @@ use crate::common::{TestEnv, cmd_snapshot};
 mod common;
 
 #[test]
-fn validate_config() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
+fn validate_config() {
+    let context = TestEnv::new();
 
     // No files to validate.
     cmd_snapshot!(context, context.validate_config(), @r"
@@ -19,7 +18,7 @@ fn validate_config() -> anyhow::Result<()> {
     warning: No configs to check
     ");
 
-    let context = context.with_config(indoc::indoc! {r"
+    context.write_config(indoc::indoc! {r"
         repos:
           - repo: https://github.com/pre-commit/pre-commit-hooks
             rev: v5.0.0
@@ -38,13 +37,13 @@ fn validate_config() -> anyhow::Result<()> {
     success: All configs are valid
     ");
 
-    context
-        .work_dir()
-        .child("config-1.yaml")
-        .write_str(indoc::indoc! {r"
+    context.write_file(
+        "config-1.yaml",
+        indoc::indoc! {r"
             repos:
               - repo: https://github.com/pre-commit/pre-commit-hooks
-        "})?;
+        "},
+    );
 
     // Validate multiple files.
     cmd_snapshot!(context, context.validate_config().arg(PRE_COMMIT_CONFIG_YAML).arg("config-1.yaml"), @"
@@ -61,13 +60,11 @@ fn validate_config() -> anyhow::Result<()> {
     2 |   - repo: https://github.com/pre-commit/pre-commit-hooks
       |     ^ missing field `rev`
     ");
-
-    Ok(())
 }
 
 #[test]
 fn mutable_revision_warning_has_actionable_guidance() {
-    let context = TestEnv::new_without_git().with_config(indoc::indoc! {r"
+    let context = TestEnv::new().with_config(indoc::indoc! {r"
         repos:
           - repo: https://example.com/hooks
             rev: main
@@ -91,7 +88,7 @@ fn mutable_revision_warning_has_actionable_guidance() {
 
 #[test]
 fn invalid_config_error() {
-    let context = TestEnv::new_without_git().with_config(indoc::indoc! {r"
+    let context = TestEnv::new().with_config(indoc::indoc! {r"
         repos:
           - repo: https://github.com/pre-commit/pre-commit-hooks
             hooks:
@@ -141,7 +138,7 @@ fn invalid_config_error() {
 
 #[test]
 fn unknown_priority_alias_is_invalid() {
-    let context = TestEnv::new_without_git().with_config(indoc::indoc! {r"
+    let context = TestEnv::new().with_config(indoc::indoc! {r"
         priorities:
           checks: 10
         repos:
@@ -166,7 +163,7 @@ fn unknown_priority_alias_is_invalid() {
 
 #[test]
 fn priority_aliases_cannot_contain_whitespace() {
-    let context = TestEnv::new_without_git().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new().with_config(indoc::indoc! {r#"
         priorities:
           "static checks": 10
         repos: []
@@ -192,7 +189,7 @@ fn priority_aliases_cannot_contain_whitespace() {
 
 #[test]
 fn duplicate_and_unused_priority_aliases_are_valid() {
-    let context = TestEnv::new_without_git().with_config(indoc::indoc! {r"
+    let context = TestEnv::new().with_config(indoc::indoc! {r"
         priorities:
           checks: 10
           verification: 10
@@ -223,8 +220,8 @@ fn duplicate_and_unused_priority_aliases_are_valid() {
 }
 
 #[test]
-fn validate_manifest() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
+fn validate_manifest() {
+    let context = TestEnv::new();
 
     // No files to validate.
     cmd_snapshot!(context, context.validate_manifest(), @r"
@@ -236,10 +233,9 @@ fn validate_manifest() -> anyhow::Result<()> {
     warning: No manifests to check
     ");
 
-    context
-        .work_dir()
-        .child(".pre-commit-hooks.yaml")
-        .write_str(indoc::indoc! {r"
+    context.write_file(
+        ".pre-commit-hooks.yaml",
+        indoc::indoc! {r"
             -   id: check-added-large-files
                 name: check for added large files
                 description: prevents giant files from being committed.
@@ -247,7 +243,8 @@ fn validate_manifest() -> anyhow::Result<()> {
                 language: python
                 stages: [pre-commit, pre-push, manual]
                 minimum_pre_commit_version: 3.2.0
-        "})?;
+        "},
+    );
     // Validate one file.
     cmd_snapshot!(context, context.validate_manifest().arg(".pre-commit-hooks.yaml"), @r"
     success: true
@@ -258,17 +255,17 @@ fn validate_manifest() -> anyhow::Result<()> {
     success: All manifests are valid
     ");
 
-    context
-        .work_dir()
-        .child("hooks-1.yaml")
-        .write_str(indoc::indoc! {r"
+    context.write_file(
+        "hooks-1.yaml",
+        indoc::indoc! {r"
             -   id: check-added-large-files
                 name: check for added large files
                 description: prevents giant files from being committed.
                 language: python
                 stages: [pre-commit, pre-push, manual]
                 minimum_pre_commit_version: 3.2.0
-        "})?;
+        "},
+    );
 
     // Validate multiple files.
     cmd_snapshot!(context, context.validate_manifest().arg(".pre-commit-hooks.yaml").arg("hooks-1.yaml"), @"
@@ -287,13 +284,11 @@ fn validate_manifest() -> anyhow::Result<()> {
     3 |     description: prevents giant files from being committed.
       |
     ");
-
-    Ok(())
 }
 
 #[test]
 fn unexpected_keys_warning() {
-    let context = TestEnv::new_without_git().with_config(indoc::indoc! {r"
+    let context = TestEnv::new().with_config(indoc::indoc! {r"
         x-anchor: &anchor
           language: system
         repos:

@@ -205,53 +205,35 @@ pub(crate) fn schema_and_type_name(ty: &ast::Type) -> Option<(Option<Schema>, Na
             let inner = array_type.ty()?;
             schema_and_type_name(&inner)
         }
-        ast::Type::BitType(bit_type) => {
-            let name = if bit_type.varying_token().is_some() {
-                "varbit"
-            } else {
-                "bit"
-            };
-            Some((None, Name::from_string(name)))
-        }
+        ast::Type::BitType(_) => Some((None, Name::from_string("bit"))),
+        ast::Type::BitVaryingType(_) => Some((None, Name::from_string("varbit"))),
         ast::Type::IntervalType(_) => Some((None, Name::from_string("interval"))),
         ast::Type::PathType(path_type) => {
             let path = path_type.path_ref()?;
             schema_and_name_path(&path)
         }
-        ast::Type::ExprType(expr_type) => {
-            if let ast::Expr::FieldExpr(field_expr) = expr_type.expr()?
-                && let Some(field) = field_expr.field()
-                && let Some(ast::Expr::NameRef(schema_name_ref)) = field_expr.base()
-            {
-                let type_name = Name::from_node(&field);
-                let schema = Some(Schema(Name::from_node(&schema_name_ref)));
-                Some((schema, type_name))
-            } else {
-                None
-            }
-        }
-        ast::Type::CharType(char_type) => {
-            let name = if char_type.varchar_token().is_some() || char_type.varying_token().is_some()
-            {
-                "varchar"
-            } else {
-                "bpchar"
-            };
-            Some((None, Name::from_string(name)))
-        }
+        ast::Type::VarcharType(_) => Some((None, Name::from_string("varchar"))),
+        ast::Type::CharacterType(_) => Some((None, Name::from_string("bpchar"))),
         ast::Type::DoubleType(_) => Some((None, Name::from_string("float8"))),
         ast::Type::TimeType(time_type) => {
-            let mut name = if time_type.timestamp_token().is_some() {
-                "timestamp".to_string()
+            let name = if matches!(time_type.timezone(), Some(ast::Timezone::WithTimezone(_))) {
+                "timetz"
             } else {
-                "time".to_string()
+                "time"
             };
-            if let Some(ast::Timezone::WithTimezone(_)) = time_type.timezone() {
-                name.push_str("tz");
-            }
             Some((None, Name::from_string(name)))
         }
-        ast::Type::PercentType(_) => None,
+        ast::Type::TimestampType(timestamp_type) => {
+            let name = if matches!(
+                timestamp_type.timezone(),
+                Some(ast::Timezone::WithTimezone(_))
+            ) {
+                "timestamptz"
+            } else {
+                "timestamp"
+            };
+            Some((None, Name::from_string(name)))
+        }
     }
 }
 

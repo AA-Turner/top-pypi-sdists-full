@@ -2,20 +2,16 @@ mod common;
 
 use crate::common::{TestEnv, cmd_snapshot};
 
-use assert_fs::fixture::{FileWriteStr, PathChild, PathCreateDir};
-use prek_consts::PRE_COMMIT_CONFIG_YAML;
-
 #[test]
-fn meta_hooks() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-
-    let cwd = context.work_dir();
-    cwd.child("file.txt").write_str("Hello, world!\n")?;
-    cwd.child("valid.json").write_str("{}")?;
-    cwd.child("invalid.json").write_str("{}")?;
-    cwd.child("main.py").write_str(r#"print "abc"  "#)?;
-
-    let context = context.with_config(indoc::indoc! {r"
+fn meta_hooks() {
+    let context = TestEnv::new()
+        .with_files([
+            ("file.txt", "Hello, world!\n"),
+            ("valid.json", "{}"),
+            ("invalid.json", "{}"),
+            ("main.py", r#"print "abc"  "#),
+        ])
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: meta
             hooks:
@@ -34,8 +30,8 @@ fn meta_hooks() -> anyhow::Result<()> {
                 language: system
                 entry: python3 -c 'import sys; sys.exit(0)'
                 exclude: $nonexistent^
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r#"
     success: false
@@ -65,19 +61,18 @@ fn meta_hooks() -> anyhow::Result<()> {
 
     ----- stderr -----
     "#);
-
-    Ok(())
 }
 
 #[test]
 fn meta_hooks_unknown_hook() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: meta
             hooks:
               - id: this-hook-does-not-exist
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @"
     success: false
@@ -97,9 +92,7 @@ fn meta_hooks_unknown_hook() {
 }
 
 #[test]
-fn check_useless_excludes_remote() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-
+fn check_useless_excludes_remote() {
     // When checking useless excludes, remote hooks are not actually cloned,
     // so hook options defined from HookManifest are not used.
     // If applied, "types_or: [python, pyi]" from black-pre-commit-mirror
@@ -122,15 +115,11 @@ fn check_useless_excludes_remote() -> anyhow::Result<()> {
         hooks:
             - id: check-useless-excludes
     "};
-    context.work_dir().child("html").create_dir_all()?;
-    context
-        .work_dir()
-        .child("html")
-        .child("file1.html")
-        .write_str("<!DOCTYPE html>")?;
+    let context = TestEnv::new()
+        .with_file("html/file1.html", "<!DOCTYPE html>")
+        .with_config(&pre_commit_config)
+        .init_git();
 
-    let context = context.with_config(&pre_commit_config);
-    context.git_add_all();
     cmd_snapshot!(context, context.run().arg("check-useless-excludes"), @r"
     success: false
     exit_code: 1
@@ -143,18 +132,14 @@ fn check_useless_excludes_remote() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[test]
-fn meta_hooks_workspace() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-
-    let app = context.work_dir().child("app");
-    app.create_dir_all()?;
-    app.child(PRE_COMMIT_CONFIG_YAML)
-        .write_str(indoc::indoc! {r"
+fn meta_hooks_workspace() {
+    let context = TestEnv::new()
+        .with_project_config(
+            "app",
+            indoc::indoc! {r"
         repos:
           - repo: meta
             hooks:
@@ -173,15 +158,16 @@ fn meta_hooks_workspace() -> anyhow::Result<()> {
                 language: system
                 entry: python3 -c 'import sys; sys.exit(0)'
                 exclude: $nonexistent^
-    "})?;
-
-    app.child("file.txt").write_str("Hello, world!\n")?;
-    app.child("valid.json").write_str("{}")?;
-    app.child("invalid.json").write_str("{x}")?;
-    app.child("main.py").write_str(r#"print "abc"  "#)?;
-
-    let context = context.with_config("repos: []");
-    context.git_add_all();
+    "},
+        )
+        .with_files([
+            ("app/file.txt", "Hello, world!\n"),
+            ("app/valid.json", "{}"),
+            ("app/invalid.json", "{x}"),
+            ("app/main.py", r#"print "abc"  "#),
+        ])
+        .with_config("repos: []")
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r#"
     success: false
@@ -212,24 +198,21 @@ fn meta_hooks_workspace() -> anyhow::Result<()> {
 
     ----- stderr -----
     "#);
-
-    Ok(())
 }
 
 #[test]
-fn check_useless_excludes_workspace_paths_are_project_relative() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-
+fn check_useless_excludes_workspace_paths_are_project_relative() {
     // Workspace layout:
     // - Root project has no hooks.
     // - Nested project `app/` runs `check-useless-excludes`.
     //
     // Regression: in workspace mode, `files`/`exclude` matching must use paths *relative to the
     // nested project root* (so anchored patterns like `^...$` work as expected).
-    let app = context.work_dir().child("app");
-    app.create_dir_all()?;
-    app.child(PRE_COMMIT_CONFIG_YAML)
-        .write_str(indoc::indoc! {r"
+    // The two sentinel files keep the anchored excludes from being reported as useless.
+    let context = TestEnv::new()
+        .with_file(
+            "app/.pre-commit-config.yaml",
+            indoc::indoc! {r"
         exclude: '^global_excluded$'
         repos:
           - repo: meta
@@ -242,15 +225,12 @@ fn check_useless_excludes_workspace_paths_are_project_relative() -> anyhow::Resu
                 language: system
                 entry: python3 -c 'import sys; sys.exit(0)'
                 exclude: '^hook_excluded$'
-        "})?;
-
-    // These files exist specifically so the anchored patterns above are NOT useless.
-    // If the meta hook mistakenly matches against `app/<name>` instead of `<name>`, it will fail.
-    app.child("global_excluded").write_str("ignored\n")?;
-    app.child("hook_excluded").write_str("ignored\n")?;
-
-    let context = context.with_config("repos: []");
-    context.git_add_all();
+        "},
+        )
+        .with_file("app/global_excluded", "ignored\n")
+        .with_file("app/hook_excluded", "ignored\n")
+        .with_config("repos: []")
+        .init_git();
 
     cmd_snapshot!(context, context.run().arg("check-useless-excludes"), @r#"
     success: true
@@ -261,6 +241,4 @@ fn check_useless_excludes_workspace_paths_are_project_relative() -> anyhow::Resu
 
     ----- stderr -----
     "#);
-
-    Ok(())
 }

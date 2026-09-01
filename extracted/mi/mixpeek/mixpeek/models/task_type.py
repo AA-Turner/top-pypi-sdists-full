@@ -40,8 +40,6 @@ class TaskType(str, Enum):
     API_BUCKETS_UPLOADS_CONFIRM = 'api_buckets_uploads_confirm'
     API_BUCKETS_UPLOADS_BATCH_CONFIRM = 'api_buckets_uploads_batch_confirm'
     API_COLLECTIONS_DOCUMENTS_CREATE = 'api_collections_documents_create'
-    API_COLLECTIONS_DOCUMENTS_BULK_UPDATE = 'api_collections_documents_bulk_update'
-    API_COLLECTIONS_DOCUMENTS_BULK_DELETE = 'api_collections_documents_bulk_delete'
     API_COLLECTIONS_EXTRACTION_ARTIFACTS = 'api_collections_extraction_artifacts'
     API_TAXONOMIES_CREATE = 'api_taxonomies_create'
     API_TAXONOMIES_EXECUTE = 'api_taxonomies_execute'

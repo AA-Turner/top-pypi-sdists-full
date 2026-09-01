@@ -3,9 +3,29 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib import import_module
 from typing import IO, Any
 
-from dargs._version import __version__
+try:
+    from dargs._version import __version__
+except ModuleNotFoundError as exc:
+    if exc.name != "dargs._version":
+        raise
+    try:
+        get_version = getattr(import_module("setuptools_scm"), "get_version")
+    except ModuleNotFoundError as scm_exc:
+        if scm_exc.name != "setuptools_scm":
+            raise
+        # Source archives may have neither the generated module nor build tools.
+        # The CLI should remain usable even when an exact version is unavailable.
+        __version__ = "0+unknown"
+    else:
+        __version__ = get_version(
+            root="..",
+            relative_to=__file__,
+            fallback_version="0+unknown",
+        )
+
 from dargs.check import check
 
 
@@ -98,6 +118,7 @@ def check_cli(
     func: str,
     jdata: list[IO],
     strict: bool,
+    trim_pattern: str = "_*",
     allow_ref: bool = False,
     **kwargs: Any,
 ) -> None:
@@ -111,13 +132,15 @@ def check_cli(
         File object that contains the JSON data
     strict : bool
         If True, raise an error if the key is not pre-defined
+    trim_pattern : str, optional
+        Glob pattern for keys removed before strict validation.
     allow_ref : bool, optional
         If True, allow loading from external files via the ``$ref`` key
 
-    Returns
-    -------
-    dict
-        normalized data
+    Raises
+    ------
+    RuntimeError
+        If the function cannot be imported or does not exist
     """
     module_name, attr_name = func.strip().rsplit(".", 1)
     try:
@@ -133,7 +156,13 @@ def check_cli(
     arginfo = func_obj()
     for jj in jdata:
         data = json.load(jj)
-        check(arginfo, data, strict=strict, allow_ref=allow_ref)
+        check(
+            arginfo,
+            data,
+            strict=strict,
+            trim_pattern=trim_pattern,
+            allow_ref=allow_ref,
+        )
 
 
 def doc_cli(
@@ -150,6 +179,11 @@ def doc_cli(
         Function that returns an Argument or list of Arguments. E.g., `dargs._test.test_arguments`
     arg : str, optional
         Optional argument path (e.g., 'base/sub1'). If not provided, prints all top-level arguments.
+
+    Raises
+    ------
+    RuntimeError
+        If the function cannot be imported or does not exist
     """
     try:
         module_name, attr_name = func.strip().rsplit(".", 1)

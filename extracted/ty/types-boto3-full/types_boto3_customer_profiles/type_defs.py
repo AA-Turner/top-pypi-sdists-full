@@ -36,6 +36,8 @@ from .literals import (
     EstimateStatusType,
     EventStreamDestinationStatusType,
     EventStreamStateType,
+    EventSubscriptionSegmentStatusType,
+    EventSubscriptionStateType,
     EventTriggerLogicalOperatorType,
     FeatureTypeType,
     FieldContentTypeType,
@@ -67,6 +69,7 @@ from .literals import (
     SegmentSnapshotStatusType,
     SegmentSortDataTypeType,
     SegmentSortOrderType,
+    SegmentSubscriptionStatusType,
     SegmentTypeType,
     ServiceNowConnectorOperatorType,
     SortAttributeTypeType,
@@ -76,6 +79,8 @@ from .literals import (
     StatusReasonType,
     StatusType,
     StringDimensionTypeType,
+    SubscriptionEventType,
+    SubscriptionEventTypeType,
     TaskTypeType,
     TrainingMetricNameType,
     TriggerTypeType,
@@ -102,6 +107,8 @@ __all__ = (
     "AppflowIntegrationWorkflowAttributesTypeDef",
     "AppflowIntegrationWorkflowMetricsTypeDef",
     "AppflowIntegrationWorkflowStepTypeDef",
+    "AssociateStreamForSegmentsRequestTypeDef",
+    "AssociatedSegmentTypeDef",
     "AttributeDetailsOutputTypeDef",
     "AttributeDetailsTypeDef",
     "AttributeDetailsUnionTypeDef",
@@ -199,6 +206,8 @@ __all__ = (
     "DeleteRecommenderSchemaRequestTypeDef",
     "DeleteSegmentDefinitionRequestTypeDef",
     "DeleteSegmentDefinitionResponseTypeDef",
+    "DeleteSegmentSubscriptionRequestTypeDef",
+    "DeleteSegmentSubscriptionResponseTypeDef",
     "DeleteWorkflowRequestTypeDef",
     "DestinationSummaryTypeDef",
     "DetectProfileObjectTypeRequestTypeDef",
@@ -207,6 +216,8 @@ __all__ = (
     "DimensionOutputTypeDef",
     "DimensionTypeDef",
     "DimensionUnionTypeDef",
+    "DisassociateStreamForSegmentsRequestTypeDef",
+    "DisassociateStreamForSegmentsResponseTypeDef",
     "DiversityColumnTypeDef",
     "DiversityConfigOutputTypeDef",
     "DiversityConfigTypeDef",
@@ -296,9 +307,13 @@ __all__ = (
     "GetSegmentMembershipResponseTypeDef",
     "GetSegmentSnapshotRequestTypeDef",
     "GetSegmentSnapshotResponseTypeDef",
+    "GetSegmentSubscriptionRequestTypeDef",
+    "GetSegmentSubscriptionResponseTypeDef",
     "GetSimilarProfilesRequestPaginateTypeDef",
     "GetSimilarProfilesRequestTypeDef",
     "GetSimilarProfilesResponseTypeDef",
+    "GetStreamForSegmentsRequestTypeDef",
+    "GetStreamForSegmentsResponseTypeDef",
     "GetUploadJobPathRequestTypeDef",
     "GetUploadJobPathResponseTypeDef",
     "GetUploadJobRequestTypeDef",
@@ -381,6 +396,9 @@ __all__ = (
     "ListSegmentDefinitionsRequestPaginateTypeDef",
     "ListSegmentDefinitionsRequestTypeDef",
     "ListSegmentDefinitionsResponseTypeDef",
+    "ListSegmentSubscriptionEventsRequestPaginateTypeDef",
+    "ListSegmentSubscriptionEventsRequestTypeDef",
+    "ListSegmentSubscriptionEventsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListUploadJobsRequestPaginateTypeDef",
@@ -432,6 +450,8 @@ __all__ = (
     "PutProfileObjectResponseTypeDef",
     "PutProfileObjectTypeRequestTypeDef",
     "PutProfileObjectTypeResponseTypeDef",
+    "PutSegmentSubscriptionRequestTypeDef",
+    "PutSegmentSubscriptionResponseTypeDef",
     "RangeOverrideTypeDef",
     "RangeTypeDef",
     "ReadinessTypeDef",
@@ -456,6 +476,8 @@ __all__ = (
     "S3ExportingLocationTypeDef",
     "S3SourcePropertiesTypeDef",
     "SalesforceSourcePropertiesTypeDef",
+    "ScheduleConfigurationTypeDef",
+    "ScheduledExecutionsTypeDef",
     "ScheduledTriggerPropertiesTypeDef",
     "SearchProfilesRequestTypeDef",
     "SearchProfilesResponseTypeDef",
@@ -476,6 +498,7 @@ __all__ = (
     "StartUploadJobRequestTypeDef",
     "StopRecommenderRequestTypeDef",
     "StopUploadJobRequestTypeDef",
+    "SubscriptionEventItemTypeDef",
     "TagResourceRequestTypeDef",
     "TaskTypeDef",
     "ThresholdTypeDef",
@@ -565,6 +588,18 @@ class AppflowIntegrationWorkflowStepTypeDef(TypedDict):
     BatchRecordsEndTime: str
     CreatedAt: datetime
     LastUpdatedAt: datetime
+
+
+class AssociateStreamForSegmentsRequestTypeDef(TypedDict):
+    DomainName: str
+    DestinationArn: str
+    DestinationRoleArn: str
+
+
+class AssociatedSegmentTypeDef(TypedDict):
+    SegmentName: NotRequired[str]
+    Status: NotRequired[EventSubscriptionSegmentStatusType]
+    Message: NotRequired[str]
 
 
 class AttributeItemTypeDef(TypedDict):
@@ -846,6 +881,11 @@ class DeleteSegmentDefinitionRequestTypeDef(TypedDict):
     SegmentDefinitionName: str
 
 
+class DeleteSegmentSubscriptionRequestTypeDef(TypedDict):
+    DomainName: str
+    SegmentDefinitionName: str
+
+
 class DeleteWorkflowRequestTypeDef(TypedDict):
     DomainName: str
     WorkflowId: str
@@ -865,6 +905,10 @@ class DetectProfileObjectTypeRequestTypeDef(TypedDict):
 class ObjectTypeKeyOutputTypeDef(TypedDict):
     StandardIdentifiers: NotRequired[list[StandardIdentifierType]]
     FieldNames: NotRequired[list[str]]
+
+
+class DisassociateStreamForSegmentsRequestTypeDef(TypedDict):
+    DomainName: str
 
 
 class DiversityColumnTypeDef(TypedDict):
@@ -1155,6 +1199,21 @@ class GetSegmentSnapshotRequestTypeDef(TypedDict):
     SnapshotId: str
 
 
+class GetSegmentSubscriptionRequestTypeDef(TypedDict):
+    DomainName: str
+    SegmentDefinitionName: str
+
+
+class ScheduleConfigurationTypeDef(TypedDict):
+    Interval: int
+    Unit: NotRequired[Literal["HOURLY"]]
+
+
+class ScheduledExecutionsTypeDef(TypedDict):
+    NextExecutedAt: NotRequired[datetime]
+    LastExecutedAt: NotRequired[datetime]
+
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -1168,6 +1227,10 @@ class GetSimilarProfilesRequestTypeDef(TypedDict):
     SearchValue: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class GetStreamForSegmentsRequestTypeDef(TypedDict):
+    DomainName: str
 
 
 class GetUploadJobPathRequestTypeDef(TypedDict):
@@ -1474,6 +1537,20 @@ class SegmentDefinitionItemTypeDef(TypedDict):
     SegmentType: NotRequired[SegmentTypeType]
 
 
+class ListSegmentSubscriptionEventsRequestTypeDef(TypedDict):
+    DomainName: str
+    SegmentDefinitionName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class SubscriptionEventItemTypeDef(TypedDict):
+    ProfileId: NotRequired[str]
+    UpdatedAt: NotRequired[datetime]
+    EventType: NotRequired[SubscriptionEventTypeType]
+    Event: NotRequired[SubscriptionEventType]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -1767,6 +1844,16 @@ class DeleteSegmentDefinitionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteSegmentSubscriptionResponseTypeDef(TypedDict):
+    Message: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DisassociateStreamForSegmentsResponseTypeDef(TypedDict):
+    Message: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetAutoMergingPreviewResponseTypeDef(TypedDict):
     DomainName: str
     NumberOfMatchesInSample: int
@@ -1966,6 +2053,18 @@ class WorkflowMetricsTypeDef(TypedDict):
 
 class WorkflowStepItemTypeDef(TypedDict):
     AppflowIntegration: NotRequired[AppflowIntegrationWorkflowStepTypeDef]
+
+
+class GetStreamForSegmentsResponseTypeDef(TypedDict):
+    AssociatedAt: datetime
+    AssociatedSegments: list[AssociatedSegmentTypeDef]
+    DomainName: str
+    DestinationArn: str
+    DestinationRoleArn: str
+    State: EventSubscriptionStateType
+    DisassociatedAt: datetime
+    FailureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AttributeDetailsOutputTypeDef(TypedDict):
@@ -2320,6 +2419,29 @@ class GetProfileRecommendationsRequestTypeDef(TypedDict):
     DiversityConfig: NotRequired[RecommendationDiversityConfigTypeDef]
 
 
+class PutSegmentSubscriptionRequestTypeDef(TypedDict):
+    DomainName: str
+    SegmentDefinitionName: str
+    ScheduleConfiguration: NotRequired[ScheduleConfigurationTypeDef]
+
+
+class PutSegmentSubscriptionResponseTypeDef(TypedDict):
+    Status: SegmentSubscriptionStatusType
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    StartedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSegmentSubscriptionResponseTypeDef(TypedDict):
+    Status: SegmentSubscriptionStatusType
+    Message: str
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    ScheduledExecutions: ScheduledExecutionsTypeDef
+    StartedAt: datetime
+    LastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
     DomainName: str
     MatchType: MatchTypeType
@@ -2380,6 +2502,12 @@ class ListRuleBasedMatchesRequestPaginateTypeDef(TypedDict):
 
 class ListSegmentDefinitionsRequestPaginateTypeDef(TypedDict):
     DomainName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListSegmentSubscriptionEventsRequestPaginateTypeDef(TypedDict):
+    DomainName: str
+    SegmentDefinitionName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2497,6 +2625,12 @@ class ListRecommenderRecipesResponseTypeDef(TypedDict):
 
 class ListSegmentDefinitionsResponseTypeDef(TypedDict):
     Items: list[SegmentDefinitionItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListSegmentSubscriptionEventsResponseTypeDef(TypedDict):
+    Events: list[SubscriptionEventItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

@@ -1,4 +1,5 @@
-"""Shim Constants/SetManager/TupleManager (migration spec §3)."""
+"""Shim Constants/SetManager/TupleManager
+(mechanisms.md#CONFIG-SHIM-SNAPSHOT)."""
 import copy
 import pickle
 import warnings
@@ -150,7 +151,7 @@ def test_delimiter_manager_sentinels_only() -> None:
     d2["parenthesis"] = moved          # the documented bucket-move idiom
     assert "parenthesis" in d2
     with pytest.raises(TypeError, match="quoted_word"):
-        d2["angle_brackets"] = "custom"     # spec §3: custom keys raise
+        d2["angle_brackets"] = "custom"     # custom keys raise
 
 
 def test_delimiter_manager_no_bypass_via_constructor_or_update() -> None:
@@ -461,10 +462,12 @@ def test_bound_never_given_prefix_deviates_on_two_pieces() -> None:
 
 
 def test_snapshot_keeps_a_bound_never_given_prefix_parseable() -> None:
-    # prefixes.py asserts its own data keeps non_first_name_prefixes
-    # disjoint from bound_first_names, but nothing stops a v1 caller
-    # adding one at runtime, and 1.4 accepts it -- letting the bound
-    # rule win, so "dos Santos Silva" parses first="dos Santos".
+    # particles.py asserts its own data has no word in both
+    # NON_GIVEN_NAME_PARTICLES and BOUND_GIVEN_NAMES, so the defaults
+    # behind non_first_name_prefixes and bound_first_names never
+    # collide; nothing stops a v1 caller adding one at runtime, and 1.4
+    # accepts it -- letting the bound rule win, so "dos Santos Silva"
+    # parses first="dos Santos".
     # Lexicon rejects that combination, so the shim promotes such a word
     # to may-be-given rather than raising on config v1 allowed.
     c = Constants()

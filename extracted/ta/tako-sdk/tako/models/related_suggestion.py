@@ -25,7 +25,7 @@ from pydantic_core import to_jsonable_python
 
 class RelatedSuggestion(BaseModel):
     """
-    One follow-up query for the caller to run next.  A suggestion is deterministic. Tako derives it either from the data a returned card already holds, or from the knowledge graph around that card. No language model writes these.
+    One follow-up query for the caller to run next.  A suggestion is deterministic: Tako derives it from the data a returned card already holds. No language model writes these.
     """ # noqa: E501
     query: StrictStr = Field(description="The follow-up query. Send it as the `query` of another search request.")
     description: Optional[StrictStr] = Field(default=None, description="What the query asks for, in words. Tako sets this only when the query text does not say on its own, such as a lookup by identifier. Most suggestions omit it because the query already reads as a question. Tako composes it from the data on the card; no language model writes it.")

@@ -1,14 +1,16 @@
-use anyhow::Result;
-use assert_fs::assert::PathAssert;
-use assert_fs::fixture::PathChild;
-use prek_consts::env_vars::{EnvVars, EnvVarsRead};
-
 use crate::common::{TestEnv, cmd_snapshot};
+#[cfg(feature = "ci")]
+use anyhow::Result;
+#[cfg(feature = "ci")]
+use assert_fs::assert::PathAssert;
+#[cfg(feature = "ci")]
+use assert_fs::fixture::PathChild;
 
 /// Test basic Bun hook execution.
 #[test]
 fn basic_bun() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -19,9 +21,8 @@ fn basic_bun() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -40,7 +41,8 @@ fn basic_bun() {
 /// Test that `additional_dependencies` are installed correctly.
 #[test]
 fn additional_dependencies() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -52,9 +54,8 @@ fn additional_dependencies() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -100,14 +101,11 @@ fn additional_dependencies() {
 
 /// Test `language_version` specification and bun installation.
 /// In CI, we ensure bun 1.3 is installed.
+#[cfg(feature = "ci")]
 #[test]
 fn language_version() -> Result<()> {
-    if !EnvVars.is_set(EnvVars::CI) {
-        // Skip when not running in CI, as we may have other go versions installed locally.
-        return Ok(());
-    }
-
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -144,9 +142,8 @@ fn language_version() -> Result<()> {
                 verbose: true
                 pass_filenames: false
                 additional_dependencies: ["cowsay"] # different dep to force create separate env
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     let bun_dir = context.home_dir().child("tools").child("bun");
     bun_dir.assert(predicates::path::missing());

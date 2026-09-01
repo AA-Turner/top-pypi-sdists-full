@@ -68,6 +68,10 @@ global___TestStreamFileRecord = TestStreamFileRecord
 
 @typing_extensions.final
 class EventsRequest(google.protobuf.message.Message):
+    """A request for TestStream events from a streaming cache.
+    The client specifies which PCollection output tags to read events for.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     OUTPUT_IDS_FIELD_NUMBER: builtins.int

@@ -1,26 +1,32 @@
 [build-system]
-requires = ["uv_build>=0.11.7,<0.12.0"]
+requires = ["uv_build>=0.11.7,<0.13.0"]
 build-backend = "uv_build"
 
 [project]
 name = "junitparser"
-version = "5.0.1"
-authors = [
-  { name="Weiwei Wang", email="gastlygem@gmail.com" },
-]
+version = "5.0.2"
 description = "Manipulates JUnit/xUnit Result XML files"
 readme = "README.rst"
 requires-python = ">=3.10"
 dependencies = []
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Intended Audience :: Developers",
-  "Topic :: Text Processing",
-  "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Text Processing",
+    "Programming Language :: Python :: 3",
 ]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-keywords = ["junit", "xunit", "xml", "parser"]
+keywords = [
+    "junit",
+    "xunit",
+    "xml",
+    "parser",
+]
+
+[[project.authors]]
+name = "Weiwei Wang"
+email = "gastlygem@gmail.com"
 
 [project.urls]
 Homepage = "https://github.com/weiwei/junitparser"

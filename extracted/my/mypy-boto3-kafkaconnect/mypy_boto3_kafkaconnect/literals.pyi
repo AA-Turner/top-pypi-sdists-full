@@ -46,6 +46,9 @@ __all__ = (
 
 ConnectorOperationStateType = Literal[
     "PENDING",
+    "RESTART_COMPLETE",
+    "RESTART_FAILED",
+    "RESTART_IN_PROGRESS",
     "ROLLBACK_COMPLETE",
     "ROLLBACK_FAILED",
     "ROLLBACK_IN_PROGRESS",
@@ -65,11 +68,12 @@ ConnectorOperationStepTypeType = Literal[
 ]
 ConnectorOperationTypeType = Literal[
     "ISOLATE_CONNECTOR",
+    "RESTART_CONNECTOR",
     "RESTORE_CONNECTOR",
     "UPDATE_CONNECTOR_CONFIGURATION",
     "UPDATE_WORKER_SETTING",
 ]
-ConnectorStateType = Literal["CREATING", "DELETING", "FAILED", "RUNNING", "UPDATING"]
+ConnectorStateType = Literal["CREATING", "DELETING", "FAILED", "RESTARTING", "RUNNING", "UPDATING"]
 CustomPluginContentTypeType = Literal["JAR", "ZIP"]
 CustomPluginStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -86,8 +90,11 @@ KafkaConnectServiceName = Literal["kafkaconnect"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -262,6 +269,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -276,8 +284,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -304,6 +310,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -371,10 +379,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -392,6 +400,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -407,6 +416,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -434,6 +444,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -455,7 +466,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -476,6 +486,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

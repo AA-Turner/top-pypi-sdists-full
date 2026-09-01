@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from typing import List
+from typing import Any, List
 
 from dargs import Argument, Variant
 from dargs.dargs import ArgumentKeyError, ArgumentTypeError, ArgumentValueError
@@ -100,6 +100,33 @@ class TestChecker(unittest.TestCase):
         with self.assertRaises(ValueError):
             Argument("base", dict, [Argument("sub1", int), Argument("sub1", int)])
 
+    def test_subclass_traverse_override_is_dispatched(self) -> None:
+        """Recursive traversal keeps honoring public ``traverse`` overrides."""
+
+        class TrackingArgument(Argument):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(*args, **kwargs)
+                self.traverse_calls = 0
+
+            def traverse(self, *args: Any, **kwargs: Any) -> None:
+                self.traverse_calls += 1
+                super().traverse(*args, **kwargs)
+
+        child = TrackingArgument("child", dict, [Argument("value", int)])
+        root = Argument("base", dict, [child])
+        root.check({"base": {"child": {"value": 1}}})
+        self.assertEqual(child.traverse_calls, 1)
+
+    def test_check_value_validates_root(self) -> None:
+        """Root types and extra checks are enforced by check_value()."""
+        with self.assertRaises(ArgumentTypeError):
+            Argument("value", int).check_value("not an integer")
+
+        positive = Argument("value", int, extra_check=lambda value: value > 0)
+        positive.check_value(1)
+        with self.assertRaises(ArgumentValueError):
+            positive.check_value(0)
+
     def test_sub_repeat_list(self) -> None:
         ca = Argument(
             "base", list, [Argument("sub1", int), Argument("sub2", str)], repeat=True
@@ -164,6 +191,25 @@ class TestChecker(unittest.TestCase):
         }
         with self.assertRaises(ArgumentTypeError):
             ca.check(err_dict3)
+
+    def test_variant_choice_type(self) -> None:
+        ca = Argument(
+            "base",
+            dict,
+            sub_variants=[Variant("kind", [Argument("alpha", dict, alias=["a"])])],
+        )
+        for tag in ([], {}, 1, None):
+            with self.subTest(tag=tag):
+                with self.assertRaises(ArgumentTypeError) as cm:
+                    ca.normalize_value({"kind": tag})
+                self.assertEqual(cm.exception.path, "")
+                self.assertIn("requires <str>", str(cm.exception))
+                self.assertIn("expected choices are <alpha|a>", str(cm.exception))
+
+        self.assertEqual(ca.normalize_value({"kind": "a"}), {"kind": "alpha"})
+        with self.assertRaises(ArgumentValueError) as cm:
+            ca.normalize_value({"kind": "alpah"})
+        self.assertIn("Did you mean: alpha?", str(cm.exception))
 
     def test_sub_variants(self) -> None:
         ca = Argument(

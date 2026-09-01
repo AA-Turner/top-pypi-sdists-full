@@ -623,9 +623,19 @@ class Policy:
     #: field instead; a pair listed here is dropped from the effective
     #: nickname set (maiden wins, see __post_init__), so
     #: maiden_delimiters=frozenset({("(", ")")}) is the whole recipe (#274).
-    #: A maiden_markers word opening the enclosed content is dropped
-    #: from the value, but only where that content holds more than one
-    #: token: a lone "(Nee)" is a maiden NAME, not a marker (#329).
+    #: Set this for a clause that says nothing about itself, which is
+    #: two kinds and not one: content with no marker word in it, and a
+    #: LONE marker word. Since #335 a clause that opens with a marker
+    #: word AND has a word after it reads as the maiden name whatever
+    #: pair encloses it, so "Jane Smith (née Jones)" needs no
+    #: configuration -- unless the content is suffix-shaped, which is
+    #: taken first, the brackets dropped and the content read as if
+    #: written bare. A maiden_markers entry opening the enclosed
+    #: content is dropped from the value -- all of it, an entry being
+    #: allowed to span more than one word ("z domu") -- but only where
+    #: a word stands past it: a clause of nothing but its marker keeps
+    #: its words, since a lone "(Nee)" is a maiden NAME and not a
+    #: marker (#329).
     maiden_delimiters: frozenset[tuple[str, str]] = frozenset()
     #: Additional separators that split suffix groups (e.g. " - " for
     #: "Jane Smith, RN - CRNA"). Additive only: the comma always
@@ -654,6 +664,8 @@ class Policy:
     __getstate__ = _guarded_getstate
     __setstate__ = _guarded_setstate
 
+    # rules.md#D2: "configuration validation raises at construction
+    # with the offending field and value named"
     def __post_init__(self) -> None:
         object.__setattr__(
             self, "name_order", _validated_order(self.name_order,

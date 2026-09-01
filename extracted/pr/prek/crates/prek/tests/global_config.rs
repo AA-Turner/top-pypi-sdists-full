@@ -4,7 +4,7 @@ mod common;
 
 #[test]
 fn global_config_missing_file_is_optional() {
-    let context = TestEnv::new().with_config("repos: []");
+    let context = TestEnv::new().with_config("repos: []").init_git();
 
     cmd_snapshot!(context, context.update(), @"
     success: true
@@ -16,14 +16,15 @@ fn global_config_missing_file_is_optional() {
 }
 
 #[test]
-fn global_config_ignores_unknown_options() {
-    let context = TestEnv::new().with_config("repos: []");
+fn global_config_warns_about_unknown_options() {
+    let context = TestEnv::new().with_config("repos: []").init_git();
     context.write_user_config(indoc::indoc! {r#"
-        future_option = true
+        future_date = 1979-05-27T07:32:00Z
+        future_option = { nested = [true, { value = 1 }] }
 
         [update]
         cooldown_days = 3
-        future_option = "ignored"
+        future_option = ["ignored", { nested = true }]
     "#});
 
     cmd_snapshot!(context, context.update(), @"
@@ -32,12 +33,13 @@ fn global_config_ignores_unknown_options() {
     ----- stdout -----
 
     ----- stderr -----
+    warning: Ignored unexpected keys in `[HOME]/config/prek/prek.toml`: `future_date`, `future_option`, `update.future_option`
     ");
 }
 
 #[test]
 fn update_command_accepts_upstream_alias() {
-    let context = TestEnv::new().with_config("repos: []");
+    let context = TestEnv::new().with_config("repos: []").init_git();
 
     cmd_snapshot!(context, context.command().arg("autoupdate"), @"
     success: true
@@ -50,7 +52,7 @@ fn update_command_accepts_upstream_alias() {
 
 #[test]
 fn global_config_invalid_file_reports_parse_error() {
-    let context = TestEnv::new().with_config("repos: []");
+    let context = TestEnv::new().with_config("repos: []").init_git();
     context.write_user_config(indoc::indoc! {r#"
         [update]
         cooldown_days = "soon"

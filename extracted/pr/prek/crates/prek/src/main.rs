@@ -19,10 +19,11 @@ use tracing_subscriber::{EnvFilter, Layer};
 
 use crate::cleanup::cleanup;
 use crate::cli::{
-    CacheCommand, CacheNamespace, Cli, Command, ExitStatus, UtilCommand, UtilNamespace, flag,
+    CacheCommand, CacheNamespace, Cli, Command, ExitStatus, UtilCommand, UtilNamespace,
 };
 #[cfg(feature = "self-update")]
 use crate::cli::{SelfCommand, SelfNamespace, SelfUpdateArgs};
+use crate::fs::CWD;
 use crate::printer::Printer;
 use crate::settings::FilesystemOptions;
 use crate::store::Store;
@@ -216,9 +217,18 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         .command
         .unwrap_or_else(|| Command::Run(Box::new(cli.run_args)));
     match command {
+        Command::Init(args) => {
+            if cli.globals.config.is_some() {
+                anyhow::bail!(
+                    "`--config` cannot be used with `prek init`; pass the target directory instead"
+                );
+            }
+            cli::init(&store, args.path, args.format, args.no_install, printer).await
+        }
         Command::Install(args) => {
             cli::install(
                 &store,
+                &CWD,
                 cli.globals.config,
                 args.includes,
                 args.skips,
@@ -254,25 +264,11 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
             .await
         }
         Command::Run(args) => {
-            let args = *args;
-            let options = args.options;
-            let file_selection = options.file_selection.into();
-
             cli::run(
                 &store,
                 cli.globals.config,
-                options.includes,
-                options.skips,
-                args.groups,
-                args.required_groups,
-                args.no_groups,
-                args.stage,
-                file_selection,
-                options.show_diff_on_failure,
-                flag(options.fail_fast, options.no_fail_fast),
-                options.dry_run,
+                *args,
                 cli.globals.refresh,
-                options.extra,
                 cli.globals.verbose > 0,
                 printer,
             )

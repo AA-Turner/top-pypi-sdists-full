@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import warnings
 from subprocess import check_output
+from unittest.mock import patch, mock_open
 
 import pytest
 
@@ -60,6 +61,53 @@ def test_cpu_count(monkeypatch):
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows specific test")
 def test_windows_max_cpu_count():
     assert cpu_count() <= _MAX_WINDOWS_WORKERS
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows specific test")
+@pytest.mark.parametrize(
+    "implementation_name",
+    [
+        "_count_physical_cores_win32_ctypes",
+        "_count_physical_cores_win32_powershell",
+    ],
+)
+def test_windows_physical_cores(implementation_name):
+    psutil = pytest.importorskip("psutil")
+    implementation = getattr(loky.backend.context, implementation_name)
+
+    expected = psutil.cpu_count(logical=False)
+    assert expected is not None
+    assert implementation() == expected
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows specific test")
+def test_windows_physical_cores_falls_back_to_powershell():
+    from loky.backend.context import _count_physical_cores_win32
+
+    with patch(
+        "loky.backend.context._count_physical_cores_win32_ctypes",
+        side_effect=RuntimeError("ctypes failed"),
+    ):
+        with patch(
+            "loky.backend.context._count_physical_cores_win32_powershell",
+            return_value=8,
+        ) as mock_powershell:
+            count = _count_physical_cores_win32()
+
+    assert count == 8
+    mock_powershell.assert_called_once()
+
+
+def test_windows_physical_cores_powershell_sums_sockets_mine(monkeypatch):
+    from loky.backend.context import _count_physical_cores_win32_powershell
+
+    completed_process = subprocess.CompletedProcess([], 0, stdout="4\n4\n")
+    monkeypatch.setattr(subprocess, "CREATE_NO_WINDOW", 0, raising=False)
+    monkeypatch.setattr(
+        subprocess, "run", lambda *args, **kwargs: completed_process
+    )
+
+    assert _count_physical_cores_win32_powershell() == 8
 
 
 cpu_count_cmd = (
@@ -142,7 +190,27 @@ def test_cpu_count_cgroup_limit():
         os.path.join(loky_module_path, os.pardir)
     )
 
-    # The following will always run using the Python 3.7 docker image.
+    # Check if Docker can actually set cgroup CPU limits in this environment
+    # by verifying that --cpus flag writes to cgroup files
+    cgroup_check = check_output(
+        f'{docker_bin} run --rm --cpus 0.5 python:3.10 python3 -c "'
+        "import os; "
+        "v2 = '/sys/fs/cgroup/cpu.max'; "
+        "v1_quota = '/sys/fs/cgroup/cpu/cpu.cfs_quota_us'; "
+        "v2_content = open(v2).read().strip() if os.path.exists(v2) else ''; "
+        "v1_content = open(v1_quota).read().strip() if os.path.exists(v1_quota) else ''; "
+        "print('ok' if (v2_content and v2_content != 'max') or (v1_content and v1_content != '-1') else 'skip')"
+        '"',
+        shell=True,
+        text=True,
+    ).strip()
+
+    if cgroup_check != "ok":
+        pytest.skip(
+            "Docker doesn't properly set cgroup CPU limits in this environment"
+        )
+
+    # The following will always run using the Python 3.10 docker image.
     # We mount the loky source as /loky inside the container,
     # so it can be imported when running commands under /
 
@@ -238,3 +306,35 @@ def test_only_physical_cores_with_user_limitation():
     if cpu_count_user < cpu_count_mp:
         assert cpu_count() == cpu_count_user
         assert cpu_count(only_physical_cores=True) == cpu_count_user
+
+
+@pytest.mark.parametrize(
+    "read_data,description",
+    [
+        ("", "empty file"),
+        ("max\n", "max value"),
+    ],
+)
+def test_cpu_count_cgroup_invalid_content(read_data, description):
+    # Test that invalid cgroup cpu.max file content is handled gracefully
+    # and doesn't cause a ValueError when trying to unpack values
+    if sys.platform != "linux":
+        pytest.skip()
+
+    from loky.backend.context import _cpu_count_cgroup
+
+    os_cpu_count = mp.cpu_count()
+
+    # Mock the file with the provided read_data
+    with patch("builtins.open", mock_open(read_data=read_data)):
+        with patch("os.path.exists") as mock_exists:
+            # cpu.max exists, but other files don't
+            mock_exists.side_effect = (
+                lambda path: path == "/sys/fs/cgroup/cpu.max"
+            )
+
+            # This should not raise ValueError and return os_cpu_count
+            result = _cpu_count_cgroup(os_cpu_count)
+            assert (
+                result == os_cpu_count
+            ), f"cpu.max with {description} should return os_cpu_count"

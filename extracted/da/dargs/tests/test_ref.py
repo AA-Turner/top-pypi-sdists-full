@@ -95,6 +95,28 @@ class TestRef(unittest.TestCase):
         self.assertEqual(result["base"]["sub1"], 1)
         self.assertEqual(result["base"]["sub2"], "local")
 
+    def test_ref_repeated_reference_in_local_override(self) -> None:
+        """A local nested ref may independently reuse its parent's target."""
+        shared_path = self._write_json("ref_repeated.json", {"value": 1})
+        ca = Argument(
+            "base",
+            dict,
+            [
+                Argument("value", int),
+                Argument("nested", dict, [Argument("value", int)]),
+            ],
+        )
+
+        ca.check(
+            {
+                "base": {
+                    "$ref": shared_path,
+                    "nested": {"$ref": shared_path},
+                }
+            },
+            allow_ref=True,
+        )
+
     def test_ref_yaml(self) -> None:
         """$ref to a YAML file is resolved when pyyaml is installed."""
         if importlib.util.find_spec("yaml") is None:
@@ -144,6 +166,48 @@ class TestRef(unittest.TestCase):
                 Argument("sub1", int),
                 Argument("sub2", str),
             ],
+        )
+        ca.check_value({"$ref": ref_path}, allow_ref=True)
+
+    def test_ref_check_value_nested_relative_ref_uses_containing_file(self) -> None:
+        """Nested refs from a root ref resolve beside the declaring file."""
+        source_dir = os.path.join(self._tmpdir, "source")
+        cwd_dir = os.path.join(self._tmpdir, "cwd")
+        os.mkdir(source_dir)
+        os.mkdir(cwd_dir)
+
+        inner_path = os.path.join(source_dir, "inner.json")
+        outer_path = os.path.join(source_dir, "outer.json")
+        with open(inner_path, "w") as f:
+            json.dump({"value": 11}, f)
+        with open(outer_path, "w") as f:
+            json.dump({"nested": {"$ref": "inner.json"}}, f)
+
+        # A different file in the working directory makes accidental CWD-based
+        # resolution fail type validation instead of hiding the regression.
+        with open(os.path.join(cwd_dir, "inner.json"), "w") as f:
+            json.dump({"value": "wrong"}, f)
+
+        ca = Argument(
+            "base",
+            dict,
+            [Argument("nested", dict, [Argument("value", int)])],
+        )
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(cwd_dir)
+            ca.check_value({"$ref": outer_path}, allow_ref=True)
+        finally:
+            os.chdir(original_cwd)
+
+    def test_ref_check_value_root_extra_check(self) -> None:
+        """Root extra checks run against the contents loaded from ``$ref``."""
+        ref_path = self._write_json("ref_root_extra.json", {"sub1": 5})
+        ca = Argument(
+            "base",
+            dict,
+            [Argument("sub1", int)],
+            extra_check=lambda value: value["sub1"] == 5,
         )
         ca.check_value({"$ref": ref_path}, allow_ref=True)
 
@@ -210,10 +274,44 @@ class TestRef(unittest.TestCase):
         with self.assertRaises(ValueError, msg="Cyclic $ref"):
             ca.check({"base": {"$ref": ref_path}}, allow_ref=True)
 
+    def test_ref_nested_cycle_detection(self) -> None:
+        """Cycles crossing nested mappings are detected by the traversal context."""
+        first_path = self._write_json(
+            "ref_nested_cycle_first.json",
+            {"nested": {"$ref": "ref_nested_cycle_second.json"}},
+        )
+        self._write_json(
+            "ref_nested_cycle_second.json",
+            {"nested": {"$ref": "ref_nested_cycle_first.json"}},
+        )
+        ca = Argument(
+            "base",
+            dict,
+            [
+                Argument(
+                    "nested",
+                    dict,
+                    [
+                        Argument(
+                            "nested",
+                            dict,
+                            [Argument("nested", dict)],
+                        )
+                    ],
+                )
+            ],
+        )
+
+        with self.assertRaisesRegex(ValueError, "Cyclic \\$ref detected"):
+            ca.check({"base": {"$ref": first_path}}, allow_ref=True)
+
     def test_ref_chained(self) -> None:
-        """A $ref that loads a file containing another $ref is fully resolved."""
-        inner_path = self._write_json("ref_inner.json", {"sub1": 7, "sub2": "inner"})
-        outer_path = self._write_json("ref_outer.json", {"$ref": inner_path})
+        """A nested relative $ref resolves beside the file that declares it."""
+        self._write_json("ref_inner.json", {"sub1": 7, "sub2": "inner"})
+        outer_path = self._write_json(
+            "ref_outer.json",
+            {"$ref": "ref_inner.json"},
+        )
         ca = Argument(
             "base",
             dict,
@@ -225,6 +323,23 @@ class TestRef(unittest.TestCase):
         result = ca.normalize({"base": {"$ref": outer_path}}, allow_ref=True)
         self.assertEqual(result["base"]["sub1"], 7)
         self.assertEqual(result["base"]["sub2"], "inner")
+
+    def test_ref_nested_mapping(self) -> None:
+        """A relative $ref in a nested mapping uses its containing file."""
+        self._write_json("ref_nested_inner.json", {"value": 11})
+        outer_path = self._write_json(
+            "ref_nested_outer.json",
+            {"nested": {"$ref": "ref_nested_inner.json"}},
+        )
+        ca = Argument(
+            "base",
+            dict,
+            [Argument("nested", dict, [Argument("value", int)])],
+        )
+
+        result = ca.normalize({"base": {"$ref": outer_path}}, allow_ref=True)
+
+        self.assertEqual(result["base"]["nested"]["value"], 11)
 
 
 if __name__ == "__main__":

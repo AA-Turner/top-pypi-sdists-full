@@ -36,16 +36,31 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nanobind)
 
+# Pin Eigen to 3.4.0. Recent libigl bumped its Eigen dependency to 5.0.1, whose
+# stricter ScalarBinaryOpTraits rejects the int64-vs-int comparisons in some
+# libigl headers (e.g. unique_edge_map), which the 64-bit-index Python bindings
+# instantiate. Declaring Eigen first makes FetchContent use this version instead
+# of the one requested by libigl's own recipe.
+FetchContent_Declare(
+  eigen
+  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+  GIT_TAG        tags/3.4.0
+  GIT_SHALLOW    TRUE
+)
+
 # Download and set up libigl
 option(LIBIGL_COPYLEFT_CORE        "Build target igl_copyleft::core"       ON)
 option(LIBIGL_COPYLEFT_CGAL        "Build target igl_copyleft::cgal"       ON)
 option(LIBIGL_EMBREE               "Build target igl::embree"              ON)
 option(LIBIGL_COPYLEFT_TETGEN      "Build target igl_copyleft::tetgen"     ON)
 option(LIBIGL_RESTRICTED_TRIANGLE  "Build target igl_restricted::triangle" ON)
+option(LIBIGL_SPECTRA              "Build igl::spectra bindings"           ON)
+option(LIBIGL_PREDICATES           "Build igl::predicates bindings"        ON)
+option(LIBIGL_CYCODEBASE           "Build igl::cycodebase bindings"        ON)
 FetchContent_Declare(
   libigl
   GIT_REPOSITORY https://github.com/libigl/libigl.git
-  GIT_TAG 678e1fff76815e0c4c5d1f025ee2129181cc7d86
+  GIT_TAG f68f01c23ac82351e2543ce8c529b6d4c89fdf16
 )
 FetchContent_MakeAvailable(libigl)
 
@@ -182,6 +197,14 @@ endif()
 if(LIBIGL_RESTRICTED_TRIANGLE)
   pyigl_include("restricted" "triangle")
 endif()
-
+if(LIBIGL_SPECTRA)
+  pyigl_include("" "spectra")
+endif()
+if(LIBIGL_PREDICATES)
+  pyigl_include("" "predicates")
+endif()
+if(LIBIGL_CYCODEBASE)
+  pyigl_include("" "cycodebase")
+endif()
 
 

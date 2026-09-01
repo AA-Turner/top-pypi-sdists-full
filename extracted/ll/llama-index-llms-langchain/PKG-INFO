@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-llms-langchain
-Version: 0.8.0
+Version: 0.9.0
 Summary: llama-index llms langchain integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

@@ -2198,18 +2198,14 @@ def openai_complete(
     return UnderscoreFunction(
         "openai_complete",
         prompt,
-        model if model is not None else pa.scalar(None, type=pa.large_string()),
-        api_server if api_server is not None else pa.scalar(None, type=pa.large_string()),
-        api_key if api_key is not None else pa.scalar(None, type=pa.large_string()),
-        max_tokens if max_tokens is not None else pa.scalar(None, type=pa.int64()),
-        temperature if temperature is not None else pa.scalar(None, type=pa.float64()),
-        service_tier if service_tier is not None else pa.scalar(None, type=pa.large_string()),
-        coerced_response_format if coerced_response_format is not None else pa.scalar(None, type=pa.large_string()),
-        (
-            coerced_chat_template_kwargs
-            if coerced_chat_template_kwargs is not None
-            else pa.scalar(None, type=pa.large_string())
-        ),
+        model=model,
+        api_server=api_server,
+        api_key=api_key,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        service_tier=service_tier,
+        response_format=coerced_response_format,
+        chat_template_kwargs=coerced_chat_template_kwargs,
     )
 
 
@@ -2278,10 +2274,10 @@ def openai_embed(
     return UnderscoreFunction(
         "openai_embed",
         input,
-        model if model is not None else pa.scalar(None, type=pa.large_string()),
-        api_server if api_server is not None else pa.scalar(None, type=pa.large_string()),
-        api_key if api_key is not None else pa.scalar(None, type=pa.large_string()),
-        dimensions if dimensions is not None else pa.scalar(None, type=pa.int64()),
+        model=model,
+        api_server=api_server,
+        api_key=api_key,
+        dimensions=dimensions,
     )
 
 

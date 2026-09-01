@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-llms-openai-like
-Version: 0.7.2
+Version: 0.8.0
 Summary: llama-index llms openai like integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
@@ -9,7 +9,7 @@ Requires-Python: <4.0,>=3.10
 Requires-Dist: llama-index-core<0.15,>=0.14.3
 Requires-Dist: llama-index-llms-openai<0.8,>=0.7.0
 Provides-Extra: transformers
-Requires-Dist: transformers<5,>=4.37.0; extra == 'transformers'
+Requires-Dist: transformers<6,>=4.37.0; extra == 'transformers'
 Description-Content-Type: text/markdown
 
 # LlamaIndex Llms Integration: Openai Like

@@ -30,6 +30,7 @@ from bumble.device import (
     Advertisement,
     AdvertisingEventProperties,
     AdvertisingParameters,
+    BigSyncParameters,
     CigParameters,
     CisLink,
     Connection,
@@ -52,8 +53,8 @@ from bumble.hci import (
     Role,
 )
 from bumble.host import DataPacketQueue, Host
-
-from .test_utils import TwoDevices, async_barrier
+from bumble.pairing import PairingConfig, PairingDelegate
+from bumble.testing.test_utils import TwoDevices, async_barrier
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -879,6 +880,349 @@ async def test_get_remote_classic_features():
         await asyncio.wait_for(connection.get_remote_classic_features(), _TIMEOUT)
         == devices.controllers[1].lmp_features
     )
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_create_big_sync_failure_propagates_hci_error():
+    # Regression: on a BIG sync establishment failure the event handler removes
+    # the big_syncs entry, and create_big_sync's except clause then removed it
+    # again with `del`, raising KeyError and masking the real HCI status.
+    device = Device(host=Host(None, None))
+    status = HCI_CONNECTION_FAILED_TO_BE_ESTABLISHED_ERROR
+
+    async def fake_send_async_command(command, check_status=True):
+        # The controller accepted the command; a failure event then arrives and
+        # its handler removes the entry before create_big_sync's except runs.
+        big_handle = next(iter(device.big_syncs))
+        asyncio.get_running_loop().call_soon(
+            device.on_big_sync_establishment,
+            status,
+            big_handle,
+            0,  # transport_latency_big
+            0,  # nse
+            0,  # bn
+            0,  # pto
+            0,  # irc
+            0,  # max_pdu
+            0,  # iso_interval
+            [],  # bis_handles
+        )
+        return HCI_SUCCESS
+
+    device.send_async_command = fake_send_async_command  # type: ignore[assignment]
+    pa_sync = mock.Mock(sync_handle=0)
+    parameters = BigSyncParameters(big_sync_timeout=1000, bis=[1])
+
+    with pytest.raises(HCI_Error) as exc_info:
+        await device.create_big_sync(pa_sync, parameters)
+
+    assert exc_info.value.error_code == status
+    assert device.big_syncs == {}
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_just_works():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    for dev in two_devices.devices:
+        await dev.power_on()
+
+    connection0, connection1 = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    await two_devices.devices[0].authenticate(connection0)
+    await async_barrier()
+    assert connection0.authenticated
+    assert connection1.authenticated
+    link_key0 = await two_devices.devices[0].get_link_key(
+        two_devices.devices[1].public_address
+    )
+    link_key1 = await two_devices.devices[1].get_link_key(
+        two_devices.devices[0].public_address
+    )
+    assert link_key0 is not None
+    assert link_key0 == link_key1
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_numeric_comparison():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    numbers_compared: list[int] = []
+
+    class ComparingDelegate(PairingDelegate):
+        async def compare_numbers(self, number: int, digits: int = 6) -> bool:
+            numbers_compared.append(number)
+            return True
+
+    for dev in two_devices.devices:
+        dev.pairing_config_factory = lambda conn: PairingConfig(
+            bonding=True,
+            mitm=True,
+            delegate=ComparingDelegate(
+                io_capability=PairingDelegate.IoCapability.DISPLAY_OUTPUT_AND_YES_NO_INPUT
+            ),
+        )
+        await dev.power_on()
+
+    connection0, connection1 = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    await two_devices.devices[0].authenticate(connection0)
+    await async_barrier()
+    assert connection0.authenticated
+    assert connection1.authenticated
+    assert len(numbers_compared) == 2
+    assert numbers_compared[0] == numbers_compared[1]
+    link_key0 = await two_devices.devices[0].get_link_key(
+        two_devices.devices[1].public_address
+    )
+    link_key1 = await two_devices.devices[1].get_link_key(
+        two_devices.devices[0].public_address
+    )
+    assert link_key0 is not None
+    assert link_key0 == link_key1
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_user_confirmation_rejected():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    class RejectingDelegate(PairingDelegate):
+        async def compare_numbers(self, number: int, digits: int = 6) -> bool:
+            return False
+
+    two_devices.devices[0].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=PairingDelegate(
+            io_capability=PairingDelegate.IoCapability.DISPLAY_OUTPUT_AND_YES_NO_INPUT
+        ),
+    )
+    two_devices.devices[1].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=RejectingDelegate(
+            io_capability=PairingDelegate.IoCapability.DISPLAY_OUTPUT_AND_YES_NO_INPUT
+        ),
+    )
+
+    for dev in two_devices.devices:
+        await dev.power_on()
+
+    connection0, _ = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    with pytest.raises(HCI_Error):
+        await two_devices.devices[0].authenticate(connection0)
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_passkey_entry():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    displayed_passkey: int | None = None
+
+    class DisplayPasskeyDelegate(PairingDelegate):
+        async def display_number(self, number: int, digits: int = 6) -> None:
+            nonlocal displayed_passkey
+            displayed_passkey = number
+
+    class InputPasskeyDelegate(PairingDelegate):
+        async def get_number(self) -> int:
+            while displayed_passkey is None:
+                await asyncio.sleep(0.01)
+            return displayed_passkey
+
+    two_devices.devices[0].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=InputPasskeyDelegate(
+            io_capability=PairingDelegate.IoCapability.KEYBOARD_INPUT_ONLY
+        ),
+    )
+    two_devices.devices[1].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=DisplayPasskeyDelegate(
+            io_capability=PairingDelegate.IoCapability.DISPLAY_OUTPUT_ONLY
+        ),
+    )
+
+    for dev in two_devices.devices:
+        await dev.power_on()
+
+    connection0, connection1 = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    await two_devices.devices[0].authenticate(connection0)
+    await async_barrier()
+    assert connection0.authenticated
+    assert connection1.authenticated
+    assert displayed_passkey is not None
+    link_key0 = await two_devices.devices[0].get_link_key(
+        two_devices.devices[1].public_address
+    )
+    link_key1 = await two_devices.devices[1].get_link_key(
+        two_devices.devices[0].public_address
+    )
+    assert link_key0 is not None
+    assert link_key0 == link_key1
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_passkey_entry_mismatch():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    class MismatchedPasskeyDelegate(PairingDelegate):
+        async def get_number(self) -> int:
+            return 999999
+
+    two_devices.devices[0].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=MismatchedPasskeyDelegate(
+            io_capability=PairingDelegate.IoCapability.KEYBOARD_INPUT_ONLY
+        ),
+    )
+    two_devices.devices[1].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=PairingDelegate(
+            io_capability=PairingDelegate.IoCapability.DISPLAY_OUTPUT_ONLY
+        ),
+    )
+
+    for dev in two_devices.devices:
+        await dev.power_on()
+
+    connection0, _ = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    with pytest.raises(HCI_Error):
+        await two_devices.devices[0].authenticate(connection0)
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_passkey_entry_rejected():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    class RejectingPasskeyDelegate(PairingDelegate):
+        async def get_number(self) -> int | None:
+            return None
+
+    two_devices.devices[0].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=RejectingPasskeyDelegate(
+            io_capability=PairingDelegate.IoCapability.KEYBOARD_INPUT_ONLY
+        ),
+    )
+    two_devices.devices[1].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=PairingDelegate(
+            io_capability=PairingDelegate.IoCapability.DISPLAY_OUTPUT_ONLY
+        ),
+    )
+
+    for dev in two_devices.devices:
+        await dev.power_on()
+
+    connection0, _ = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    with pytest.raises(HCI_Error):
+        await two_devices.devices[0].authenticate(connection0)
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_classic_ssp_no_input_no_output_keyboard_fallback():
+    two_devices = TwoDevices()
+    two_devices.devices[0].classic_enabled = True
+    two_devices.devices[1].classic_enabled = True
+
+    two_devices.devices[0].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=PairingDelegate(
+            io_capability=PairingDelegate.IoCapability.KEYBOARD_INPUT_ONLY
+        ),
+    )
+    two_devices.devices[1].pairing_config_factory = lambda conn: PairingConfig(
+        bonding=True,
+        mitm=True,
+        delegate=PairingDelegate(
+            io_capability=PairingDelegate.IoCapability.NO_OUTPUT_NO_INPUT
+        ),
+    )
+
+    for dev in two_devices.devices:
+        await dev.power_on()
+
+    connection0, connection1 = await asyncio.gather(
+        two_devices.devices[0].connect(
+            two_devices.devices[1].public_address, transport=PhysicalTransport.BR_EDR
+        ),
+        two_devices.devices[1].accept(two_devices.devices[0].public_address),
+    )
+
+    await two_devices.devices[0].authenticate(connection0)
+    await async_barrier()
+    assert connection0.authenticated
+    assert connection1.authenticated
+    link_key0 = await two_devices.devices[0].get_link_key(
+        two_devices.devices[1].public_address
+    )
+    link_key1 = await two_devices.devices[1].get_link_key(
+        two_devices.devices[0].public_address
+    )
+    assert link_key0 is not None
+    assert link_key0 == link_key1
 
 
 # -----------------------------------------------------------------------------

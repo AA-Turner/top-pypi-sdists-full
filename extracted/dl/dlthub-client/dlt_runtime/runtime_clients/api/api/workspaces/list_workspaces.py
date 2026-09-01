@@ -11,7 +11,7 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
-from ...models.workspace_response import WorkspaceResponse
+from ...models.organization_workspace_response import OrganizationWorkspaceResponse
 from ...types import UNSET, Response, Unset
 
 
@@ -20,12 +20,15 @@ def _get_kwargs(
     *,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    include_archived: bool | Unset = False,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
     params["limit"] = limit
 
     params["offset"] = offset
+
+    params["include_archived"] = include_archived
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -47,14 +50,16 @@ def _parse_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | list[WorkspaceResponse]
+    | list[OrganizationWorkspaceResponse]
     | None
 ):
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
         for response_200_item_data in _response_200:
-            response_200_item = WorkspaceResponse.from_dict(response_200_item_data)
+            response_200_item = OrganizationWorkspaceResponse.from_dict(
+                response_200_item_data
+            )
 
             response_200.append(response_200_item)
 
@@ -93,7 +98,7 @@ def _build_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | list[WorkspaceResponse]
+    | list[OrganizationWorkspaceResponse]
 ]:
     return Response(
         status_code=HTTPStatus(response.status_code),
@@ -109,12 +114,13 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    include_archived: bool | Unset = False,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | list[WorkspaceResponse]
+    | list[OrganizationWorkspaceResponse]
 ]:
     """ListWorkspaces
 
@@ -123,27 +129,35 @@ def sync_detailed(
     see every workspace; other members see workspaces they belong to or have access to via the default
     org-wide workspace role.
 
+    Each workspace includes member stats: its owners and the count of active members.
+
     Playground workspaces of other members are not included; the caller only sees their own.
+
+    Archived workspaces are excluded by default; pass include_archived=true to list them.
+    No other route returns them.
 
     Requires READ permission on the organization level.
 
     Args:
         organization_id (UUID):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        include_archived (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[WorkspaceResponse]]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[OrganizationWorkspaceResponse]]
     """
 
     kwargs = _get_kwargs(
         organization_id=organization_id,
         limit=limit,
         offset=offset,
+        include_archived=include_archived,
     )
 
     response = client.get_httpx_client().request(
@@ -159,12 +173,13 @@ def sync(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    include_archived: bool | Unset = False,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | list[WorkspaceResponse]
+    | list[OrganizationWorkspaceResponse]
     | None
 ):
     """ListWorkspaces
@@ -174,21 +189,28 @@ def sync(
     see every workspace; other members see workspaces they belong to or have access to via the default
     org-wide workspace role.
 
+    Each workspace includes member stats: its owners and the count of active members.
+
     Playground workspaces of other members are not included; the caller only sees their own.
+
+    Archived workspaces are excluded by default; pass include_archived=true to list them.
+    No other route returns them.
 
     Requires READ permission on the organization level.
 
     Args:
         organization_id (UUID):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        include_archived (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[WorkspaceResponse]
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[OrganizationWorkspaceResponse]
     """
 
     return sync_detailed(
@@ -196,6 +218,7 @@ def sync(
         client=client,
         limit=limit,
         offset=offset,
+        include_archived=include_archived,
     ).parsed
 
 
@@ -205,12 +228,13 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    include_archived: bool | Unset = False,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | list[WorkspaceResponse]
+    | list[OrganizationWorkspaceResponse]
 ]:
     """ListWorkspaces
 
@@ -219,27 +243,35 @@ async def asyncio_detailed(
     see every workspace; other members see workspaces they belong to or have access to via the default
     org-wide workspace role.
 
+    Each workspace includes member stats: its owners and the count of active members.
+
     Playground workspaces of other members are not included; the caller only sees their own.
+
+    Archived workspaces are excluded by default; pass include_archived=true to list them.
+    No other route returns them.
 
     Requires READ permission on the organization level.
 
     Args:
         organization_id (UUID):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        include_archived (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[WorkspaceResponse]]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[OrganizationWorkspaceResponse]]
     """
 
     kwargs = _get_kwargs(
         organization_id=organization_id,
         limit=limit,
         offset=offset,
+        include_archived=include_archived,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -253,12 +285,13 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    include_archived: bool | Unset = False,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | list[WorkspaceResponse]
+    | list[OrganizationWorkspaceResponse]
     | None
 ):
     """ListWorkspaces
@@ -268,21 +301,28 @@ async def asyncio(
     see every workspace; other members see workspaces they belong to or have access to via the default
     org-wide workspace role.
 
+    Each workspace includes member stats: its owners and the count of active members.
+
     Playground workspaces of other members are not included; the caller only sees their own.
+
+    Archived workspaces are excluded by default; pass include_archived=true to list them.
+    No other route returns them.
 
     Requires READ permission on the organization level.
 
     Args:
         organization_id (UUID):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        include_archived (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[WorkspaceResponse]
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | list[OrganizationWorkspaceResponse]
     """
 
     return (
@@ -291,5 +331,6 @@ async def asyncio(
             client=client,
             limit=limit,
             offset=offset,
+            include_archived=include_archived,
         )
     ).parsed

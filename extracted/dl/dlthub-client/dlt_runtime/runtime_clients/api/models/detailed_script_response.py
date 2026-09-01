@@ -13,6 +13,7 @@ from ..models.script_type import ScriptType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.recent_run_response import RecentRunResponse
     from ..models.run_response import RunResponse
     from ..models.script_version_response import ScriptVersionResponse
     from ..models.t_job_definition import TJobDefinition
@@ -61,6 +62,8 @@ class DetailedScriptResponse:
             pause. Default: False.
         pipeline_name (None | str | Unset): Pipeline name this job operates on (computed from job_definition)
         public_secret (None | Unset | UUID): The secret UUID used to generate the public URL for this script
+        recent_runs (list[RecentRunResponse] | None | Unset): The script's most recent runs, newest first. Included only
+            when recent_runs_limit is set on the list endpoint; null otherwise.
         triggers (list[str] | None | Unset): Trigger strings for this job (computed from job_definition)
     """
 
@@ -92,6 +95,7 @@ class DetailedScriptResponse:
     paused: bool | Unset = False
     pipeline_name: None | str | Unset = UNSET
     public_secret: None | Unset | UUID = UNSET
+    recent_runs: list[RecentRunResponse] | None | Unset = UNSET
     triggers: list[str] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -220,6 +224,18 @@ class DetailedScriptResponse:
         else:
             public_secret = self.public_secret
 
+        recent_runs: list[dict[str, Any]] | None | Unset
+        if isinstance(self.recent_runs, Unset):
+            recent_runs = UNSET
+        elif isinstance(self.recent_runs, list):
+            recent_runs = []
+            for recent_runs_type_0_item_data in self.recent_runs:
+                recent_runs_type_0_item = recent_runs_type_0_item_data.to_dict()
+                recent_runs.append(recent_runs_type_0_item)
+
+        else:
+            recent_runs = self.recent_runs
+
         triggers: list[str] | None | Unset
         if isinstance(self.triggers, Unset):
             triggers = UNSET
@@ -277,6 +293,8 @@ class DetailedScriptResponse:
             field_dict["pipeline_name"] = pipeline_name
         if public_secret is not UNSET:
             field_dict["public_secret"] = public_secret
+        if recent_runs is not UNSET:
+            field_dict["recent_runs"] = recent_runs
         if triggers is not UNSET:
             field_dict["triggers"] = triggers
 
@@ -284,6 +302,7 @@ class DetailedScriptResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.recent_run_response import RecentRunResponse
         from ..models.run_response import RunResponse
         from ..models.script_version_response import ScriptVersionResponse
         from ..models.t_job_definition import TJobDefinition
@@ -499,6 +518,30 @@ class DetailedScriptResponse:
 
         public_secret = _parse_public_secret(d.pop("public_secret", UNSET))
 
+        def _parse_recent_runs(data: object) -> list[RecentRunResponse] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                recent_runs_type_0 = []
+                _recent_runs_type_0 = data
+                for recent_runs_type_0_item_data in _recent_runs_type_0:
+                    recent_runs_type_0_item = RecentRunResponse.from_dict(
+                        recent_runs_type_0_item_data
+                    )
+
+                    recent_runs_type_0.append(recent_runs_type_0_item)
+
+                return recent_runs_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[RecentRunResponse] | None | Unset, data)
+
+        recent_runs = _parse_recent_runs(d.pop("recent_runs", UNSET))
+
         def _parse_triggers(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
@@ -545,6 +588,7 @@ class DetailedScriptResponse:
             paused=paused,
             pipeline_name=pipeline_name,
             public_secret=public_secret,
+            recent_runs=recent_runs,
             triggers=triggers,
         )
 

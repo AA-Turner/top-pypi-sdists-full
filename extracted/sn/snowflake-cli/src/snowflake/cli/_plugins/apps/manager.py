@@ -17,6 +17,7 @@ from __future__ import annotations
 import glob
 import json
 import logging
+import random
 import re
 import socket
 import ssl
@@ -101,6 +102,25 @@ PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
 # adds it yet, calling it fails with ``Unknown function`` and the CLI falls back
 # to the legacy ``SHOW PARAMETERS`` flow (see ``fetch_app_service_defaults``).
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
+
+# Table function that supersedes ``APP_SERVICE_DEFAULTS_FUNCTION`` for resolving
+# Snowflake App Runtime deploy defaults (the "app area" model). It is rolling
+# out soon, so ``fetch_app_service_defaults`` tries it first and falls back to
+# ``APP_SERVICE_DEFAULTS_FUNCTION`` (and its legacy flow) on any failure. It
+# returns zero or one rows with columns ``DATABASE_NAME``, ``SCHEMA_NAME``,
+# ``QUERY_WAREHOUSE``, and ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` (the last two
+# nullable). Remove the fallback once this function is live everywhere.
+DEFAULT_APP_AREA_FUNCTION = "SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA"
+
+# Maps ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` result columns to the CLI's
+# internal deploy-defaults resolution keys. ``APP_AREA_NAME`` is intentionally
+# omitted: it is informational and not part of the resolved defaults.
+_APP_AREA_COLUMN_MAP = {
+    "DATABASE_NAME": "database",
+    "SCHEMA_NAME": "schema",
+    "QUERY_WAREHOUSE": "query_warehouse",
+    "BUILD_EXTERNAL_ACCESS_INTEGRATION": "build_eai",
+}
 
 # ``COMPUTE_RESOURCE`` value selecting the CNG (serverless) app-service backend.
 # CNG apps serve ingress from per-account URLs (Northstar URLs) that require a
@@ -187,10 +207,15 @@ from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.errno import OBJECT_ALREADY_EXISTS_NO_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.project.util import identifier_to_str, to_identifier
+from snowflake.cli.api.project.util import (
+    identifier_to_str,
+    to_identifier,
+    to_string_literal,
+)
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -198,7 +223,7 @@ from snowflake.cli.api.stage_path import StagePath
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector.cursor import DictCursor
-from snowflake.connector.errors import ProgrammingError
+from snowflake.connector.errors import OperationalError, ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -302,6 +327,34 @@ SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 # latency. Capped to avoid overwhelming the connection or the local machine.
 MAX_PARALLEL_UPLOADS = 5
 
+# How many times a single upload ``PUT`` is attempted before giving up. A
+# transfer that fails for a reason outside the CLI's control often succeeds on
+# a second try; three attempts covers a brief blip without turning a genuine
+# outage into a long wait.
+MAX_UPLOAD_ATTEMPTS = 3
+
+# Exponential-backoff bounds between those attempts, in seconds. The ceiling
+# keeps the added wait small next to the upload itself.
+UPLOAD_RETRY_BASE_DELAY_SECONDS = 1.0
+UPLOAD_RETRY_MAX_DELAY_SECONDS = 8.0
+
+# Transfer failures worth retrying. The connector reports every problem moving
+# bytes to cloud storage — an HTTP error, a dropped connection, a TLS failure —
+# as 253003, so that is the whole retryable set today. Raised by the connector
+# rather than the server, which is why it is not in ``api/errno.py``.
+_FILE_TRANSFER_FAILED_ERRNO = 253003
+RETRYABLE_UPLOAD_ERRNOS = frozenset({_FILE_TRANSFER_FAILED_ERRNO})
+
+# Only workspaces use this code, so it lives here rather than in api/errno.py.
+# Move it there if another plugin comes to need it.
+WORKSPACE_LIVE_VERSION_ALREADY_EXISTS = 99106
+
+# Error codes the server uses to say a workspace already has a live version.
+_LIVE_VERSION_EXISTS_ERRNOS = (
+    WORKSPACE_LIVE_VERSION_ALREADY_EXISTS,
+    OBJECT_ALREADY_EXISTS_NO_PRIVILEGES,
+)
+
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
 #
@@ -333,6 +386,21 @@ T = TypeVar("T")
 def _ts() -> str:
     """Return the current local time as ``HH:MM:SS`` for polling message prefixes."""
     return time.strftime("%H:%M:%S")
+
+
+def _upload_retry_delay(attempt: int) -> float:
+    """Seconds to wait before retrying an upload after *attempt* failed.
+
+    Exponential backoff with full jitter. The jitter earns its keep here:
+    :data:`MAX_PARALLEL_UPLOADS` transfers share one connection and can fail
+    together on a single network blip, and without it they would all retry in
+    lockstep.
+    """
+    ceiling = min(
+        UPLOAD_RETRY_MAX_DELAY_SECONDS,
+        UPLOAD_RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1)),
+    )
+    return random.uniform(0, ceiling)
 
 
 def _poll_until(
@@ -430,6 +498,23 @@ def _is_unknown_function_error(exc: ProgrammingError) -> bool:
     return (
         "unknown function" in message.lower()
         and APP_SERVICE_DEFAULTS_FUNCTION in message
+    )
+
+
+def _is_live_version_already_exists(exc: ProgrammingError) -> bool:
+    """Return ``True`` when *exc* says the workspace already has a live version.
+
+    The server answers ``ADD LIVE VERSION FROM LAST`` with either the
+    workspace-specific 99106 or the generic "object already exists" 3041,
+    depending on the deployment, so both count. The text check is a fallback for
+    errors that reach us without an errno, and matches the codes as the
+    connector prints them: zero-padded to six digits, next to SQLSTATE 42710.
+    """
+    if getattr(exc, "errno", None) in _LIVE_VERSION_EXISTS_ERRNOS:
+        return True
+    error_text = str(exc)
+    return "42710" in error_text and any(
+        f"{code:06d}" in error_text for code in _LIVE_VERSION_EXISTS_ERRNOS
     )
 
 
@@ -1115,9 +1200,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:
-        """Create a stage if it doesn't exist."""
+        """Create a stage if it doesn't exist.
+
+        *encryption_type* comes from the project definition, so it is escaped
+        rather than interpolated as-is.
+        """
         self.execute_query(
-            f"CREATE STAGE IF NOT EXISTS {stage_fqn.sql_identifier} ENCRYPTION = (TYPE = '{encryption_type}')"
+            f"CREATE STAGE IF NOT EXISTS {stage_fqn.sql_identifier} "
+            f"ENCRYPTION = (TYPE = {to_string_literal(encryption_type)})"
         )
 
     def get_build_status(self, job_fqn: FQN) -> str:
@@ -1153,6 +1243,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Drop a stage if it exists."""
         self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
 
+    def remove_stage_contents(self, stage_fqn: FQN) -> None:
+        """Remove every file from a stage, leaving the stage itself in place.
+
+        Needs only WRITE on the stage, where ``DROP STAGE`` needs OWNERSHIP.
+        In exchange it is a weaker guarantee: a file that has since been
+        deleted from the project can survive a ``REMOVE``, so this does not
+        promise a genuinely empty stage the way dropping and recreating does.
+
+        ``REMOVE`` takes a stage path, not an identifier, so ``IDENTIFIER()``
+        does not apply here; ``path_for_sql`` quotes the path when the stage
+        name is not a plain one.
+        """
+        stage_root = StagePath.from_stage_str(f"@{stage_fqn.identifier}/")
+        self.execute_query(f"REMOVE {stage_root.path_for_sql()}")
+
     def create_workspace(self, workspace_fqn: FQN) -> None:
         """Create a workspace if needed and ensure it has a live version."""
         self.execute_query(
@@ -1161,7 +1266,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         self.ensure_workspace_live_version(workspace_fqn)
 
     def ensure_workspace_live_version(self, workspace_fqn: FQN) -> None:
-        """Ensure the workspace has a writable live version."""
+        """Ensure the workspace has a writable live version.
+
+        A workspace that already has one is the expected case on every deploy
+        after the first, and the server reports it as an error. It comes back
+        as either 99106 or the generic 3041, so both are treated as success.
+        """
         try:
             # TODO: switch to "ADD LIVE VERSION IF NOT EXISTS FROM LAST"
             # when Snowflake workspaces support that syntax.
@@ -1170,10 +1280,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 f"ADD LIVE VERSION FROM LAST"
             )
         except ProgrammingError as e:
-            error_text = str(e)
-            if getattr(e, "errno", None) == 99106 or (
-                "099106" in error_text and "42710" in error_text
-            ):
+            if _is_live_version_already_exists(e):
                 return
             raise
 
@@ -1210,6 +1317,41 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"REMOVE {self.workspace_subdirectory_uri(workspace_fqn, directory_name)}/"
         )
 
+    def _put_with_retry(self, put_sql: str) -> None:
+        """Run one upload ``PUT``, retrying it if the transfer looks transient.
+
+        A file transfer can fail for reasons outside the CLI's control — an
+        HTTP error from cloud storage, a dropped connection, a TLS problem —
+        and another attempt often succeeds. A ``ProgrammingError`` is a
+        different matter: the server rejected the statement itself, so
+        retrying would only multiply the wait before the same failure.
+
+        The retry budget is deliberately small. A failing upload already keeps
+        the user waiting for minutes, so the extra delay is bounded by
+        :data:`MAX_UPLOAD_ATTEMPTS` and :data:`UPLOAD_RETRY_MAX_DELAY_SECONDS`.
+        """
+        for attempt in range(1, MAX_UPLOAD_ATTEMPTS + 1):
+            try:
+                self.execute_query(put_sql)
+                return
+            except OperationalError as e:
+                errno = getattr(e, "errno", None)
+                if errno not in RETRYABLE_UPLOAD_ERRNOS or attempt >= (
+                    MAX_UPLOAD_ATTEMPTS
+                ):
+                    raise
+                delay = _upload_retry_delay(attempt)
+                log.debug(
+                    "Upload attempt %s of %s failed with errno %s; "
+                    "retrying in %.2fs.",
+                    attempt,
+                    MAX_UPLOAD_ATTEMPTS,
+                    errno,
+                    delay,
+                    exc_info=True,
+                )
+                time.sleep(delay)
+
     def _run_uploads(
         self, uploads: List[Tuple[str, Dict[str, str]]]
     ) -> Iterator[Dict[str, str]]:
@@ -1235,7 +1377,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         Results are yielded in completion order.  The first worker error is
         re-raised after the pool shuts down so a failed upload surfaces to the
-        caller.
+        caller — after :data:`MAX_UPLOAD_ATTEMPTS` attempts, when the failure
+        looks transient.
         """
         if not uploads:
             return
@@ -1246,7 +1389,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 future_to_result = {}
                 for put_sql, result in uploads:
                     ctx = copy_context()
-                    future = executor.submit(ctx.run, self.execute_query, put_sql)
+                    future = executor.submit(ctx.run, self._put_with_retry, put_sql)
                     future_to_result[future] = result
                 for future in as_completed(future_to_result):
                     # Propagate the first failure; remaining futures are
@@ -1555,20 +1698,132 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def fetch_app_service_defaults(self) -> Dict[str, str]:
         """Fetch the effective Snowflake App Runtime deploy defaults.
 
-        Calls ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, which returns a
-        JSON object with keys ``database``, ``schema``, ``query_warehouse``,
-        and ``build_eai`` — the same internal resolution names the CLI uses.
-        The server resolves the ``DEFAULT_SNOWFLAKE_APPS_*`` USER/ACCOUNT
-        parameters and applies authorization-based fallbacks server-side
-        (personal database when the destination database is unset or
-        inaccessible, ``PUBLIC`` schema, the current session warehouse), so
-        the CLI no longer issues ``SHOW PARAMETERS`` or probes privileges with
-        ``EXPLAIN_PRIVILEGES`` itself.
+        Tries the new ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function
+        first (:meth:`_fetch_default_app_area`). When it returns nothing — the
+        function is missing, the call fails, or the caller's role has no default
+        app area — falls back to ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``
+        (:meth:`_fetch_app_service_defaults_via_system_function`), which in turn
+        falls back to the legacy ``SHOW PARAMETERS`` flow on older accounts.
 
-        The system function rolls out to deployments some time after the server
-        change merges. On an account that has not picked it up yet the call
-        fails with ``Unknown function``; in that case the CLI falls back to the
-        legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES`` flow
+        Both sources return the same keys (``database``, ``schema``,
+        ``query_warehouse``, ``build_eai``). Identifier values are ready to
+        embed in SQL verbatim (quoted only when required, e.g. ``"lower_db"``)
+        and unset values are omitted. Returns an empty dict when neither source
+        yields defaults, so resolution falls back to the CLI's built-in
+        defaults.
+        """
+        area = self._fetch_default_app_area()
+        if area:
+            return area
+        return self._fetch_app_service_defaults_via_system_function()
+
+    def _fetch_default_app_area(self) -> Dict[str, str]:
+        """Fetch deploy defaults from ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()``.
+
+        The forward-looking replacement for
+        ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, rolling out soon. It is a
+        table function returning zero or one rows with columns ``DATABASE_NAME``,
+        ``SCHEMA_NAME``, ``QUERY_WAREHOUSE``, and
+        ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` (the last two nullable), mapped to
+        the CLI's internal keys via :data:`_APP_AREA_COLUMN_MAP` (see
+        :meth:`_parse_app_area_row`).
+
+        Returns an empty dict on any failure — the function is missing, the call
+        fails, or the caller's role has no default app area — so
+        :meth:`fetch_app_service_defaults` falls back to the system-function
+        flow. The call runs in a ``<caller>.fetch_default_app_area`` telemetry
+        span (prefix taken from the enclosing span, else ``snowflake_app``), and
+        each failure is recorded on it so fallbacks stay observable during
+        rollout.
+        """
+        metrics = get_cli_context().metrics
+        parent = metrics.current_span
+        prefix = parent.name if parent else "snowflake_app"
+        with metrics.span(f"{prefix}.fetch_default_app_area") as span:
+            try:
+                cursor = self.execute_query(
+                    f"SELECT * FROM TABLE({DEFAULT_APP_AREA_FUNCTION}())",
+                    cursor_class=DictCursor,
+                )
+                row = cursor.fetchone()
+            except Exception as exc:  # noqa: BLE001 - any failure → fall back
+                log.info(
+                    "%s is unavailable on this account; falling back to %s.",
+                    DEFAULT_APP_AREA_FUNCTION,
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                log.debug("%s call failed.", DEFAULT_APP_AREA_FUNCTION, exc_info=True)
+                span.finish(error=exc)
+                return {}
+
+            if not row:
+                # No default app area for the caller's role. Expected on accounts
+                # that have not set one up, so fall back to the system-function
+                # flow (which supplies personal-database fallbacks).
+                log.debug(
+                    "%s returned no default app area; falling back to %s.",
+                    DEFAULT_APP_AREA_FUNCTION,
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                span.finish(
+                    error=CliError(f"{DEFAULT_APP_AREA_FUNCTION} returned no row")
+                )
+                return {}
+
+            result = self._parse_app_area_row(row)
+            if not result:
+                log.debug(
+                    "%s returned no usable defaults; falling back to %s.",
+                    DEFAULT_APP_AREA_FUNCTION,
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                span.finish(
+                    error=CliError(
+                        f"{DEFAULT_APP_AREA_FUNCTION} returned no usable defaults"
+                    )
+                )
+            return result
+
+    @staticmethod
+    def _parse_app_area_row(row: Dict[str, Any]) -> Dict[str, str]:
+        """Map a ``GET_DEFAULT_APP_AREA()`` result row to internal resolution keys.
+
+        ``DictCursor`` may surface column names in any case, so each mapped
+        column is looked up case-insensitively. NULL/empty values are dropped
+        (the nullable ``QUERY_WAREHOUSE`` / ``BUILD_EXTERNAL_ACCESS_INTEGRATION``
+        columns, and any unset location). Each retained value is normalized with
+        :func:`to_identifier` so names that require quoting are quoted and ready
+        to embed in SQL verbatim.
+        """
+        result: Dict[str, str] = {}
+        for column, key in _APP_AREA_COLUMN_MAP.items():
+            value = row.get(column)
+            if value is None:
+                value = row.get(column.lower())
+            if value:
+                result[key] = to_identifier(str(value))
+        return result
+
+    def _fetch_app_service_defaults_via_system_function(self) -> Dict[str, str]:
+        """Fetch deploy defaults via ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
+
+        The existing (pre-``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()``) behavior,
+        kept as the fallback :meth:`fetch_app_service_defaults` uses when the
+        forward-looking app area function is unavailable. Calls
+        ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, which returns a JSON
+        object with keys ``database``, ``schema``, ``query_warehouse``, and
+        ``build_eai`` — the same internal resolution names the CLI uses. The
+        server resolves the ``DEFAULT_SNOWFLAKE_APPS_*`` USER/ACCOUNT parameters
+        and applies authorization-based fallbacks server-side (personal database
+        when the destination database is unset or inaccessible, ``PUBLIC``
+        schema, the current session warehouse), so the CLI no longer issues
+        ``SHOW PARAMETERS`` or probes privileges with ``EXPLAIN_PRIVILEGES``
+        itself.
+
+        The system function itself rolls out to deployments some time after its
+        server change merges. On an account that has not picked it up yet the
+        call fails with ``Unknown function``; in that case the CLI falls back to
+        the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES`` flow
         (:meth:`_fetch_legacy_app_service_defaults`) so resolution keeps working
         during the rollout window. The fallback (and the legacy helpers it
         relies on) can be removed a release or two after the function is live
@@ -1728,11 +1983,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
     @staticmethod
     def _build_artifact_repo_config(
         build_eai: Optional[str] = None,
+        build_job_location: Optional[str] = None,
     ) -> str:
-        """Build the JSON config blob accepted by the artifact-repo system functions."""
+        """Build the JSON config blob accepted by the artifact-repo system functions.
+
+        ``build_job_location`` (``<database>.<schema>``) is forwarded verbatim
+        when set so the builder service runs the ephemeral build job there
+        instead of the caller's personal database. It is omitted when unset,
+        leaving the default (PDB) behaviour in place. The backend gates and
+        enforces this override, so the value is passed through unvalidated.
+        """
         cfg: Dict[str, Any] = {}
         if build_eai:
             cfg["external_access_integrations"] = [build_eai]
+        if build_job_location:
+            cfg["build_job_location"] = build_job_location
         return json.dumps(cfg)
 
     def artifact_repo_exists(self, database: str, schema: str, repo_name: str) -> bool:
@@ -1775,12 +2040,18 @@ class SnowflakeAppManager(SqlExecutionMixin):
         build_eai: Optional[str] = None,
         project_type: str = "",
         source_uri: Optional[str] = None,
+        build_job_location: Optional[str] = None,
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.
 
         The build source is specified by either *stage_fqn* (legacy stage
         flow) or *source_uri* (e.g. a ``snow://workspace/...`` URI for the
         workspace flow).  Exactly one of the two must be provided.
+
+        ``build_job_location`` (``<database>.<schema>``) is passed through the
+        builder config so the build job runs there instead of the caller's
+        personal database; when unset the builder keeps its default (PDB)
+        behaviour.
         """
         from snowflake.cli.api.project.util import to_string_literal
 
@@ -1795,7 +2066,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             raise ValueError("app_id must be a non-empty string")
 
         with self._use_database_and_schema(database, schema):
-            config = self._build_artifact_repo_config(build_eai)
+            config = self._build_artifact_repo_config(build_eai, build_job_location)
             log.info(
                 "Calling SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO with arguments:\n"
                 "  source_uri=%r\n"
@@ -2051,8 +2322,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Create an application service from an artifact repository package.
 
         The ``COMPUTE_RESOURCE`` DDL field (CNG/serverless) is intentionally not
-        emitted here: it is only supported through the ``app.yml`` v2 deploy
-        path (see :meth:`create_or_alter_app_service`).
+        emitted here: it is only reachable from the ``app.yml`` deploy path, and
+        only with the ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag on
+        (see :meth:`create_or_alter_app_service`).
         """
         parts = [
             f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
@@ -2092,6 +2364,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         database: Optional[str] = None,
         schema: Optional[str] = None,
         include_url_prefix: bool = False,
+        include_health_check: bool = False,
     ) -> str:
         """Render an inline application-service ``SPECIFICATION`` from a target.
 
@@ -2111,10 +2384,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         written. When ``database`` / ``schema`` are omitted the value passes
         through unchanged.
 
-        ``url_prefix`` is a CNG-only (serverless) field, so it is emitted only
-        when *include_url_prefix* is set — the caller gates it on the resolved
-        CNG compute resource (an ``app.yml`` v2-only feature) — and dropped
-        otherwise.
+        ``url_prefix`` and ``health_check`` are CNG-only (serverless) fields, so
+        they are emitted only when *include_url_prefix* / *include_health_check*
+        are set — the caller gates them on the CNG compute resource behind the
+        feature flag — and dropped otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
         ``account``) locate and name the service and are not part of the
@@ -2127,6 +2400,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
             spec["query_warehouse"] = target.query_warehouse
         if include_url_prefix and target.url_prefix:
             spec["url_prefix"] = target.url_prefix
+        if include_health_check and target.health_check:
+            spec["health_check"] = target.health_check
         if target.label:
             spec["label"] = target.label
         if target.description:
@@ -2182,9 +2457,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
         the write-once ``COMPUTE_RESOURCE`` DDL clause — it is not owned by the
         ``SPECIFICATION`` and so is emitted alongside it. It is immutable after
-        the first deploy and is only reachable through the ``app.yml`` v2 deploy
-        path (CNG is an ``app.yml`` v2-only feature); when ``None`` the clause is
-        omitted and the server defaults the backend.
+        the first deploy, and callers gate it behind the
+        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
+        clause is omitted and the server defaults the backend.
 
         The specification is dollar-quoted (``$$...$$``) and embeds
         user-supplied app.yml values verbatim (``label`` / ``description`` /

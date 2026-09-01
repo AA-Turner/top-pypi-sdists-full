@@ -22,6 +22,8 @@ from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
+from .literals import UploadStatusType
+
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -41,11 +43,16 @@ __all__ = (
     "CategoryTypeDef",
     "CommunicationTypeDef",
     "CommunicationTypeOptionsTypeDef",
+    "CompleteAttachmentUploadRequestTypeDef",
+    "CompleteAttachmentUploadResponseTypeDef",
+    "CompletedUploadTypeDef",
     "CreateCaseRequestTypeDef",
     "CreateCaseResponseTypeDef",
     "DateIntervalTypeDef",
     "DescribeAttachmentRequestTypeDef",
     "DescribeAttachmentResponseTypeDef",
+    "DescribeAttachmentUploadStatusRequestTypeDef",
+    "DescribeAttachmentUploadStatusResponseTypeDef",
     "DescribeCasesRequestPaginateTypeDef",
     "DescribeCasesRequestTypeDef",
     "DescribeCasesResponseTypeDef",
@@ -68,6 +75,11 @@ __all__ = (
     "DescribeTrustedAdvisorCheckSummariesResponseTypeDef",
     "DescribeTrustedAdvisorChecksRequestTypeDef",
     "DescribeTrustedAdvisorChecksResponseTypeDef",
+    "DownloadUrlTypeDef",
+    "GetAttachmentDownloadLinkRequestTypeDef",
+    "GetAttachmentDownloadLinkResponseTypeDef",
+    "GetAttachmentUploadLinksRequestTypeDef",
+    "GetAttachmentUploadLinksResponseTypeDef",
     "PaginatorConfigTypeDef",
     "RecentCaseCommunicationsTypeDef",
     "RefreshTrustedAdvisorCheckRequestTypeDef",
@@ -87,6 +99,9 @@ __all__ = (
     "TrustedAdvisorCostOptimizingSummaryTypeDef",
     "TrustedAdvisorResourceDetailTypeDef",
     "TrustedAdvisorResourcesSummaryTypeDef",
+    "UploadProgressTypeDef",
+    "UploadRangeTypeDef",
+    "UploadUrlTypeDef",
 )
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -101,6 +116,8 @@ class AddCommunicationToCaseRequestTypeDef(TypedDict):
     caseId: NotRequired[str]
     ccEmailAddresses: NotRequired[Sequence[str]]
     attachmentSetId: NotRequired[str]
+    uploadIds: NotRequired[Sequence[str]]
+    dryRun: NotRequired[bool]
 
 class AttachmentDetailsTypeDef(TypedDict):
     attachmentId: NotRequired[str]
@@ -124,6 +141,10 @@ class SupportedHourTypeDef(TypedDict):
     startTime: NotRequired[str]
     endTime: NotRequired[str]
 
+class CompletedUploadTypeDef(TypedDict):
+    partIndex: int
+    eTag: str
+
 class CreateCaseRequestTypeDef(TypedDict):
     subject: str
     communicationBody: str
@@ -134,9 +155,20 @@ class CreateCaseRequestTypeDef(TypedDict):
     language: NotRequired[str]
     issueType: NotRequired[str]
     attachmentSetId: NotRequired[str]
+    uploadIds: NotRequired[Sequence[str]]
+    dryRun: NotRequired[bool]
 
 class DescribeAttachmentRequestTypeDef(TypedDict):
     attachmentId: str
+    dryRun: NotRequired[bool]
+
+class DescribeAttachmentUploadStatusRequestTypeDef(TypedDict):
+    uploadId: str
+    dryRun: NotRequired[bool]
+
+class UploadProgressTypeDef(TypedDict):
+    totalParts: NotRequired[int]
+    completedPartsCount: NotRequired[int]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -153,6 +185,7 @@ class DescribeCasesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     language: NotRequired[str]
     includeCommunications: NotRequired[bool]
+    dryRun: NotRequired[bool]
 
 class DescribeCommunicationsRequestTypeDef(TypedDict):
     caseId: str
@@ -160,19 +193,23 @@ class DescribeCommunicationsRequestTypeDef(TypedDict):
     afterTime: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    dryRun: NotRequired[bool]
 
 class DescribeCreateCaseOptionsRequestTypeDef(TypedDict):
     issueType: str
     serviceCode: str
     language: str
     categoryCode: str
+    dryRun: NotRequired[bool]
 
 class DescribeServicesRequestTypeDef(TypedDict):
     serviceCodeList: NotRequired[Sequence[str]]
     language: NotRequired[str]
+    dryRun: NotRequired[bool]
 
 class DescribeSeverityLevelsRequestTypeDef(TypedDict):
     language: NotRequired[str]
+    dryRun: NotRequired[bool]
 
 class SeverityLevelTypeDef(TypedDict):
     code: NotRequired[str]
@@ -182,6 +219,7 @@ class DescribeSupportedLanguagesRequestTypeDef(TypedDict):
     issueType: str
     serviceCode: str
     categoryCode: str
+    dryRun: NotRequired[bool]
 
 class SupportedLanguageTypeDef(TypedDict):
     code: NotRequired[str]
@@ -217,11 +255,29 @@ TrustedAdvisorCheckDescriptionTypeDef = TypedDict(
     },
 )
 
+class DownloadUrlTypeDef(TypedDict):
+    url: str
+    expiryDate: str
+
+class GetAttachmentDownloadLinkRequestTypeDef(TypedDict):
+    attachmentId: str
+    dryRun: NotRequired[bool]
+
+class UploadRangeTypeDef(TypedDict):
+    startIndex: int
+    endIndex: NotRequired[int]
+
+class UploadUrlTypeDef(TypedDict):
+    url: str
+    partIndex: int
+    expiryDate: str
+
 class RefreshTrustedAdvisorCheckRequestTypeDef(TypedDict):
     checkId: str
 
 class ResolveCaseRequestTypeDef(TypedDict):
     caseId: NotRequired[str]
+    dryRun: NotRequired[bool]
 
 class TrustedAdvisorCostOptimizingSummaryTypeDef(TypedDict):
     estimatedMonthlySavings: float
@@ -249,6 +305,10 @@ class AddCommunicationToCaseResponseTypeDef(TypedDict):
     result: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CompleteAttachmentUploadResponseTypeDef(TypedDict):
+    uploadStatus: UploadStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateCaseResponseTypeDef(TypedDict):
     caseId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -263,6 +323,7 @@ class CommunicationTypeDef(TypedDict):
     body: NotRequired[str]
     submittedBy: NotRequired[str]
     timeCreated: NotRequired[str]
+    attachments: NotRequired[list[AttachmentDetailsTypeDef]]
     attachmentSet: NotRequired[list[AttachmentDetailsTypeDef]]
 
 class DescribeAttachmentResponseTypeDef(TypedDict):
@@ -287,6 +348,17 @@ CommunicationTypeOptionsTypeDef = TypedDict(
     },
 )
 
+class CompleteAttachmentUploadRequestTypeDef(TypedDict):
+    uploadId: str
+    completedUploads: Sequence[CompletedUploadTypeDef]
+    dryRun: NotRequired[bool]
+
+class DescribeAttachmentUploadStatusResponseTypeDef(TypedDict):
+    uploadStatus: UploadStatusType
+    fileName: str
+    uploadProgress: UploadProgressTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeCasesRequestPaginateTypeDef(TypedDict):
     caseIdList: NotRequired[Sequence[str]]
     displayId: NotRequired[str]
@@ -295,12 +367,14 @@ class DescribeCasesRequestPaginateTypeDef(TypedDict):
     includeResolvedCases: NotRequired[bool]
     language: NotRequired[str]
     includeCommunications: NotRequired[bool]
+    dryRun: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeCommunicationsRequestPaginateTypeDef(TypedDict):
     caseId: str
     beforeTime: NotRequired[str]
     afterTime: NotRequired[str]
+    dryRun: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeSeverityLevelsResponseTypeDef(TypedDict):
@@ -321,6 +395,26 @@ class RefreshTrustedAdvisorCheckResponseTypeDef(TypedDict):
 
 class DescribeTrustedAdvisorChecksResponseTypeDef(TypedDict):
     checks: list[TrustedAdvisorCheckDescriptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAttachmentDownloadLinkResponseTypeDef(TypedDict):
+    fileName: str
+    downloadUrl: DownloadUrlTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAttachmentUploadLinksRequestTypeDef(TypedDict):
+    fileName: str
+    fileSizeBytes: NotRequired[int]
+    uploadId: NotRequired[str]
+    uploadRange: NotRequired[UploadRangeTypeDef]
+    dryRun: NotRequired[bool]
+
+class GetAttachmentUploadLinksResponseTypeDef(TypedDict):
+    uploadId: str
+    partSizeBytes: int
+    totalParts: int
+    nextIndex: int
+    uploadUrls: list[UploadUrlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TrustedAdvisorCategorySpecificSummaryTypeDef(TypedDict):
@@ -379,6 +473,7 @@ class CaseDetailsTypeDef(TypedDict):
 class AddAttachmentsToSetRequestTypeDef(TypedDict):
     attachments: Sequence[AttachmentUnionTypeDef]
     attachmentSetId: NotRequired[str]
+    dryRun: NotRequired[bool]
 
 class DescribeTrustedAdvisorCheckResultResponseTypeDef(TypedDict):
     result: TrustedAdvisorCheckResultTypeDef

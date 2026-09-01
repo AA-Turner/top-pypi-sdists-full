@@ -52,6 +52,11 @@ from dbt_autofix.refactors.changesets.dbt_sql import (
 from dbt_autofix.refactors.changesets.dbt_sql_improved import (
     move_custom_config_access_to_meta_sql_improved,
 )
+from dbt_autofix.refactors.changesets.resource_references import (
+    build_resource_rename_map,
+    update_resource_references_sql,
+)
+from dbt_autofix.refactors.constants import PROJECT_ROOT_ONLY_YAML_FILENAMES
 from dbt_autofix.refactors.results import (
     DbtProjectYMLRefactorConfig,
     PythonRefactorConfig,
@@ -92,6 +97,9 @@ def process_yaml_files_except_dbt_project(
     dbtignore: Optional[pathspec.PathSpec] = None,
 ) -> List[YMLRefactorResult]:
     """Process all YAML files in the project.
+
+    Project config files (dbt_project.yml and its siblings) are excluded, so only resource
+    properties documents are refactored. See is_project_config_file.
 
     Args:
         path: Project root path
@@ -166,6 +174,9 @@ def process_yaml_files_except_dbt_project(
 
             for yml_file in yaml_files:
                 if skip_file(yml_file, select, dbtignore, root_path):
+                    continue
+
+                if is_project_config_file(yml_file):
                     continue
 
                 if str(yml_file) in file_name_to_yaml_results:
@@ -315,6 +326,20 @@ def skip_file(
     return False
 
 
+def is_project_config_file(yml_file: Path) -> bool:
+    """Whether a YAML file is a dbt project's own config rather than a properties document.
+
+    A reserved filename only counts as project config when it sits next to a dbt_project.yml.
+    Elsewhere (models/packages.yml) it is a properties file that dbt honors, so it must still
+    be processed.
+    """
+    if yml_file.name not in PROJECT_ROOT_ONLY_YAML_FILENAMES:
+        return False
+    # is_file() rather than exists() so a directory named dbt_project.yml does not
+    # suppress a real properties file.
+    return (yml_file.parent / "dbt_project.yml").is_file()
+
+
 def process_sql_files(
     path: Path,
     sql_paths_to_node_type: Dict[str, str],
@@ -324,6 +349,7 @@ def process_sql_files(
     behavior_change: bool = False,
     all: bool = False,
     project_has_unsafe_table_format: bool = False,
+    resource_rename_map: object = None,
     dbtignore: Optional[pathspec.PathSpec] = None,
 ) -> List[SQLRefactorResult]:
     """Process all SQL files in the given paths for unmatched endings.
@@ -344,7 +370,7 @@ def process_sql_files(
     """
     results: List[SQLRefactorResult] = []
 
-    behavior_change_rules: List[Callable] = [rename_sql_file_names_with_spaces]
+    behavior_change_rules: List[Callable] = [rename_sql_file_names_with_spaces, update_resource_references_sql]
     safe_change_rules: List[Callable] = [
         remove_unmatched_endings,
         refactor_custom_configs_to_meta_sql,
@@ -368,6 +394,7 @@ def process_sql_files(
             schema_specs=schema_specs,
             node_type=node_type,
             project_has_unsafe_table_format=project_has_unsafe_table_format,
+            resource_rename_map=resource_rename_map,
         )
 
         sql_files = full_path.glob("**/*.sql")
@@ -674,6 +701,7 @@ def changeset_all_files(
         # Fail closed: an unparseable dbt_project.yml means we can't tell whether it's safe.
         unsafe_table_format = True
 
+    resource_rename_map = build_resource_rename_map(path) if (behavior_change or all) else None
     sql_results = process_sql_files(
         path,
         dbt_paths_to_node_type,
@@ -683,6 +711,7 @@ def changeset_all_files(
         behavior_change,
         all,
         unsafe_table_format,
+        resource_rename_map,
         dbtignore,
     )
     python_results = process_python_files(

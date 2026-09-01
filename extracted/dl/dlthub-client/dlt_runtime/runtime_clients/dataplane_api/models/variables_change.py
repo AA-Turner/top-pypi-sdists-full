@@ -9,7 +9,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.variable_upsert import VariableUpsert
+    from ..models.plain_variable_upsert import PlainVariableUpsert
+    from ..models.secret_variable_upsert import SecretVariableUpsert
 
 
 T = TypeVar("T", bound="VariablesChange")
@@ -21,15 +22,17 @@ class VariablesChange:
     Attributes:
         profile (None | str): Scope to change; `null` targets the workspace-wide scope
         deletes (list[str] | Unset): Variable names to remove
-        upserts (list[VariableUpsert] | Unset): Variables to create or update
+        upserts (list[PlainVariableUpsert | SecretVariableUpsert] | Unset): Variables to create or update
     """
 
     profile: None | str
     deletes: list[str] | Unset = UNSET
-    upserts: list[VariableUpsert] | Unset = UNSET
+    upserts: list[PlainVariableUpsert | SecretVariableUpsert] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.plain_variable_upsert import PlainVariableUpsert
+
         profile: None | str
         profile = self.profile
 
@@ -41,7 +44,12 @@ class VariablesChange:
         if not isinstance(self.upserts, Unset):
             upserts = []
             for upserts_item_data in self.upserts:
-                upserts_item = upserts_item_data.to_dict()
+                upserts_item: dict[str, Any]
+                if isinstance(upserts_item_data, PlainVariableUpsert):
+                    upserts_item = upserts_item_data.to_dict()
+                else:
+                    upserts_item = upserts_item_data.to_dict()
+
                 upserts.append(upserts_item)
 
         field_dict: dict[str, Any] = {}
@@ -60,7 +68,8 @@ class VariablesChange:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.variable_upsert import VariableUpsert
+        from ..models.plain_variable_upsert import PlainVariableUpsert
+        from ..models.secret_variable_upsert import SecretVariableUpsert
 
         d = dict(src_dict)
 
@@ -74,11 +83,29 @@ class VariablesChange:
         deletes = cast(list[str], d.pop("deletes", UNSET))
 
         _upserts = d.pop("upserts", UNSET)
-        upserts: list[VariableUpsert] | Unset = UNSET
+        upserts: list[PlainVariableUpsert | SecretVariableUpsert] | Unset = UNSET
         if _upserts is not UNSET:
             upserts = []
             for upserts_item_data in _upserts:
-                upserts_item = VariableUpsert.from_dict(upserts_item_data)
+
+                def _parse_upserts_item(
+                    data: object,
+                ) -> PlainVariableUpsert | SecretVariableUpsert:
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        upserts_item_type_0 = PlainVariableUpsert.from_dict(data)
+
+                        return upserts_item_type_0
+                    except (TypeError, ValueError, AttributeError, KeyError):
+                        pass
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    upserts_item_type_1 = SecretVariableUpsert.from_dict(data)
+
+                    return upserts_item_type_1
+
+                upserts_item = _parse_upserts_item(upserts_item_data)
 
                 upserts.append(upserts_item)
 

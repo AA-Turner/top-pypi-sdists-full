@@ -125,9 +125,10 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
     }
 
     match kind {
-        SyntaxKind::ARG_LIST | SyntaxKind::TABLE_ARG_LIST | SyntaxKind::PARAM_LIST => {
-            Some(FoldKind::ArgList)
-        }
+        SyntaxKind::ARG_LIST
+        | SyntaxKind::TABLE_ARG_LIST
+        | SyntaxKind::RETURN_TABLE_ARG_LIST
+        | SyntaxKind::PARAM_LIST => Some(FoldKind::ArgList),
         SyntaxKind::ARRAY_EXPR => Some(FoldKind::Array),
         SyntaxKind::CALL_EXPR => Some(FoldKind::FunctionCall),
         SyntaxKind::JOIN => Some(FoldKind::Join),
@@ -138,7 +139,7 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         | SyntaxKind::ALTER_OPTION_LIST
         | SyntaxKind::ALTER_TYPE_ATTRIBUTE_ACTION_LIST
         | SyntaxKind::ATTRIBUTE_LIST
-        | SyntaxKind::BEGIN_FUNC_OPTION_LIST
+        | SyntaxKind::ATOMIC_BODY
         | SyntaxKind::CHECKPOINT_OPTION_LIST
         | SyntaxKind::COLUMN_DEF_LIST
         | SyntaxKind::COLUMN_LIST

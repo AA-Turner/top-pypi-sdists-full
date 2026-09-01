@@ -1,12 +1,11 @@
 #[cfg(unix)]
 use crate::common::{TestEnv, cmd_snapshot};
 #[cfg(unix)]
-use assert_fs::fixture::{FileWriteStr, PathChild};
-
 #[cfg(unix)]
 #[test]
 fn multiline_entry_without_shell_uses_argv_semantics() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
     repos:
       - repo: local
         hooks:
@@ -18,8 +17,8 @@ fn multiline_entry_without_shell_uses_argv_semantics() {
               echo second
             pass_filenames: false
             verbose: true
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -38,7 +37,8 @@ fn multiline_entry_without_shell_uses_argv_semantics() {
 #[cfg(unix)]
 #[test]
 fn shell_runs_multiline_entry_as_one_script() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
     repos:
       - repo: local
         hooks:
@@ -51,8 +51,8 @@ fn shell_runs_multiline_entry_as_one_script() {
             shell: sh
             pass_filenames: false
             verbose: true
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -71,8 +71,9 @@ fn shell_runs_multiline_entry_as_one_script() {
 
 #[cfg(unix)]
 #[test]
-fn shell_entry_receives_hook_args_before_filenames() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+fn shell_entry_receives_hook_args_before_filenames() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
     repos:
       - repo: local
         hooks:
@@ -89,9 +90,9 @@ fn shell_entry_receives_hook_args_before_filenames() -> anyhow::Result<()> {
             shell: sh
             args: [configured]
             verbose: true
-    "#});
-    context.work_dir().child("a.txt").write_str("a")?;
-    context.git_add_all();
+    "#})
+        .with_file("a.txt", "a")
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -105,6 +106,4 @@ fn shell_entry_receives_hook_args_before_filenames() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }

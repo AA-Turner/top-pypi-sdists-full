@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ouroboros-ai
-Version: 0.52.0
+Version: 0.53.0
 Summary: Pins an acceptance spec and omits any verify command or expected output from the worker's contract. Works with Claude Code, Codex CLI, OpenCode and 10 more runtimes.
 Project-URL: Homepage, https://ouroboros.page/
 Project-URL: Repository, https://github.com/Q00/ouroboros
@@ -34,17 +34,20 @@ Requires-Dist: structlog<27.0.0,>=24.0.0
 Requires-Dist: typer<0.28.0,>=0.12.0
 Provides-Extra: all
 Requires-Dist: anthropic==0.122.0; extra == 'all'
-Requires-Dist: claude-agent-sdk==0.2.139; extra == 'all'
+Requires-Dist: claude-agent-sdk==0.2.144; extra == 'all'
 Requires-Dist: litellm==1.91.0; (python_version < '3.14') and extra == 'all'
+Requires-Dist: mcp==1.28.1; extra == 'all'
 Requires-Dist: textual-serve==1.1.3; extra == 'all'
 Requires-Dist: textual==8.2.8; extra == 'all'
 Provides-Extra: claude
 Requires-Dist: anthropic==0.122.0; extra == 'claude'
-Requires-Dist: claude-agent-sdk==0.2.139; extra == 'claude'
+Requires-Dist: claude-agent-sdk==0.2.144; extra == 'claude'
+Requires-Dist: mcp==1.28.1; extra == 'claude'
 Provides-Extra: claude-cli
 Provides-Extra: claude-sdk
 Requires-Dist: anthropic==0.122.0; extra == 'claude-sdk'
-Requires-Dist: claude-agent-sdk==0.2.139; extra == 'claude-sdk'
+Requires-Dist: claude-agent-sdk==0.2.144; extra == 'claude-sdk'
+Requires-Dist: mcp==1.28.1; extra == 'claude-sdk'
 Provides-Extra: copilot
 Provides-Extra: dashboard
 Provides-Extra: litellm
@@ -105,7 +108,13 @@ Description-Content-Type: text/markdown
 </p>
 
 ```bash
+# macOS / Linux / WSL 2
 curl -fsSL https://raw.githubusercontent.com/Q00/ouroboros/main/scripts/install.sh | OUROBOROS_INSTALL_REF=readme-hero bash
+```
+
+```powershell
+# Windows (PowerShell) — no Python needed; installs Git and uv for you
+irm https://raw.githubusercontent.com/Q00/ouroboros/main/scripts/install.ps1 | iex
 ```
 
 <p align="center"><sub>One command installs it. Then run <code>ooo setup</code> once inside your coding agent — details in <a href="#quick-start">Quick Start</a>.</sub></p>
@@ -198,8 +207,19 @@ Most AI coding fails at the **input**, not the output. The bottleneck is not AI 
 **Install** — one command, everything auto-detected:
 
 ```bash
+# macOS / Linux / WSL 2
 curl -fsSL https://raw.githubusercontent.com/Q00/ouroboros/main/scripts/install.sh | OUROBOROS_INSTALL_REF=readme bash
 ```
+
+```powershell
+# Windows (PowerShell 5.1+ or pwsh 7+) — nothing to install first
+irm https://raw.githubusercontent.com/Q00/ouroboros/main/scripts/install.ps1 | iex
+```
+
+The Windows installer installs Git and uv through winget when they are missing,
+lets uv download its own Python, then installs `ouroboros-ai` and wires the
+host it finds. Native Windows is experimental and Codex CLI needs WSL 2; see
+[platform support](./docs/platform-support.md).
 
 **First command** — open your AI coding agent and run these in order:
 

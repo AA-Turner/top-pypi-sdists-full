@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.organization_billing_type import OrganizationBillingType
 from ..models.organization_plan_type import OrganizationPlanType
 from ..types import UNSET, Unset
 
@@ -23,10 +24,12 @@ class OrganizationPlanResponse:
         date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         id (UUID): The unique ID of the entity
         plan (OrganizationPlanType): The plan type (trial, paid)
+        billing_type (None | OrganizationBillingType | Unset): How the organization is billed (stripe_link, invoice).
+            Null until staff set it on a paid plan.
         max_concurrent_runs (int | None | Unset): Concurrent-run cap; null when unlimited.
         max_run_seconds (int | None | Unset): Per-run duration cap in seconds; null when unlimited.
         seconds_limit (int | None | Unset): Total lifetime run-seconds budget; null when unlimited.
-        trial_days_remaining (int | None | Unset): Days remaining in trial. Positive when active, zero or negative when
+        trial_days_remaining (int | None | Unset): Days remaining in trial. Positive when active, clamped to zero when
             expired. Null for non-trial plans.
         trial_expires_at (datetime.datetime | None | Unset): When the trial expires; null for non-trial plans.
         trial_started_at (datetime.datetime | None | Unset): When the trial started; null for non-trial plans.
@@ -36,6 +39,7 @@ class OrganizationPlanResponse:
     date_updated: datetime.datetime
     id: UUID
     plan: OrganizationPlanType
+    billing_type: None | OrganizationBillingType | Unset = UNSET
     max_concurrent_runs: int | None | Unset = UNSET
     max_run_seconds: int | None | Unset = UNSET
     seconds_limit: int | None | Unset = UNSET
@@ -52,6 +56,14 @@ class OrganizationPlanResponse:
         id = str(self.id)
 
         plan = self.plan.value
+
+        billing_type: None | str | Unset
+        if isinstance(self.billing_type, Unset):
+            billing_type = UNSET
+        elif isinstance(self.billing_type, OrganizationBillingType):
+            billing_type = self.billing_type.value
+        else:
+            billing_type = self.billing_type
 
         max_concurrent_runs: int | None | Unset
         if isinstance(self.max_concurrent_runs, Unset):
@@ -103,6 +115,8 @@ class OrganizationPlanResponse:
                 "plan": plan,
             }
         )
+        if billing_type is not UNSET:
+            field_dict["billing_type"] = billing_type
         if max_concurrent_runs is not UNSET:
             field_dict["max_concurrent_runs"] = max_concurrent_runs
         if max_run_seconds is not UNSET:
@@ -128,6 +142,23 @@ class OrganizationPlanResponse:
         id = UUID(d.pop("id"))
 
         plan = OrganizationPlanType(d.pop("plan"))
+
+        def _parse_billing_type(data: object) -> None | OrganizationBillingType | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                billing_type_type_0 = OrganizationBillingType(data)
+
+                return billing_type_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | OrganizationBillingType | Unset, data)
+
+        billing_type = _parse_billing_type(d.pop("billing_type", UNSET))
 
         def _parse_max_concurrent_runs(data: object) -> int | None | Unset:
             if data is None:
@@ -208,6 +239,7 @@ class OrganizationPlanResponse:
             date_updated=date_updated,
             id=id,
             plan=plan,
+            billing_type=billing_type,
             max_concurrent_runs=max_concurrent_runs,
             max_run_seconds=max_run_seconds,
             seconds_limit=seconds_limit,

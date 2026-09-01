@@ -1,7 +1,4 @@
-/*
- * Sparse matrix utilities adapted from CSparse (T. Davis).
- * Provides allocation, triplet-to-CSC compression, and KKT matrix formation.
- */
+/* Routines modified from CSparse, T. Davis et al */
 
 #ifndef CS_H_GUARD
 #define CS_H_GUARD
@@ -11,6 +8,7 @@ extern "C" {
 #endif
 
 #include "glbopts.h"
+#include "scs.h"
 
 ScsMatrix *SCS(cs_spalloc)(scs_int m, scs_int n, scs_int nzmax, scs_int values,
                            scs_int triplet);

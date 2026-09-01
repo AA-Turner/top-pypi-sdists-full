@@ -227,6 +227,7 @@ class PermissionName(str, Enum):
     ORGANIZATION_LIST_AGENT_TOOLS = 'organization_list_agent_tools'
     ORGANIZATION_LIST_AGENT_LLM_MODELS = 'organization_list_agent_llm_models'
     ORGANIZATION_LIST_MODELS = 'organization_list_models'
+    ORGANIZATION_LIST_WEBHOOKS = 'organization_list_webhooks'
     WORKSPACE_CREATE_DASHBOARD = 'workspace_create_dashboard'
     WORKSPACE_LIST_DASHBOARDS = 'workspace_list_dashboards'
     DASHBOARD_READ = 'dashboard_read'

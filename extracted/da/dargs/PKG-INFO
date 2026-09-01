@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dargs
-Version: 0.5.0.post0
+Version: 0.5.1
 Summary: Process arguments for the deep modeling project.
 Author: DeepModeling
 Author-email: Yixiao Chen <yixiaoc@princeton.edu>
@@ -175,11 +175,13 @@ Project-URL: documentation, https://docs.deepmodeling.com/projects/dargs
 Project-URL: repository, https://github.com/deepmodeling/dargs
 Classifier: Programming Language :: Python :: 3.7
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
-Requires-Python: >=3.7
+Requires-Python: >=3.7.4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typeguard>=4
 Requires-Dist: typing_extensions; python_version < "3.8"
+Provides-Extra: notebook
+Requires-Dist: ipython; extra == "notebook"
 Provides-Extra: test
 Requires-Dist: ipython; extra == "test"
 Requires-Dist: jsonschema; extra == "test"
@@ -193,6 +195,10 @@ Requires-Dist: pyyaml; extra == "yaml"
 Dynamic: license-file
 
 # Argument checking for python programs
+
+<p align="center">
+  <img src="docs/_static/dargs-logo.svg" alt="dargs — argument schemas for Python" width="560">
+</p>
 
 [![conda-forge](https://img.shields.io/conda/dn/conda-forge/dargs?color=red&label=conda-forge&logo=conda-forge)](https://anaconda.org/conda-forge/dargs)
 [![pip install](https://img.shields.io/pypi/dm/dargs?label=pip%20install&logo=pypi)](https://pypi.org/project/dargs)

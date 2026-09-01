@@ -7,7 +7,6 @@ from io import BytesIO
 import pytest
 from asn1crypto import cms
 from asn1crypto.algos import SignedDigestAlgorithm
-from certomancer.integrations.illusionist import Illusionist
 from certomancer.registry import ArchLabel, CertLabel, KeyLabel
 from freezegun import freeze_time
 from pyhanko import stamp
@@ -85,6 +84,7 @@ from pyhanko_testing_commons.test_utils.signing_commons import (
     async_val_trusted,
     dummy_ocsp_vc,
     live_testing_vc,
+    notrust_v_context,
     simple_ed448_v_context,
     simple_ed25519_v_context,
     simple_v_context,
@@ -218,7 +218,10 @@ def test_diff_fallback_ok(policy, skip_diff):
     r = PdfFileReader(out)
     emb = r.embedded_signatures[0]
     status = validate_pdf_signature(
-        emb, diff_policy=policy, skip_diff=skip_diff
+        emb,
+        signer_validation_context=notrust_v_context(),
+        diff_policy=policy,
+        skip_diff=skip_diff,
     )
     if skip_diff:
         assert emb.diff_result is None
@@ -244,7 +247,11 @@ def test_no_diff_summary():
 
     r = PdfFileReader(out)
     emb = r.embedded_signatures[0]
-    status = validate_pdf_signature(emb, skip_diff=True)
+    status = validate_pdf_signature(
+        emb,
+        signer_validation_context=notrust_v_context(),
+        skip_diff=True,
+    )
     assert emb.diff_result is None
     assert status.modification_level is None
     assert not status.docmdp_ok
@@ -282,8 +289,20 @@ async def test_sign_with_trust_async():
     await async_val_trusted(s)
 
 
+@freeze_time('2020-11-01')
+def test_default_validation_context_deprecated():
+    w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
+    out = signers.sign_pdf(
+        w, signers.PdfSignatureMetadata(field_name='Sig1'), signer=FROM_CA
+    )
+    r = PdfFileReader(out)
+    s = r.embedded_signatures[0]
+    with pytest.warns(DeprecationWarning, match="operating system's trust"):
+        validate_pdf_signature(s)
+
+
 @freeze_time('2020-12-05')
-def test_sign_with_revoked(requests_mock):
+def test_sign_with_revoked(pki_services):
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     out = signers.sign_pdf(
         w,
@@ -293,7 +312,7 @@ def test_sign_with_revoked(requests_mock):
     r = PdfFileReader(out)
     s = r.embedded_signatures[0]
 
-    vc = live_testing_vc(requests_mock)
+    vc = live_testing_vc(pki_services)
     val_status = validate_pdf_signature(s, vc)
     assert val_status.intact
     assert val_status.valid
@@ -319,7 +338,7 @@ def test_sign_with_revoked(requests_mock):
         )
 
 
-def test_sign_with_later_revoked_nots(requests_mock):
+def test_sign_with_later_revoked_nots(pki_services):
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     with freeze_time('2020-01-20'):
         out = signers.sign_pdf(
@@ -335,7 +354,7 @@ def test_sign_with_later_revoked_nots(requests_mock):
     with freeze_time('2020-12-05'):
         r = PdfFileReader(out)
         s = r.embedded_signatures[0]
-        vc = live_testing_vc(requests_mock)
+        vc = live_testing_vc(pki_services)
         val_status = validate_pdf_signature(s, vc)
         assert val_status.intact
         assert val_status.valid
@@ -501,7 +520,7 @@ def test_ocsp_embed():
 
 
 @freeze_time('2020-11-01')
-def test_ocsp_without_nextupdate_embed(requests_mock):
+def test_ocsp_without_nextupdate_embed(pki_services):
     ca = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-ocsp-no-nextupdate'))
     vc = ValidationContext(
         trust_roots=[ca.get_cert(CertLabel('root'))],
@@ -516,7 +535,7 @@ def test_ocsp_without_nextupdate_embed(requests_mock):
             [ca.get_cert(CertLabel('root')), ca.get_cert(CertLabel('interm'))]
         ),
     )
-    Illusionist(ca).register(requests_mock)
+    pki_services.register(ca)
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL_ONE_FIELD))
     out = signers.sign_pdf(
         w,
@@ -680,12 +699,12 @@ def _tamper_with_sig_obj(tamper_fun):
             {'algorithm': 'rsassa_pkcs1v15'}
         ),
     )
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-        cms_obj = signer.sign(
+    cms_obj = asyncio.run(
+        signer.async_sign(
             data_digest=prep_document_hash.document_digest,
             digest_algorithm=md_algorithm,
         )
+    )
     cms_writer.send(cms_obj)
     return output
 
@@ -988,11 +1007,11 @@ def test_sign_without_annot():
 
 @pytest.mark.parametrize('in_place', [True, False])
 @freeze_time('2020-11-01')
-def test_no_revinfo_to_be_added(requests_mock, in_place):
+def test_no_revinfo_to_be_added(pki_services, in_place):
     buf = BytesIO(MINIMAL)
     w = IncrementalPdfFileWriter(buf)
 
-    vc = live_testing_vc(requests_mock)
+    vc = live_testing_vc(pki_services)
     signers.sign_pdf(
         w,
         signers.PdfSignatureMetadata(
@@ -1074,14 +1093,17 @@ async def test_embed_signed_attachment():
 
 
 @freeze_time('2020-11-01')
-def test_simple_interrupted_signature():
+@pytest.mark.asyncio
+async def test_simple_interrupted_signature():
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     pdf_signer = signers.PdfSigner(
         signers.PdfSignatureMetadata(field_name='SigNew'), signer=FROM_CA
     )
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-        prep_digest, tbs_document, output = pdf_signer.digest_doc_for_signing(w)
+    (
+        prep_digest,
+        tbs_document,
+        output,
+    ) = await pdf_signer.async_digest_doc_for_signing(w)
     md_algorithm = tbs_document.md_algorithm
     assert tbs_document.post_sign_instructions is None
 
@@ -1092,19 +1114,17 @@ def test_simple_interrupted_signature():
     new_output.write(buf)
     buf.release()
 
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-        PdfTBSDocument.finish_signing(
-            new_output,
-            prep_digest,
-            FROM_CA.sign(
-                prep_digest.document_digest,
-                digest_algorithm=md_algorithm,
-            ),
-        )
+    await PdfTBSDocument.async_finish_signing(
+        new_output,
+        prep_digest,
+        await FROM_CA.async_sign(
+            prep_digest.document_digest,
+            digest_algorithm=md_algorithm,
+        ),
+    )
 
     r = PdfFileReader(new_output)
-    val_trusted(r.embedded_signatures[0])
+    await async_val_trusted(r.embedded_signatures[0])
 
 
 @freeze_time('2020-11-01')
@@ -1271,8 +1291,8 @@ async def test_signer_info_no_signing_cert():
 
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
-async def test_sign_prescribed_attrs(requests_mock):
-    vc = live_testing_vc(requests_mock)
+async def test_sign_prescribed_attrs(pki_services):
+    vc = live_testing_vc(pki_services)
     message = b'Hello world!'
     digest = hashlib.sha256(message).digest()
     signed_attrs = await FROM_CA.signed_attrs(digest, 'sha256')
@@ -1282,29 +1302,6 @@ async def test_sign_prescribed_attrs(requests_mock):
     status = await async_validate_detached_cms(
         b'Hello world!', sig_cms['content'], signer_validation_context=vc
     )
-    assert status.valid and status.intact and status.trusted
-    ts_status = status.timestamp_validity
-    assert ts_status.valid and ts_status.intact and ts_status.trusted
-
-
-# noinspection PyDeprecation
-@freeze_time('2020-11-01')
-def test_sign_prescribed_attrs_legacy(requests_mock):
-    vc = live_testing_vc(requests_mock)
-    message = b'Hello world!'
-    digest = hashlib.sha256(message).digest()
-    signed_attrs = asyncio.run(FROM_CA.signed_attrs(digest, 'sha256'))
-    with pytest.deprecated_call():
-        sig_cms = FROM_CA.sign_prescribed_attributes(
-            'sha256', signed_attrs=signed_attrs, timestamper=DUMMY_HTTP_TS
-        )
-
-    from pyhanko.sign.validation import validate_detached_cms
-
-    with pytest.deprecated_call():
-        status = validate_detached_cms(
-            b'Hello world!', sig_cms['content'], signer_validation_context=vc
-        )
     assert status.valid and status.intact and status.trusted
     ts_status = status.timestamp_validity
     assert ts_status.valid and ts_status.intact and ts_status.trusted
@@ -1353,7 +1350,7 @@ def test_sign_tight_container_with_ts():
 
 
 @freeze_time('2020-11-01')
-def test_sign_tight_container_with_lta(requests_mock):
+def test_sign_tight_container_with_lta(pki_services):
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     meta = signers.PdfSignatureMetadata(
         field_name='Sig1',
@@ -1361,7 +1358,7 @@ def test_sign_tight_container_with_lta(requests_mock):
         subfilter=fields.SigSeedSubFilter.PADES,
         use_pades_lta=True,
         embed_validation_info=True,
-        validation_context=live_testing_vc(requests_mock),
+        validation_context=live_testing_vc(pki_services),
     )
     out = signers.sign_pdf(
         w,

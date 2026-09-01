@@ -13,10 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod pack;
-mod unpack;
+pub(super) mod extension;
+pub(super) mod pack;
+pub(super) mod unpack;
 
 use pyo3::prelude::*;
+use pyo3::types::{PyByteArray, PyBytes, PyDict};
 use pyo3::wrap_pyfunction;
 
 use crate::register_package;
@@ -46,11 +48,30 @@ const BYTES_8: u8 = 0xCC;
 const BYTES_16: u8 = 0xCD;
 const BYTES_32: u8 = 0xCE;
 
+#[pyfunction]
+#[pyo3(name = "pack", signature = (value, dehydration_hooks=None))]
+fn pack_fn<'py>(
+    value: &Bound<'py, PyAny>,
+    dehydration_hooks: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    pack::pack::<extension::PackStreamV1BaseExt>(value, dehydration_hooks)
+}
+
+#[pyfunction]
+#[pyo3(name = "unpack", signature = (bytes, idx, hydration_hooks=None))]
+fn unpack_fn(
+    bytes: Bound<PyByteArray>,
+    idx: usize,
+    hydration_hooks: Option<Bound<PyDict>>,
+) -> PyResult<(Py<PyAny>, usize)> {
+    unpack::unpack::<extension::PackStreamV1BaseExt>(bytes, idx, hydration_hooks)
+}
+
 pub(crate) fn init_module(m: &Bound<PyModule>, name: &str) -> PyResult<()> {
     register_package(m, name)?;
 
-    m.add_function(wrap_pyfunction!(unpack::unpack, m)?)?;
-    m.add_function(wrap_pyfunction!(pack::pack, m)?)?;
+    m.add_function(wrap_pyfunction!(unpack_fn, m)?)?;
+    m.add_function(wrap_pyfunction!(pack_fn, m)?)?;
 
     Ok(())
 }

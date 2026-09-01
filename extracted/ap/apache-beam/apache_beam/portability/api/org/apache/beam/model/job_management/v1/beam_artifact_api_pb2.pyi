@@ -80,7 +80,8 @@ class GetArtifactRequest(google.protobuf.message.Message):
 
     ARTIFACT_FIELD_NUMBER: builtins.int
     @property
-    def artifact(self) -> org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.ArtifactInformation: ...
+    def artifact(self) -> org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.ArtifactInformation:
+        """(Required) The artifact to retrieve, typically a resolved artifact from ResolveArtifacts."""
     def __init__(
         self,
         *,
@@ -99,6 +100,7 @@ class GetArtifactResponse(google.protobuf.message.Message):
 
     DATA_FIELD_NUMBER: builtins.int
     data: builtins.bytes
+    """A chunk of the artifact's binary content."""
     def __init__(
         self,
         *,
@@ -110,16 +112,20 @@ global___GetArtifactResponse = GetArtifactResponse
 
 @typing_extensions.final
 class ArtifactRequestWrapper(google.protobuf.message.Message):
-    """Wraps an ArtifactRetrievalService request for use in ReverseArtifactRetrievalService."""
+    """Wraps an ArtifactRetrievalService request for use in ReverseArtifactRetrievalService.
+    The server sends these requests to the client during the reverse staging flow.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     RESOLVE_ARTIFACT_FIELD_NUMBER: builtins.int
     GET_ARTIFACT_FIELD_NUMBER: builtins.int
     @property
-    def resolve_artifact(self) -> global___ResolveArtifactsRequest: ...
+    def resolve_artifact(self) -> global___ResolveArtifactsRequest:
+        """Request to resolve a set of artifacts into concrete artifact references."""
     @property
-    def get_artifact(self) -> global___GetArtifactRequest: ...
+    def get_artifact(self) -> global___GetArtifactRequest:
+        """Request to retrieve the bytes of a specific artifact."""
     def __init__(
         self,
         *,
@@ -202,7 +208,8 @@ class Manifest(google.protobuf.message.Message):
 
     ARTIFACT_FIELD_NUMBER: builtins.int
     @property
-    def artifact(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ArtifactMetadata]: ...
+    def artifact(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ArtifactMetadata]:
+        """(Required) The list of artifacts staged for a job."""
     def __init__(
         self,
         *,
@@ -220,12 +227,16 @@ class ProxyManifest(google.protobuf.message.Message):
 
     @typing_extensions.final
     class Location(google.protobuf.message.Message):
+        """A location (name + URI) at which a staged artifact can be retrieved."""
+
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         NAME_FIELD_NUMBER: builtins.int
         URI_FIELD_NUMBER: builtins.int
         name: builtins.str
+        """(Required) The name of the artifact, matching the name in the Manifest."""
         uri: builtins.str
+        """(Required) The URI at which the artifact content can be retrieved."""
         def __init__(
             self,
             *,
@@ -237,9 +248,11 @@ class ProxyManifest(google.protobuf.message.Message):
     MANIFEST_FIELD_NUMBER: builtins.int
     LOCATION_FIELD_NUMBER: builtins.int
     @property
-    def manifest(self) -> global___Manifest: ...
+    def manifest(self) -> global___Manifest:
+        """(Required) The manifest of staged artifacts."""
     @property
-    def location(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ProxyManifest.Location]: ...
+    def location(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ProxyManifest.Location]:
+        """(Required) The list of artifact locations for retrieval."""
     def __init__(
         self,
         *,
@@ -279,7 +292,8 @@ class GetManifestResponse(google.protobuf.message.Message):
 
     MANIFEST_FIELD_NUMBER: builtins.int
     @property
-    def manifest(self) -> global___Manifest: ...
+    def manifest(self) -> global___Manifest:
+        """(Required) The manifest of staged artifacts for the job."""
     def __init__(
         self,
         *,
@@ -322,6 +336,7 @@ class ArtifactChunk(google.protobuf.message.Message):
 
     DATA_FIELD_NUMBER: builtins.int
     data: builtins.bytes
+    """A chunk of the artifact's binary content."""
     def __init__(
         self,
         *,
@@ -333,6 +348,8 @@ global___ArtifactChunk = ArtifactChunk
 
 @typing_extensions.final
 class PutArtifactMetadata(google.protobuf.message.Message):
+    """Metadata for an artifact being staged, sent as the first message in a PutArtifact stream."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     STAGING_SESSION_TOKEN_FIELD_NUMBER: builtins.int
@@ -385,6 +402,8 @@ global___PutArtifactRequest = PutArtifactRequest
 
 @typing_extensions.final
 class PutArtifactResponse(google.protobuf.message.Message):
+    """A response to staging an artifact. An empty response indicating the artifact was staged successfully."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     def __init__(

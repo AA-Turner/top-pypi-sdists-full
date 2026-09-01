@@ -20,17 +20,21 @@ class ErrorResponse403:
     """Entity Permission Denied Exception
 
     Attributes:
+        code (str | Unset): Machine-readable error code; see ``ErrorCode`` for known values.
         detail (str | Unset):
         extra (ErrorResponse403Extra | Unset): Additional error details (free-form)
         status_code (int | Unset):
     """
 
+    code: str | Unset = UNSET
     detail: str | Unset = UNSET
     extra: ErrorResponse403Extra | Unset = UNSET
     status_code: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        code = self.code
+
         detail = self.detail
 
         extra: dict[str, Any] | Unset = UNSET
@@ -42,6 +46,8 @@ class ErrorResponse403:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
+        if code is not UNSET:
+            field_dict["code"] = code
         if detail is not UNSET:
             field_dict["detail"] = detail
         if extra is not UNSET:
@@ -56,6 +62,8 @@ class ErrorResponse403:
         from ..models.error_response_403_extra import ErrorResponse403Extra
 
         d = dict(src_dict)
+        code = d.pop("code", UNSET)
+
         detail = d.pop("detail", UNSET)
 
         _extra = d.pop("extra", UNSET)
@@ -68,6 +76,7 @@ class ErrorResponse403:
         status_code = d.pop("status_code", UNSET)
 
         error_response_403 = cls(
+            code=code,
             detail=detail,
             extra=extra,
             status_code=status_code,

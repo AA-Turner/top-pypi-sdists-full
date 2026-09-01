@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import glob
 import os
 import tempfile
-from typing import List, Union
 
 from valohai.internals.compression import open_archive
 from valohai.internals.files import (
@@ -61,7 +62,7 @@ class Output:
 
     def compress(
         self,
-        source: Union[str, List[str]],
+        source: str | list[str],
         filename: str,
         live_upload: bool = False,
         remove_originals: bool = True,
@@ -87,7 +88,7 @@ class Output:
         # exception trying to unlink the name that has been already `replace`d out...
 
         suffix = get_canonical_extension(filename)
-        tmp_file = tempfile.NamedTemporaryFile(
+        tmp_file = tempfile.NamedTemporaryFile(  # noqa: SIM115 (see above)
             dir=os.path.dirname(target_path), suffix=suffix, delete=False
         )
         with tmp_file, open_archive(tmp_file.name) as archive:  # type: ignore

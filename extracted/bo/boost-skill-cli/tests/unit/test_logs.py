@@ -200,7 +200,10 @@ def test_configure_survives_file_handler_oserror(env, monkeypatch):
     def _boom(*a, **k):
         raise OSError("read-only filesystem")
 
-    monkeypatch.setattr(logs.logging.handlers, "RotatingFileHandler", _boom)
+    # configure() constructs boost's own subclass (_BestEffortFileHandler),
+    # not logging.handlers.RotatingFileHandler directly — patch the name it
+    # actually calls, or the OSError this test means to force never fires.
+    monkeypatch.setattr(logs, "_BestEffortFileHandler", _boom)
     logs.reset()
     logger = logs.configure()          # the OSError is swallowed, CLI proceeds
     assert logger is logs.get_logger()
@@ -208,6 +211,41 @@ def test_configure_survives_file_handler_oserror(env, monkeypatch):
     assert not any(isinstance(h, logging.handlers.RotatingFileHandler)
                    for h in logger.handlers)
     logger.info("still-alive")
+
+
+def test_file_handler_emit_failure_is_silent(env, capsys):
+    """delay=True defers the file open past configure()'s own
+    contextlib.suppress(OSError) to the first emit() — on a different stack,
+    with nothing catching it. Left at the logging module's default, that
+    prints a "--- Logging error ---" traceback to stderr for every failed
+    write. handleError must swallow it instead."""
+    logs.configure()
+    fh = next(h for h in logs.get_logger().handlers
+              if isinstance(h, logging.handlers.RotatingFileHandler))
+
+    def _boom():
+        raise OSError("simulated: filesystem policy denies this write")
+
+    fh._open = _boom  # force the failure emit() hits, without touching disk
+    logs.get_logger().debug("should not blow up")  # must not raise
+    err = capsys.readouterr().err
+    # Nothing at all reaches stderr — a stricter bar than "no traceback",
+    # because a bare one-line logging complaint is still output the user did
+    # not ask for and cannot act on.
+    assert err == ""
+    assert "Logging error" not in err
+    assert "OSError" not in err
+
+
+def test_file_handler_class_overrides_handle_error(env, capsys):
+    """handleError is overridden on the handler itself — not by flipping the
+    module-global logging.raiseExceptions, which would silence every logger
+    in the process rather than just boost's best-effort file handler."""
+    assert logging.raiseExceptions is True  # the module global is left alone
+    handler = logs._BestEffortFileHandler.__new__(logs._BestEffortFileHandler)
+    record = logging.LogRecord("boost", logging.DEBUG, __file__, 1, "x", None, None)
+    handler.handleError(record)  # must not raise, and must not print
+    assert capsys.readouterr().err == ""
 
 
 def test_boost_version_falls_back_to_unknown(env, monkeypatch):
@@ -349,6 +387,35 @@ def test_doctor_reports_log_location(boost):
     boost("count")
     res = boost("doctor", expect=None)
     assert "diagnostic log at" in res.out
+
+
+def test_doctor_flags_a_log_path_that_exists_but_wont_open(boost):
+    """``os.access(path, os.W_OK)`` reads mode bits and says yes for a
+    directory sitting where the log file should be — doctor has to ask the
+    real question (``open(path, "a")``) or it reports a green checkmark for
+    a log that is failing on every invocation, same as the handler itself
+    experiences."""
+    boost("count")  # creates a real, writable boost.log first
+    lp = logs.log_path()
+    assert lp.is_file()
+    # configure() is idempotent per process, so the file handler opened above
+    # (delay=True) still holds this path open here. Release it before
+    # swapping the path for a directory: unlinking an open file is silently
+    # fine on POSIX but raises on Windows, and leaving the stale handle in
+    # place would also make doctor's own logging reuse the old (still
+    # writable) file object instead of really hitting the broken path below.
+    logs.reset()
+    lp.unlink()
+    lp.mkdir()  # a directory is unmistakably not open()-able in append mode,
+                # yet os.access(..., os.W_OK) reports it as writable
+    res = boost("doctor", expect=None)
+    assert "diagnostic log" in res.out
+    assert "is not writable" in res.out
+    assert "diagnostic log at" not in res.out  # never the ok-branch wording
+    # doctor itself just tried to log against that broken path — end to end
+    # confirmation that the handler's own quiet-swallow keeps stderr clean
+    # while doctor is busy reporting the very same fault.
+    assert "Logging error" not in res.err
 
 
 def _file_formatter():

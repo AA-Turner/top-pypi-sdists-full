@@ -1,6 +1,5 @@
 #include "private.h"
 #include "linsys.h"
-#include <string.h>
 
 /* In case of error abort freeing p */
 #define CUDSS_CHECK_ABORT(call, p, fname)                                      \
@@ -32,23 +31,7 @@ const char *scs_get_lin_sys_method() {
 /* Free allocated resources for the linear system solver */
 void scs_free_lin_sys_work(ScsLinSysWork *p) {
   if (p) {
-    /* Free cuDSS resources first, before freeing the GPU memory they reference */
-    if (p->solver_data && p->handle)
-      cudssDataDestroy(p->handle, p->solver_data);
-    if (p->solver_config)
-      cudssConfigDestroy(p->solver_config);
-
-    if (p->d_kkt_mat)
-      cudssMatrixDestroy(p->d_kkt_mat);
-    if (p->d_b_mat)
-      cudssMatrixDestroy(p->d_b_mat);
-    if (p->d_sol_mat)
-      cudssMatrixDestroy(p->d_sol_mat);
-
-    if (p->handle)
-      cudssDestroy(p->handle);
-
-    /* Free GPU memory */
+    /* Free GPU resources */
     if (p->d_kkt_val)
       cudaFree(p->d_kkt_val);
     if (p->d_kkt_row_ptr)
@@ -60,15 +43,26 @@ void scs_free_lin_sys_work(ScsLinSysWork *p) {
     if (p->d_sol)
       cudaFree(p->d_sol);
 
-    /* Free pinned host memory */
-    if (p->h_b_pinned)
-      cudaFreeHost(p->h_b_pinned);
-    if (p->h_sol_pinned)
-      cudaFreeHost(p->h_sol_pinned);
+    /* Free cuDSS resources */
+    if (p->d_kkt_mat)
+      cudssMatrixDestroy(p->d_kkt_mat);
+    if (p->d_b_mat)
+      cudssMatrixDestroy(p->d_b_mat);
+    if (p->d_sol_mat)
+      cudssMatrixDestroy(p->d_sol_mat);
+
+    if (p->solver_config)
+      cudssConfigDestroy(p->solver_config);
+    if (p->solver_data && p->handle)
+      cudssDataDestroy(p->handle, p->solver_data);
+    if (p->handle)
+      cudssDestroy(p->handle);
 
     /* Free CPU resources */
     if (p->kkt)
       SCS(cs_spfree)(p->kkt);
+    if (p->sol)
+      scs_free(p->sol);
     if (p->diag_r_idxs)
       scs_free(p->diag_r_idxs);
     if (p->diag_p)
@@ -91,6 +85,12 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
   p->n_plus_m = p->n + p->m;
 
   /* Allocate CPU memory */
+  p->sol = (scs_float *)scs_malloc(sizeof(scs_float) * p->n_plus_m);
+  if (!p->sol) {
+    scs_free_lin_sys_work(p);
+    return SCS_NULL;
+  }
+
   p->diag_r_idxs = (scs_int *)scs_calloc(p->n_plus_m, sizeof(scs_int));
   if (!p->diag_r_idxs) {
     scs_free_lin_sys_work(p);
@@ -111,6 +111,9 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
     scs_free_lin_sys_work(p);
     return SCS_NULL;
   }
+
+  cudssStatus_t status;
+  cudaError_t cuda_error;
 
   /* Create cuDSS handle */
   CUDSS_CHECK_ABORT(cudssCreate(&p->handle), p, "cudssCreate");
@@ -151,23 +154,11 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
   cudssMatrixType_t mtype = CUDSS_MTYPE_SYMMETRIC;
   cudssMatrixViewType_t mview = CUDSS_MVIEW_LOWER;
   cudssIndexBase_t base = CUDSS_BASE_ZERO;
-  /* cuDSS 0.8.0+ added an offsetType parameter before indexType. The two
-   * arrays use the same scs_int type for us, so we pass SCS_CUDA_INDEX
-   * twice. */
-#if SCS_CUDSS_NEW_API
-  CUDSS_CHECK_ABORT(cudssMatrixCreateCsr(
-                        &p->d_kkt_mat, p->kkt->m, p->kkt->n, nnz,
-                        p->d_kkt_row_ptr, NULL, p->d_kkt_col_ind, p->d_kkt_val,
-                        SCS_CUDA_INDEX, SCS_CUDA_INDEX, SCS_CUDA_FLOAT,
-                        mtype, mview, base),
-                    p, "cudssMatrixCreateCsr");
-#else
   CUDSS_CHECK_ABORT(cudssMatrixCreateCsr(
                         &p->d_kkt_mat, p->kkt->m, p->kkt->n, nnz,
                         p->d_kkt_row_ptr, NULL, p->d_kkt_col_ind, p->d_kkt_val,
                         SCS_CUDA_INDEX, SCS_CUDA_FLOAT, mtype, mview, base),
                     p, "cudssMatrixCreateCsr");
-#endif
 
   /* Allocate device memory for vectors */
   CUDA_CHECK_ABORT(
@@ -176,14 +167,6 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
   CUDA_CHECK_ABORT(
       cudaMalloc((void **)&p->d_sol, p->n_plus_m * sizeof(scs_float)), p,
       "cudaMalloc: sol");
-
-  /* Allocate pinned host memory for faster H<->D transfers in solve loop */
-  CUDA_CHECK_ABORT(
-      cudaMallocHost((void **)&p->h_b_pinned, p->n_plus_m * sizeof(scs_float)),
-      p, "cudaMallocHost: b");
-  CUDA_CHECK_ABORT(cudaMallocHost((void **)&p->h_sol_pinned,
-                                  p->n_plus_m * sizeof(scs_float)),
-                   p, "cudaMallocHost: sol");
 
   /* Create RHS and solution matrix descriptors */
   scs_int nrhs = 1;
@@ -208,38 +191,23 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
                                  p->d_sol_mat, p->d_b_mat),
                     p, "cudssExecute: factorization");
 
-  /* Inertia check: verify P is PSD by checking positive eigenvalue count */
-  {
-    scs_int inertia[2]; /* [0] = positive, [1] = negative */
-    size_t inertia_written;
-    CUDSS_CHECK_ABORT(
-        cudssDataGet(p->handle, p->solver_data, CUDSS_DATA_INERTIA, inertia,
-                     sizeof(inertia), &inertia_written),
-        p, "cudssDataGet: inertia");
-    if (inertia[0] < p->n) {
-      scs_printf("KKT matrix has < n positive eigenvalues. P not PSD.");
-      scs_free_lin_sys_work(p);
-      return SCS_NULL;
-    }
-  }
-
   return p;
 }
 
 /* Solve the linear system for a given RHS b */
 scs_int scs_solve_lin_sys(ScsLinSysWork *p, scs_float *b, const scs_float *ws,
                           scs_float tol) {
-  size_t vec_bytes = p->n_plus_m * sizeof(scs_float);
-
-  /* Copy RHS to pinned staging buffer, then to device */
-  memcpy(p->h_b_pinned, b, vec_bytes);
-  cudaError_t custatus =
-      cudaMemcpy(p->d_b, p->h_b_pinned, vec_bytes, cudaMemcpyHostToDevice);
+  /* Copy right-hand side to device */
+  cudaError_t custatus = cudaMemcpy(p->d_b, b, p->n_plus_m * sizeof(scs_float),
+                                    cudaMemcpyHostToDevice);
   if (custatus != cudaSuccess) {
-    scs_printf("scs_solve_lin_sys: Error copying b to device: %d\n",
+    scs_printf("scs_solve_lin_sys: Error copying `b` side to device: %d\n",
                (int)custatus);
     return custatus;
   }
+
+  // is this really needed?
+  cudssMatrixSetValues(p->d_b_mat, p->d_b);
 
   /* Solve the system */
   cudssStatus_t status =
@@ -251,21 +219,20 @@ scs_int scs_solve_lin_sys(ScsLinSysWork *p, scs_float *b, const scs_float *ws,
     return status;
   }
 
-  /* Copy solution from device to pinned staging buffer, then to output */
-  custatus =
-      cudaMemcpy(p->h_sol_pinned, p->d_sol, vec_bytes, cudaMemcpyDeviceToHost);
-  if (custatus != cudaSuccess) {
+  /* Copy solution back to host */
+  custatus = cudaMemcpy(b, p->d_sol, p->n_plus_m * sizeof(scs_float),
+                        cudaMemcpyDeviceToHost);
+  if (status != cudaSuccess) {
     scs_printf("scs_solve_lin_sys: Error copying d_sol to host: %d\n",
-               (int)custatus);
-    return custatus;
+               (int)status);
+    return status;
   }
-  memcpy(b, p->h_sol_pinned, vec_bytes);
 
   return 0; /* Success */
 }
 
 /* Update the KKT matrix when R changes */
-scs_int scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
+void scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
   scs_int i;
 
   /* Update KKT matrix on CPU */
@@ -286,7 +253,7 @@ scs_int scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
     scs_printf(
         "scs_update_lin_sys_diag_r: Error copying kkt->x to device: %d\n",
         (int)custatus);
-    return (scs_int)custatus;
+    return;
   }
 
   /* Update the matrix values in cuDSS */
@@ -297,7 +264,7 @@ scs_int scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
     scs_printf(
         "scs_update_lin_sys_diag_r: Error updating kkt matrix on device: %d\n",
         (int)status);
-    return (scs_int)status;
+    return;
   }
 
   /* Perform Refactorization with the updated matrix */
@@ -307,7 +274,6 @@ scs_int scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
   if (status != CUDSS_STATUS_SUCCESS) {
     scs_printf("scs_update_lin_sys_diag_r: Error during re-factorization: %d\n",
                (int)status);
-    return (scs_int)status;
+    return;
   }
-  return 0;
 }

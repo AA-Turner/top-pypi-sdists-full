@@ -24,6 +24,10 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 @typing_extensions.final
 class ExpansionRequest(google.protobuf.message.Message):
+    """A request to expand a single PTransform in a remote SDK. The expansion service
+    resolves the transform into its constituent subtransforms and outputs.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -99,6 +103,10 @@ global___ExpansionRequest = ExpansionRequest
 
 @typing_extensions.final
 class ExpansionResponse(google.protobuf.message.Message):
+    """The result of expanding a PTransform, containing the expanded transform and
+    all newly created components.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     COMPONENTS_FIELD_NUMBER: builtins.int
@@ -139,6 +147,10 @@ global___ExpansionResponse = ExpansionResponse
 
 @typing_extensions.final
 class DiscoverSchemaTransformRequest(google.protobuf.message.Message):
+    """A request to discover all SchemaTransformProviders registered with the expansion service.
+    This is used by cross-language pipeline construction to enumerate available transforms.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     def __init__(
@@ -149,6 +161,10 @@ global___DiscoverSchemaTransformRequest = DiscoverSchemaTransformRequest
 
 @typing_extensions.final
 class SchemaTransformConfig(google.protobuf.message.Message):
+    """Configuration metadata for a SchemaTransform, describing its inputs, outputs,
+    and configuration schema. Used to enable cross-language transform discovery.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONFIG_SCHEMA_FIELD_NUMBER: builtins.int
@@ -185,6 +201,8 @@ global___SchemaTransformConfig = SchemaTransformConfig
 
 @typing_extensions.final
 class DiscoverSchemaTransformResponse(google.protobuf.message.Message):
+    """A response containing all discovered SchemaTransform configurations."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final

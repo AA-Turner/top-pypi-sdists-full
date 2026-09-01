@@ -41,6 +41,7 @@ __all__ = (
     "ListRegionsPaginatorName",
     "ListWorkspaceInstancesPaginatorName",
     "MarketTypeEnumType",
+    "NestedVirtualizationEnumType",
     "PaginatorName",
     "PlatformTypeEnumType",
     "ProvisionStateEnumType",
@@ -72,6 +73,7 @@ ListInstanceTypesPaginatorName = Literal["list_instance_types"]
 ListRegionsPaginatorName = Literal["list_regions"]
 ListWorkspaceInstancesPaginatorName = Literal["list_workspace_instances"]
 MarketTypeEnumType = Literal["capacity-block", "spot"]
+NestedVirtualizationEnumType = Literal["disabled", "enabled"]
 PlatformTypeEnumType = Literal[
     "Linux/UNIX",
     "Red Hat BYOL Linux",

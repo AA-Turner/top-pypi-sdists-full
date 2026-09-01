@@ -1,20 +1,19 @@
-import json
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from valohai import paths
+from valohai.internals import json_utils
 
 if TYPE_CHECKING:
     import requests
 
 
-def get_api_requests_kwargs(endpoint: str) -> Dict[str, Any]:
+def get_api_requests_kwargs(endpoint: str) -> dict[str, Any]:
     """
     Get the "presigned call" dict for a given endpoint from the
     API JSON configuration file.  Will happily throw all sorts of
     exceptions e.g. if the API JSON file is missing or malformed.
     """
-    with open(paths.get_api_config_path()) as json_file:
-        api_config = json.load(json_file)
+    api_config = json_utils.load_file(paths.get_api_config_path())
     value = api_config.get(endpoint)
     if not (isinstance(value, dict) and value.get("url")):
         raise ValueError(f"Invalid API config for {endpoint}")

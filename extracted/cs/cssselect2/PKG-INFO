@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cssselect2
-Version: 0.9.0
+Version: 0.10.1
 Summary: CSS selectors for Python ElementTree
 Keywords: css,elementtree
 Author-email: Simon Sapin <simon.sapin@exyr.org>
@@ -37,6 +37,7 @@ Project-URL: Homepage, https://doc.courtbouillon.org/cssselect2/
 Project-URL: Issues, https://github.com/Kozea/cssselect2/issues
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: cssselect2
 
 cssselect2 is a straightforward implementation of CSS4 Selectors for markup
 documents (HTML, XML, etc.) that can be read by ElementTree-like parsers

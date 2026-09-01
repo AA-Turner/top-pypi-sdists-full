@@ -1,10 +1,7 @@
 mod common;
 
-use anyhow::Result;
 use indoc::indoc;
 
-#[cfg(unix)]
-use crate::common::make_executable;
 use crate::common::{TestEnv, cmd_snapshot};
 
 fn config() -> &'static str {
@@ -25,7 +22,7 @@ fn config() -> &'static str {
 }
 
 fn context_with_config() -> TestEnv {
-    TestEnv::new().with_config(config())
+    TestEnv::new().with_config(config()).init_git()
 }
 
 #[test]
@@ -107,9 +104,10 @@ fn exec_propagates_child_exit_status() {
 }
 
 #[test]
-fn exec_rejects_ambiguous_hook_selector() -> Result<()> {
-    let context = TestEnv::new();
-    context.setup_workspace(&["frontend"], config())?;
+fn exec_rejects_ambiguous_hook_selector() {
+    let context = TestEnv::new()
+        .with_workspace(["frontend"], config())
+        .init_git();
 
     cmd_snapshot!(context, context.exec().args([
         "exec-test",
@@ -128,13 +126,13 @@ fn exec_rejects_ambiguous_hook_selector() -> Result<()> {
       - .:exec-test
     Use a `project-path:hook-id` selector to select one hook
     ");
-    Ok(())
 }
 
 #[test]
-fn exec_keeps_current_working_directory() -> Result<()> {
-    let context = TestEnv::new();
-    context.setup_workspace(&["frontend"], config())?;
+fn exec_keeps_current_working_directory() {
+    let context = TestEnv::new()
+        .with_workspace(["frontend"], config())
+        .init_git();
 
     cmd_snapshot!(context, context.exec().args([
             "frontend:exec-test",
@@ -150,18 +148,15 @@ fn exec_keeps_current_working_directory() -> Result<()> {
 
     ----- stderr -----
     ");
-    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn exec_resolves_relative_command_from_current_working_directory() -> Result<()> {
-    let context = TestEnv::new();
-    context.setup_workspace(&["frontend"], config())?;
-
-    let command = context.work_dir().join("exec-tool");
-    fs_err::write(&command, "#!/bin/sh\necho relative command ok\n")?;
-    make_executable(&command)?;
+fn exec_resolves_relative_command_from_current_working_directory() {
+    let context = TestEnv::new()
+        .with_workspace(["frontend"], config())
+        .with_executable_file("exec-tool", "#!/bin/sh\necho relative command ok\n")
+        .init_git();
 
     cmd_snapshot!(context, context.exec().args([
         "frontend:exec-test",
@@ -175,12 +170,12 @@ fn exec_resolves_relative_command_from_current_working_directory() -> Result<()>
 
     ----- stderr -----
     ");
-    Ok(())
 }
 
 #[test]
 fn exec_rejects_unsupported_language_before_install() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -188,7 +183,8 @@ fn exec_rejects_unsupported_language_before_install() {
                 name: Julia hook
                 entry: hook.jl
                 language: julia
-    "});
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.exec().args([
         "julia-hook",

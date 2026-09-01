@@ -1,12 +1,7 @@
 ---
 name: Build and Test OpenMP
 
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * 1'
+on: [push, pull_request]
 
 jobs:
   linux:
@@ -17,7 +12,7 @@ jobs:
 
     steps:
     - name: checkout project code
-      uses: actions/checkout@v7
+      uses: actions/checkout@v6
 
     - name: install deps
       run: sudo apt-get install libopenblas-dev liblapack-dev
@@ -27,4 +22,3 @@ jobs:
         make USE_OPENMP=1 test
         out/run_tests_direct
         out/run_tests_indirect
-        out/run_tests_dense

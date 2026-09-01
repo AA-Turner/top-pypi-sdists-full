@@ -28,6 +28,7 @@ pub(crate) use update::{StringOrList, UpdateOptions};
 
 use crate::fs::Simplified;
 use crate::install_source::InstallSource;
+use crate::settings::{push_unused_paths, warn_unused_paths};
 use crate::version;
 use crate::warn_user;
 use crate::warn_user_once;
@@ -58,7 +59,7 @@ pub(crate) struct Config {
     /// A configuration-wide default for the stages property of hooks.
     /// Default to all stages.
     pub default_stages: Option<Stages>,
-    /// Default runtime environment variables for hooks.
+    /// Default environment variables for preparing and running hooks.
     pub default_env: Option<FxHashMap<String, String>>,
     /// Global file include pattern.
     pub files: Option<FilePattern>,
@@ -83,22 +84,9 @@ pub(crate) struct Config {
 
 impl Config {
     fn validate_priorities(&self) -> std::result::Result<(), Error> {
-        macro_rules! validate_hooks {
-            ($hooks:expr) => {
-                for hook in $hooks {
-                    if let Some(priority) = &hook.priority {
-                        priority.resolve(&self.priorities, &hook.id)?;
-                    }
-                }
-            };
-        }
-
-        for repo in &self.repos {
-            match repo {
-                Repo::Remote(repo) => validate_hooks!(&repo.hooks),
-                Repo::Local(repo) => validate_hooks!(&repo.hooks),
-                Repo::Meta(repo) => validate_hooks!(&repo.hooks),
-                Repo::Builtin(repo) => validate_hooks!(&repo.hooks),
+        for hook in self.repos.iter().flat_map(Repo::hooks) {
+            if let Some(priority) = hook.priority {
+                priority.resolve(&self.priorities, hook.id)?;
             }
         }
         Ok(())
@@ -170,24 +158,6 @@ impl Error {
 /// Keys that prek does not use.
 const EXPECTED_UNUSED: &[&str] = &["minimum_pre_commit_version", "ci"];
 
-fn push_unused_paths<'a, I>(acc: &mut Vec<String>, prefix: &str, keys: I)
-where
-    I: Iterator<Item = &'a str>,
-{
-    for key in keys {
-        // Silently ignore extension keys starting with 'x-' (used for YAML anchors and custom metadata).
-        if key.starts_with("x-") {
-            continue;
-        }
-        let path = if prefix.is_empty() {
-            key.to_string()
-        } else {
-            format!("{prefix}.{key}")
-        };
-        acc.push(path);
-    }
-}
-
 fn collect_unused_paths(config: &Config) -> Vec<String> {
     let mut paths = Vec::new();
 
@@ -201,25 +171,12 @@ fn collect_unused_paths(config: &Config) -> Vec<String> {
     );
 
     for (repo_idx, repo) in config.repos.iter().enumerate() {
-        let (repo_unused_keys, hooks_options): (_, Box<dyn Iterator<Item = &HookOptions>>) =
-            match repo {
-                Repo::Remote(remote) => (
-                    &remote._unused_keys,
-                    Box::new(remote.hooks.iter().map(|h| &h.options)),
-                ),
-                Repo::Local(local) => (
-                    &local._unused_keys,
-                    Box::new(local.hooks.iter().map(|h| &h.options)),
-                ),
-                Repo::Meta(meta) => (
-                    &meta._unused_keys,
-                    Box::new(meta.hooks.iter().map(|h| &h.options)),
-                ),
-                Repo::Builtin(builtin) => (
-                    &builtin._unused_keys,
-                    Box::new(builtin.hooks.iter().map(|h| &h.options)),
-                ),
-            };
+        let repo_unused_keys = match repo {
+            Repo::Remote(repo) => &repo._unused_keys,
+            Repo::Local(repo) => &repo._unused_keys,
+            Repo::Meta(repo) => &repo._unused_keys,
+            Repo::Builtin(repo) => &repo._unused_keys,
+        };
 
         if !repo_unused_keys.is_empty() {
             let repo_prefix = format!("repos[{repo_idx}]");
@@ -229,7 +186,8 @@ fn collect_unused_paths(config: &Config) -> Vec<String> {
                 repo_unused_keys.keys().map(String::as_str),
             );
         }
-        for (hook_idx, options) in hooks_options.enumerate() {
+        for (hook_idx, hook) in repo.hooks().enumerate() {
+            let options = hook.options;
             if options._unused_keys.is_empty() {
                 continue;
             }
@@ -243,32 +201,6 @@ fn collect_unused_paths(config: &Config) -> Vec<String> {
     }
 
     paths
-}
-
-fn warn_unused_paths(path: &Path, entries: &[String]) {
-    if entries.is_empty() {
-        return;
-    }
-
-    if entries.len() < 4 {
-        let inline = entries
-            .iter()
-            .map(|entry| format!("`{}`", entry.yellow()))
-            .join(", ");
-        warn_user!(
-            "Ignored unexpected keys in `{}`: {inline}",
-            path.user_display().cyan()
-        );
-    } else {
-        let list = entries
-            .iter()
-            .map(|entry| format!("  - `{}`", entry.yellow()))
-            .join("\n");
-        warn_user!(
-            "Ignored unexpected keys in `{}`:\n{list}",
-            path.user_display().cyan()
-        );
-    }
 }
 
 /// Read the configuration file from the given path.
@@ -406,7 +338,7 @@ mod tests {
             ),
             (
                 r#"["ci\tslow"]"#,
-                "group name `ci\tslow` cannot contain whitespace",
+                "group name `ci\\tslow` cannot contain whitespace",
             ),
             (
                 r#"["@custom"]"#,

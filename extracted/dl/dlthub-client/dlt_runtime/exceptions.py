@@ -1,7 +1,7 @@
 # Python internals
 import json
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 # Other libraries
 import httpx
@@ -151,23 +151,56 @@ def handle_client_exceptions(message: Optional[str] = None):
         raise RuntimeError(f"{message}. Underlying error: {e}") from e
 
 
+def _field_errors(body: Any) -> str:
+    """Indented lines for the server's per-field reasons, empty when it reported none.
+
+    A validation failure names only the request in `detail`; `extra` holds the reason.
+    """
+    extra = body.get("extra") if isinstance(body, dict) else None
+    if isinstance(extra, dict):
+        extra = [extra]
+    if not isinstance(extra, list):
+        return ""
+
+    lines: list[str] = []
+    for item in extra:
+        if isinstance(item, str):
+            lines.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        reason = item.get("message") or item.get("detail")
+        if not reason:
+            continue
+        key = item.get("key")
+        lines.append(f"{key}: {reason}" if key else str(reason))
+    return "".join(f"\n  {line}" for line in lines)
+
+
 def exception_from_response(
     message: str, response: Union[Response, UnexpectedStatus]
 ) -> BaseException:
     """Build a typed exception from an API response or UnexpectedStatus."""
     status = response.status_code
+    body: Any = None
     try:
-        details = json.loads(response.content.decode("utf-8"))["detail"]
+        body = json.loads(response.content.decode("utf-8"))
+        details = body["detail"]
     except Exception:
         details = response.content.decode("utf-8")
+    fields = _field_errors(body)
 
     # 401 gets a dedicated type so commands.py:execute() can route it to
     # the Phase 1 device-flow recovery (issue #645).
     if status == 401:
-        return RuntimeNotAuthenticated(f"{message}. {details} (HTTP {status})")
+        return RuntimeNotAuthenticated(f"{message}. {details} (HTTP {status}){fields}")
     if status < 500:
         # Upper-case the first character only. `.capitalize()` would lower-case the
         # rest, which flattens a multi-sentence detail. `details` may be None.
         detail_text = f"{details[:1].upper()}{details[1:]}" if details else details
-        return RuntimeClientException(f"{message}. {detail_text} (HTTP {status})")
-    return RuntimeClientException(f"{message}. Server error: {details} (HTTP {status})")
+        return RuntimeClientException(
+            f"{message}. {detail_text} (HTTP {status}){fields}"
+        )
+    return RuntimeClientException(
+        f"{message}. Server error: {details} (HTTP {status}){fields}"
+    )

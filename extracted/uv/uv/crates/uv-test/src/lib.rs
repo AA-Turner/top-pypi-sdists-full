@@ -30,6 +30,7 @@ use itertools::Itertools;
 use predicates::prelude::predicate;
 use regex::{Regex, regex};
 use tokio::io::AsyncWriteExt;
+use walkdir::WalkDir;
 
 use uv_cache::{Cache, CacheBucket};
 use uv_fs::Simplified;
@@ -194,6 +195,27 @@ impl TestContext {
                 .insert(0, (pattern, "[CACHE_DIR]/".to_string()));
         }
 
+        self
+    }
+
+    /// Return the sorted paths of all regular files in a cache bucket.
+    pub fn cache_files(&self, bucket: CacheBucket) -> anyhow::Result<Vec<PathBuf>> {
+        let cache = Cache::from_path(self.cache_dir.path());
+        let mut files = Vec::new();
+        for entry in WalkDir::new(cache.bucket(bucket)).min_depth(1) {
+            let entry = entry?;
+            if entry.file_type().is_file() {
+                files.push(entry.path().to_path_buf());
+            }
+        }
+        files.sort();
+        Ok(files)
+    }
+
+    /// Set an environment variable for all commands created from this context.
+    #[must_use]
+    pub fn with_env(mut self, key: impl Into<OsString>, value: impl Into<OsString>) -> Self {
+        self.extra_env.push((key.into(), value.into()));
         self
     }
 
@@ -431,7 +453,10 @@ impl TestContext {
             "/[BIN]/".to_string(),
         ));
         self.filters.push((
-            format!(r"[\\/]{}", venv_bin_path(PathBuf::new()).to_string_lossy()),
+            format!(
+                r"[\\/]{}\b",
+                venv_bin_path(PathBuf::new()).to_string_lossy()
+            ),
             "/[BIN]".to_string(),
         ));
         self

@@ -102,7 +102,10 @@ class TestJobSpec(unittest.TestCase):
                 workspace_id = '',
                 data_plane_id = '',
                 project_id = '',
-                lookback_hours = 56
+                lookback_hours = 56,
+                errored_alert_rule_ids = [
+                    ''
+                    ]
             )
         else:
             return JobSpec(

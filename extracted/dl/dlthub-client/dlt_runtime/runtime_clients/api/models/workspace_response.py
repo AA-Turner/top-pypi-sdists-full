@@ -35,6 +35,8 @@ class WorkspaceResponse:
         id (UUID): The unique ID of the entity
         name (str): The name of the workspace
         organization_id (UUID): The ID of the parent organization
+        archived_at (datetime.datetime | None | Unset): Timestamp when the workspace was archived; null when live.
+            Archived workspaces reject all mutations except unarchive.
         is_playground (bool | Unset): Whether this is the user's auto-created personal playground workspace. Playgrounds
             are single-member and cannot be renamed or deleted. Default: False.
         predefined_profiles (WorkspaceResponsePredefinedProfiles | Unset): Predefined profile names keyed by access
@@ -49,6 +51,7 @@ class WorkspaceResponse:
     id: UUID
     name: str
     organization_id: UUID
+    archived_at: datetime.datetime | None | Unset = UNSET
     is_playground: bool | Unset = False
     predefined_profiles: WorkspaceResponsePredefinedProfiles | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -71,6 +74,14 @@ class WorkspaceResponse:
 
         organization_id = str(self.organization_id)
 
+        archived_at: None | str | Unset
+        if isinstance(self.archived_at, Unset):
+            archived_at = UNSET
+        elif isinstance(self.archived_at, datetime.datetime):
+            archived_at = self.archived_at.isoformat()
+        else:
+            archived_at = self.archived_at
+
         is_playground = self.is_playground
 
         predefined_profiles: dict[str, Any] | Unset = UNSET
@@ -91,6 +102,8 @@ class WorkspaceResponse:
                 "organization_id": organization_id,
             }
         )
+        if archived_at is not UNSET:
+            field_dict["archived_at"] = archived_at
         if is_playground is not UNSET:
             field_dict["is_playground"] = is_playground
         if predefined_profiles is not UNSET:
@@ -126,6 +139,23 @@ class WorkspaceResponse:
 
         organization_id = UUID(d.pop("organization_id"))
 
+        def _parse_archived_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                archived_at_type_0 = isoparse(data)
+
+                return archived_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        archived_at = _parse_archived_at(d.pop("archived_at", UNSET))
+
         is_playground = d.pop("is_playground", UNSET)
 
         _predefined_profiles = d.pop("predefined_profiles", UNSET)
@@ -146,6 +176,7 @@ class WorkspaceResponse:
             id=id,
             name=name,
             organization_id=organization_id,
+            archived_at=archived_at,
             is_playground=is_playground,
             predefined_profiles=predefined_profiles,
         )

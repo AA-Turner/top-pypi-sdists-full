@@ -103,6 +103,7 @@ class AnalyticsInferenceApi:
             '403': "ErrorResponse",
             '404': "ErrorResponse",
             '500': "ErrorResponse",
+            '501': "ErrorResponse",
             '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
@@ -180,6 +181,7 @@ class AnalyticsInferenceApi:
             '403': "ErrorResponse",
             '404': "ErrorResponse",
             '500': "ErrorResponse",
+            '501': "ErrorResponse",
             '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
@@ -257,6 +259,7 @@ class AnalyticsInferenceApi:
             '403': "ErrorResponse",
             '404': "ErrorResponse",
             '500': "ErrorResponse",
+            '501': "ErrorResponse",
             '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(

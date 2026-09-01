@@ -10,6 +10,7 @@ extern "C" {
 
 struct SCS_LIN_SYS_WORK {
   ScsMatrix *kkt; /* Upper triangular KKT matrix (in CSR format) */
+  scs_float *sol; /* solution to the KKT system */
   scs_int n;      /* number of QP variables */
   scs_int m;      /* number of QP constraints */
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: quart-schema
-Version: 0.24.0
+Version: 0.25.0
 Summary: A Quart extension to provide schema validation
 Author-Email: pgjones <philip.graham.jones@googlemail.com>
 License: MIT
@@ -19,7 +19,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pyhumps>=1.6.1
 Requires-Dist: quart>=0.19.0
 Requires-Dist: typing_extensions; python_version < "3.11"
 Provides-Extra: docs

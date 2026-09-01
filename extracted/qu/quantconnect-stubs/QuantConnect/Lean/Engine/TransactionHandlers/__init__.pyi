@@ -24,6 +24,14 @@ class OrderRequestProcessingPool(System.Object, System.IDisposable):
     """
 
     @property
+    def shutdown_deadline_reached(self) -> bool:
+        """
+        True once disposing has given the workers their shared deadline to drain normally: the requests
+        drained after this point should be dropped by the request handler instead of processed
+        """
+        ...
+
+    @property
     def is_active(self) -> bool:
         """True while the pool is processing order requests, false once it has been shut down."""
         ...
@@ -59,7 +67,13 @@ class OrderRequestProcessingPool(System.Object, System.IDisposable):
         ...
 
     def dispose(self) -> None:
-        """Stops every worker thread and waits for them to terminate, then releases the pool resources."""
+        """
+        Stops the pool. The requests still in the ready queue are drained through the normal processing loop:
+        the surviving workers process them normally until the shared deadline, after which a last resort
+        drainer thread drains the rest, dropped by the request handler through
+        shutdown_deadline_reached. Parked follow up requests are left with their owning worker
+        and are dropped with it. Workers that won't stop within the deadline are interrupted.
+        """
         ...
 
     def process_pending(self) -> None:

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_agent_registry_control.literals import AutoApprovalRuleType
+    from types_boto3_agent_registry_control.literals import AgentCoreGatewayProtocolTypeType
 
-    data: AutoApprovalRuleType = "APPROVE_ALL"
+    data: AgentCoreGatewayProtocolTypeType = "MCP"
     ```
 """
 
@@ -22,14 +22,19 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AgentCoreGatewayProtocolTypeType",
+    "AgentCoreRuntimeServerProtocolType",
     "AgentRegistryControlServiceName",
     "AutoApprovalRuleType",
+    "AutoDetectionScopeType",
+    "AutoDetectionStatusType",
     "ClaimMatchOperatorTypeType",
     "EndpointIpAddressTypeType",
     "InboundTokenClaimValueTypeType",
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "PaginatorName",
+    "ProvenanceRelationType",
     "RecordTypeType",
     "RegistryAuthorizerTypeType",
     "RegistryFilterNameType",
@@ -42,16 +47,22 @@ __all__ = (
     "RegistryStatusType",
     "ResourceServiceName",
     "ServiceName",
+    "SourceTypeType",
     "WaiterName",
 )
 
+AgentCoreGatewayProtocolTypeType = Literal["MCP"]
+AgentCoreRuntimeServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 AutoApprovalRuleType = Literal["APPROVE_ALL"]
+AutoDetectionScopeType = Literal["ORGANIZATION"]
+AutoDetectionStatusType = Literal["ACTIVE", "INACTIVE"]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
-RecordTypeType = Literal["AGENT", "CUSTOM", "MCP", "SKILL"]
+ProvenanceRelationType = Literal["DETECTED_FROM"]
+RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 RegistryFilterNameType = Literal["discoveryConfiguration.authorizerType", "status"]
 RegistryReadyWaiterName = Literal["registry_ready"]
@@ -73,6 +84,7 @@ RegistryRecordStatusType = Literal[
 RegistryStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
+SourceTypeType = Literal["AWS::BedrockAgentCore::Gateway", "AWS::BedrockAgentCore::Runtime"]
 AgentRegistryControlServiceName = Literal["agent-registry-control"]
 ServiceName = Literal[
     "accessanalyzer",

@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-import enum
-import sys
-import numpy as np
 from scipy import sparse
 from scs import _scs_direct
 import warnings
@@ -9,6 +6,8 @@ import warnings
 __version__ = _scs_direct.version()
 __sizeof_int__ = _scs_direct.sizeof_int()
 __sizeof_float__ = _scs_direct.sizeof_float()
+
+_USE_INDIRECT_DEFAULT = False
 
 
 # SCS return integers correspond to one of these flags:
@@ -25,63 +24,37 @@ SOLVED = 1  # problem solved to desired accuracy
 SOLVED_INACCURATE = 2  # SCS best guess solved
 
 
-class LinearSolver(enum.Enum):
-  """Linear system solver backend for SCS."""
-  AUTO = "auto"
-  QDLDL = "qdldl"
-  CPU_INDIRECT = "cpu_indirect"
-  MKL = "mkl"
-  ACCELERATE = "accelerate"
-  CPU_DENSE = "cpu_dense"
-  GPU_INDIRECT = "gpu_indirect"
-  CUDSS = "cudss"
-
-
-def _load_module(name):
-  from importlib import import_module
-  return import_module(f"scs.{name}")
-
-
-def _resolve_auto():
-  """Auto-detect the best available direct solver for this platform."""
-  if sys.platform == "darwin":
-    # Prefer the bundled QDLDL on macOS over Apple Accelerate.
-    return _scs_direct
-  try:
-    return _load_module("_scs_mkl")
-  except ImportError:
-    pass
-  return _scs_direct
-
-
-_SOLVER_DISPATCH = {
-    LinearSolver.AUTO: _resolve_auto,
-    LinearSolver.QDLDL: lambda: _scs_direct,
-    LinearSolver.CPU_INDIRECT: lambda: _load_module("_scs_indirect"),
-    LinearSolver.MKL: lambda: _load_module("_scs_mkl"),
-    LinearSolver.ACCELERATE: lambda: _load_module("_scs_accelerate"),
-    LinearSolver.CPU_DENSE: lambda: _load_module("_scs_dense"),
-    LinearSolver.GPU_INDIRECT: lambda: _load_module("_scs_gpu"),
-    LinearSolver.CUDSS: lambda: _load_module("_scs_cudss"),
-}
-
-
+# Choose which SCS to import based on settings.
 def _select_scs_module(stgs):
-  """Choose which SCS C extension to import based on settings."""
-  linear_solver = stgs.pop("linear_solver", LinearSolver.AUTO)
-  if isinstance(linear_solver, str):
-    linear_solver = LinearSolver(linear_solver)
-  return _SOLVER_DISPATCH[linear_solver]()
 
+  if stgs.pop("cudss", False):
+    raise ValueError("To use cuDSS set gpu=True and use_indirect=False.")
 
-def _has_lower_tri(P):
-  """Fast check for strictly lower triangular entries in a sorted CSC matrix."""
-  nnz_per_col = np.diff(P.indptr)
-  nonempty = nnz_per_col > 0
-  if not nonempty.any():
-    return False
-  last_row = P.indices[P.indptr[1:][nonempty] - 1]
-  return bool(np.any(last_row > np.where(nonempty)[0]))
+  if stgs.pop("gpu", False):  # False by default
+    if stgs.pop("use_indirect", _USE_INDIRECT_DEFAULT):
+      from scs import _scs_gpu  # pylint: disable=g-import-not-at-top
+
+      return _scs_gpu
+    else:
+      from scs import _scs_cudss  # pylint: disable=g-import-not-at-top
+
+      return _scs_cudss
+
+  if stgs.pop("mkl", False):  # False by default
+    if stgs.pop("use_indirect", False):
+      raise NotImplementedError(
+          "MKL indirect solver not yet available, pass `use_indirect=False`."
+      )
+    from scs import _scs_mkl  # pylint: disable=g-import-not-at-top
+
+    return _scs_mkl
+
+  if stgs.pop("use_indirect", _USE_INDIRECT_DEFAULT):
+    from scs import _scs_indirect  # pylint: disable=g-import-not-at-top
+
+    return _scs_indirect
+
+  return _scs_direct
 
 
 class SCS(object):
@@ -92,11 +65,6 @@ class SCS(object):
     @param data     Dictionary containing keys `P`, `A`, `b`, `c`.
     @param cone     Dictionary containing cone information.
     @param settings Settings as kwargs, see docs.
-
-    Thread safety: construction is assumed to be thread-local. Calling
-    `__init__` on a live SCS instance from another thread (i.e. while
-    `solve` or `update` may be running on it) is undefined behavior.
-    Use a fresh `SCS(...)` instance instead.
     """
     self._settings = settings
     if not data or not cone:
@@ -123,22 +91,17 @@ class SCS(object):
       )
       A = A.tocsc()
 
-    # .todense() returns a 2-D np.matrix; the C layer requires ndim==1.
-    # Flatten to a 1-D ndarray so a sparse b or c is actually accepted.
     if sparse.issparse(b):
-      b = np.asarray(b.todense()).ravel()
+      b = b.todense()
 
     if sparse.issparse(c):
-      c = np.asarray(c.todense()).ravel()
+      c = c.todense()
 
     m = len(b)
     n = len(c)
 
-    # sorted_indices() returns a new matrix; sort_indices() would mutate
-    # the caller's A in place (surprising, and a data race under the
-    # free-threaded build if another thread reads the same matrix).
     if not A.has_sorted_indices:
-      A = A.sorted_indices()
+      A.sort_indices()
     Adata, Aindices, Acolptr = A.data, A.indices, A.indptr
     if A.shape != (m, n):
       raise ValueError("A shape not compatible with b,c")
@@ -157,12 +120,11 @@ class SCS(object):
               "matrix; may take a while."
           )
           P = P.tocsc()
-        # sorted_indices() returns a new matrix; see A above.
-        if not P.has_sorted_indices:
-          P = P.sorted_indices()
         # extract upper triangular component only
-        if _has_lower_tri(P):
+        if sparse.tril(P, -1).data.size > 0:
           P = sparse.triu(P, format="csc")
+        if not P.has_sorted_indices:
+          P.sort_indices()
         Pdata, Pindices, Pcolptr = P.data, P.indices, P.indptr
 
     # Which scs are we using (scs_direct, scs_indirect, ...)

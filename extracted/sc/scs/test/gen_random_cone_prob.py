@@ -6,17 +6,15 @@ from scipy import sparse
 #############################################
 
 
-def gen_feasible(K, n, density, rng=None):
-    if rng is None:
-        rng = np.random
+def gen_feasible(K, n, density):
     m = get_scs_cone_dims(K)
-    z = rng.randn(m)
+    z = np.random.randn(m)
     y = proj_dual_cone(z, K)  # y = s - z;
     s = y - z  # s = proj_cone(z,K)
 
-    A = sparse.rand(m, n, density, format="csc", random_state=rng)
-    A.data = rng.randn(A.nnz)
-    x = rng.randn(n)
+    A = sparse.rand(m, n, density, format="csc")
+    A.data = np.random.randn(A.nnz)
+    x = np.random.randn(n)
     c = -np.transpose(A).dot(y)
     b = A.dot(x) + s
 
@@ -24,40 +22,36 @@ def gen_feasible(K, n, density, rng=None):
     return data, np.dot(c, x)
 
 
-def gen_infeasible(K, n, rng=None):
-    if rng is None:
-        rng = np.random
+def gen_infeasible(K, n):
     m = get_scs_cone_dims(K)
 
-    z = rng.randn(m)
+    z = np.random.randn(m)
     y = proj_dual_cone(z, K)  # y = s - z;
-    A = rng.randn(m, n)
+    A = np.random.randn(m, n)
     A = (
         A - np.outer(y, np.transpose(A).dot(y)) / np.linalg.norm(y) ** 2
     )  # dense...
 
-    b = rng.randn(m)
+    b = np.random.randn(m)
     b = -b / np.dot(b, y)
 
-    data = {"A": sparse.csc_matrix(A), "b": b, "c": rng.randn(n)}
+    data = {"A": sparse.csc_matrix(A), "b": b, "c": np.random.randn(n)}
     return data
 
 
-def gen_unbounded(K, n, rng=None):
-    if rng is None:
-        rng = np.random
+def gen_unbounded(K, n):
     m = get_scs_cone_dims(K)
 
-    z = rng.randn(m)
+    z = np.random.randn(m)
     s = proj_cone(z, K)
-    A = rng.randn(m, n)
-    x = rng.randn(n)
+    A = np.random.randn(m, n)
+    x = np.random.randn(n)
     A = A - np.outer(s + A.dot(x), x) / np.linalg.norm(x) ** 2
     # dense...
-    c = rng.randn(n)
+    c = np.random.randn(n)
     c = -c / np.dot(c, x)
 
-    data = {"A": sparse.csc_matrix(A), "b": rng.randn(m), "c": c}
+    data = {"A": sparse.csc_matrix(A), "b": np.random.randn(m), "c": c}
     return data
 
 

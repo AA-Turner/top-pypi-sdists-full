@@ -481,8 +481,11 @@ class CheckpointDecorator(StepDecorator):
     defaults = {
         # `load_policy` defines the policy for the checkpoint loading during the execution of different runs.
         # It can be : ["eager", "none", "fresh"],
+        "load_policy": "fresh",  
         # `show_card` controls whether checkpoint @card is appended.
         "show_card": True,
+        # Root directory for the temporary checkpoint directory.
+        "temp_dir_root": None,
     }
 
     LOAD_POLCIES = [

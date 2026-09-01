@@ -21,9 +21,6 @@ from conan.internal.util.files import load, save
 policies_msg = """\
 A list of opt-in behaviors that can be defined in the configuration to control specific aspects of Conan's behavior,
 such as keeping deprecated behaviours:
-   - deprecated_build_order_args: Allow deprecated skipping of --order-by argument in conan graph build-order - To be removed in Conan 2.32
-   - deprecated_empty_version_range: Allow using deprecated empty version range expressions - To be removed in Conan 2.32
-If the policy 'required_conan_version>=version' is defined, different behaviors can be enabled:
    - If required_conan_version>=2.28, bugfix https://github.com/conan-io/conan/pull/19705 for transitive static libraries package_id
    - If required_conan_version>=2.28, bugfix https://github.com/conan-io/conan/pull/19849 for VirtualBuildEnv bindir path propagation based on requirement run trait
    - If required_conan_version>=2.28, https://github.com/conan-io/conan/pull/19286 defaults the new 'consistent' trait to True for the host context, even when 'visible=False'
@@ -46,7 +43,9 @@ BUILT_IN_CONFS = {
     "core.download:parallel": "Number of concurrent threads to download packages",
     "core.download:retry": " (int, default: 2) Number of retries in case of failure when downloading from Conan server",
     "core.download:retry_wait": "(int, default: 1s) Seconds to wait between download attempts from Conan server",
-    "core.download:download_cache": "Define path to a file download cache",
+    "core.download:download_cache": "Define path to a file download cache. Files uploaded to a "
+                                    "server are also stored here, so a later download of the same "
+                                    "artifact can be skipped",
     "core.cache:storage_path": "Absolute path where the packages and database are stored",
     "core:update_policy": "(Legacy). If equal 'legacy' when multiple remotes, update based on order of remotes, only the timestamp of the first occurrence of each revision counts.",
     "core:policies": policies_msg,
@@ -105,7 +104,7 @@ BUILT_IN_CONFS = {
     "tools.cmake.cmaketoolchain:presets_environment": "String to define wether to add or not the environment section to the CMake presets. Empty by default, will generate the environment section in CMakePresets. Can take values: 'disabled'.",
     "tools.cmake.cmaketoolchain:extra_variables": "Dictionary with variables to be injected in CMakeToolchain (potential override of CMakeToolchain defined variables)",
     "tools.cmake.cmaketoolchain:enabled_blocks": "Select the specific blocks to use in the conan_toolchain.cmake",
-    "tools.cmake.cmaketoolchain:user_presets": "(Experimental) Select a different name instead of CMakeUserPresets.json, empty to disable",
+    "tools.cmake.cmaketoolchain:user_presets": "(Experimental) Select a different name or relative filepath instead of CMakeUserPresets.json, empty to disable. A relative filepath (with directory component) enables CMake 4.4+ --preset-file mode",
     "tools.cmake.cmake_layout:build_folder_vars": "Settings and Options that will produce a different build folder and different CMake presets names",
     "tools.cmake.cmake_layout:build_folder": "(Experimental) Allow configuring the base folder of the build for local builds",
     "tools.cmake.cmake_layout:test_folder": "(Experimental) Allow configuring the base folder of the build for test_package",

@@ -1032,7 +1032,7 @@ fn resolve_positional_param(
         let Some(param_list) = has_param_list.param_list() else {
             continue;
         };
-        if let Some(param) = param_list.params().nth(index) {
+        if let Some(param) = param_list.all_params().nth(index) {
             let range = param
                 .name()
                 .map(|name| name.syntax().text_range())
@@ -2169,9 +2169,7 @@ fn resolve_select_qualified_column_ptr(
                 // relation name), resolve the column against that source. This
                 // handles subquery and VALUES sources, where the qualifier is not
                 // a real table name.
-                if let Some(using_on) = merge.using_on_clause()
-                    && let Some(from_item) = using_on.from_item()
-                {
+                if let Some(from_item) = ast_nav::merge_using_from_item(&merge) {
                     let matches_source = if let Some(alias_name) =
                         from_item.alias().and_then(|alias| alias.name())
                     {
@@ -2318,11 +2316,10 @@ pub(crate) fn resolve_table_name(
 }
 
 fn resolve_merge_alias(name_ref: &impl ast::NameLike, table_name: &Name) -> Option<Name> {
-    let from_item = name_ref.syntax().ancestors().find_map(|x| {
-        ast::Merge::cast(x)?
-            .using_on_clause()
-            .and_then(|c| c.from_item())
-    })?;
+    let from_item = name_ref
+        .syntax()
+        .ancestors()
+        .find_map(|x| ast_nav::merge_using_from_item(&ast::Merge::cast(x)?))?;
     if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name())
         && Name::from_node(&alias_name) == *table_name
         && let ast::FromItem::RelationFromItem(relation) = &from_item
@@ -2864,7 +2861,7 @@ fn resolve_enclosing_function_param(
         let Some(param_list) = has_param_list.param_list() else {
             continue;
         };
-        for param in param_list.params() {
+        for param in param_list.all_params() {
             if let Some(name) = param.name()
                 && Name::from_node(&name) == param_name
             {
@@ -3104,15 +3101,18 @@ fn find_from_item_matching_qualifier(
         && let ast::FromItem::ParenFromItem(paren) = from_item
         && let Some(paren_expr) = paren.paren_expr()
     {
-        if let Some(join_expr) = paren_expr.join_expr() {
-            for inner in ast_nav::iter_join_expr(&join_expr) {
-                if let Some(found) = find_from_item_matching_qualifier(&inner, qualifier) {
-                    return Some(found);
+        match paren_expr.from_list_item() {
+            Some(ast::FromListItem::JoinExpr(join_expr)) => {
+                for inner in ast_nav::iter_join_expr(&join_expr) {
+                    if let Some(found) = find_from_item_matching_qualifier(&inner, qualifier) {
+                        return Some(found);
+                    }
                 }
             }
-        }
-        if let Some(inner) = paren_expr.from_item() {
-            return find_from_item_matching_qualifier(&inner, qualifier);
+            Some(ast::FromListItem::FromItem(inner)) => {
+                return find_from_item_matching_qualifier(&inner, qualifier);
+            }
+            None => (),
         }
     }
 
@@ -3139,7 +3139,10 @@ fn find_join_expr_by_using_alias(
     {
         return Some(join_expr.clone());
     }
-    find_join_expr_by_using_alias(&join_expr.join_expr()?, qualifier)
+    let ast::FromListItem::JoinExpr(lhs) = join_expr.from_list_item()? else {
+        return None;
+    };
+    find_join_expr_by_using_alias(&lhs, qualifier)
 }
 
 fn find_using_alias_join_expr_for_name_ref(
@@ -3152,7 +3155,11 @@ fn find_using_alias_join_expr_for_name_ref(
         .find(|a| ast::Select::can_cast(a.kind()) || ast::SelectInto::can_cast(a.kind()))?;
     let from_clause = select_like_from_clause(&select)?;
     from_clause
-        .join_exprs()
+        .items()
+        .filter_map(|item| match item {
+            ast::FromListItem::JoinExpr(join_expr) => Some(join_expr),
+            ast::FromListItem::FromItem(_) => None,
+        })
         .find_map(|join_expr| find_join_expr_by_using_alias(&join_expr, qualifier))
 }
 
@@ -4572,7 +4579,7 @@ fn table_ptr_from_paren_expr(
 ) -> Option<SyntaxNodePtr> {
     let file = paren_expr.file_id;
     let paren_expr = paren_expr.value;
-    if let Some(from_item) = paren_expr.from_item() {
+    if let Some(ast::FromListItem::FromItem(from_item)) = paren_expr.from_list_item() {
         return table_ptr_from_from_item(db, InFile::new(file, &from_item));
     }
     if let Some(ast::Expr::ParenExpr(inner)) = paren_expr.expr() {
@@ -4784,28 +4791,30 @@ fn resolve_column_from_paren_expr_with_skip(
         }
     }
 
-    if let Some(from_item) = paren_expr.from_item() {
-        return resolve_from_item_column_by_name_after_index(
-            db,
-            InFile::new(file, &from_item),
-            name_ref,
-            column_name,
-            skip_column_count,
-        );
-    }
-
-    if let Some(join_expr) = paren_expr.join_expr() {
-        for from_item in ast_nav::iter_join_expr(&join_expr) {
-            if let Some(ptr) = resolve_from_item_column_by_name_after_index(
+    match paren_expr.from_list_item() {
+        Some(ast::FromListItem::FromItem(from_item)) => {
+            return resolve_from_item_column_by_name_after_index(
                 db,
                 InFile::new(file, &from_item),
                 name_ref,
                 column_name,
                 skip_column_count,
-            ) {
-                return Some(ptr);
+            );
+        }
+        Some(ast::FromListItem::JoinExpr(join_expr)) => {
+            for from_item in ast_nav::iter_join_expr(&join_expr) {
+                if let Some(ptr) = resolve_from_item_column_by_name_after_index(
+                    db,
+                    InFile::new(file, &from_item),
+                    name_ref,
+                    column_name,
+                    skip_column_count,
+                ) {
+                    return Some(ptr);
+                }
             }
         }
+        None => (),
     }
 
     None
@@ -4954,13 +4963,11 @@ fn count_columns_for_call_expr_return_table(
         .ancestors()
         .find_map(ast::CreateFunction::cast)?;
 
-    if let Some(table_arg_list) = create_function.ret_type().and_then(|r| r.table_arg_list()) {
-        return Some(
-            table_arg_list
-                .args()
-                .filter(|arg| matches!(arg, ast::TableArg::Column(_)))
-                .count(),
-        );
+    if let Some(return_table_arg_list) = create_function
+        .ret_type()
+        .and_then(|ret_type| ret_type.return_table_arg_list())
+    {
+        return Some(return_table_arg_list.args().count());
     }
 
     if let Some(param_list) = create_function.param_list() {
@@ -4978,7 +4985,9 @@ fn count_columns_for_call_expr_return_table(
         }
     }
 
-    if let Some(ast::Type::PathType(path_type)) = create_function.ret_type().and_then(|r| r.ty())
+    if let Some(ast::FuncType::Type(ast::Type::PathType(path_type))) = create_function
+        .ret_type()
+        .and_then(|ret_type| ret_type.func_type())
         && let Some(path) = path_type.path_ref()
         && let Some(column_count) =
             count_columns_for_path(db, InFile::new(function_loc.file, &path)).or_else(|| {
@@ -5010,21 +5019,20 @@ fn resolve_column_from_call_expr_return_table(
         .find_map(ast::CreateFunction::cast)?;
 
     // `returns table(col ...)`
-    if let Some(table_arg_list) = create_function.ret_type().and_then(|r| r.table_arg_list()) {
-        let mut index = 0usize;
-        for arg in table_arg_list.args() {
-            if let ast::TableArg::Column(column) = arg {
-                if let Some(name) = column.name()
-                    && Name::from_node(&name) == *column_name
-                    && index >= min_index
-                {
-                    return Some(smallvec![Location::new(
-                        file,
-                        name.syntax().text_range(),
-                        LocationKind::Column
-                    )]);
-                }
-                index += 1;
+    if let Some(return_table_arg_list) = create_function
+        .ret_type()
+        .and_then(|ret_type| ret_type.return_table_arg_list())
+    {
+        for (index, column) in return_table_arg_list.args().enumerate() {
+            if let Some(name) = column.name()
+                && Name::from_node(&name) == *column_name
+                && index >= min_index
+            {
+                return Some(smallvec![Location::new(
+                    file,
+                    name.syntax().text_range(),
+                    LocationKind::Column
+                )]);
             }
         }
     }
@@ -5054,7 +5062,9 @@ fn resolve_column_from_call_expr_return_table(
     }
 
     // `returns setof <table>` or `returns setof <composite type>`
-    if let Some(ast::Type::PathType(path_type)) = create_function.ret_type().and_then(|r| r.ty())
+    if let Some(ast::FuncType::Type(ast::Type::PathType(path_type))) = create_function
+        .ret_type()
+        .and_then(|ret_type| ret_type.func_type())
         && let Some(path) = path_type.path_ref()
     {
         if let Some(ptr) =
@@ -5181,8 +5191,8 @@ fn resolve_symbol_info_from_parts(
 
 fn param_signature(node: &ast::HasParamList) -> Option<Vec<Name>> {
     let mut params = vec![];
-    for param in node.param_list()?.params() {
-        if let Some(ast::Type::PathType(path_type)) = param.ty()
+    for param in node.param_list()?.all_params() {
+        if let Some(ast::FuncType::Type(ast::Type::PathType(path_type))) = param.func_type()
             && let Some(name_ref) = path_type.path_ref().and_then(|x| x.segment())
         {
             params.push(Name::from_node(&name_ref));
@@ -5503,7 +5513,7 @@ fn resolve_delete_column_ptr(
         .find_map(ast::Delete::cast)?;
 
     if let Some(using_clause) = delete.using_clause() {
-        for from_item in using_clause.from_items() {
+        for from_item in ast_nav::iter_from_items(using_clause.items()) {
             if let Some(ptr) =
                 resolve_from_item_column_ptr(db, InFile::new(file, &from_item), column_name_ref)
             {
@@ -5540,7 +5550,7 @@ fn resolve_delete_table_name_ptr(
         .find_map(ast::Delete::cast)?;
 
     if let Some(using_clause) = delete.using_clause() {
-        for from_item in using_clause.from_items() {
+        for from_item in ast_nav::iter_from_items(using_clause.items()) {
             if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
                 if Name::from_node(&alias_name) == table_name {
                     return Some(smallvec![Location::new(
@@ -5604,7 +5614,7 @@ fn resolve_merge_column_ptr(
 
     if !is_set_target
         && !in_insert_column_list
-        && let Some(from_item) = merge.using_on_clause().and_then(|x| x.from_item())
+        && let Some(from_item) = ast_nav::merge_using_from_item(&merge)
         && let Some(ptr) =
             resolve_from_item_column_ptr(db, InFile::new(file, &from_item), column_name_ref)
     {
@@ -5685,7 +5695,7 @@ fn resolve_merge_table_name_ptr(
 
     // Check USING clause for the source table - MERGE-specific.
     // A source alias hides the underlying table name.
-    if let Some(from_item) = merge.using_on_clause().and_then(|x| x.from_item()) {
+    if let Some(from_item) = ast_nav::merge_using_from_item(&merge) {
         if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
             if Name::from_node(&alias_name) == table_name {
                 return Some(smallvec![Location::new(
@@ -5740,7 +5750,7 @@ fn find_param_in_func_def(
         }
     })?;
 
-    for param in param_list.params() {
+    for param in param_list.all_params() {
         if let Some(name) = param.name()
             && Name::from_node(&name) == *param_name
         {

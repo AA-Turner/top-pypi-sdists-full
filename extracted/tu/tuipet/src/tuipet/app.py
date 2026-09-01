@@ -150,7 +150,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("A BROKEN INSTALL NOW SPEAKS UP AT LAUNCH INSTEAD OF AMBUSHING YOU LATER. One of tuipet's own data files went missing on a player's machine and the game booted anyway, played a whole session, then crashed to a wall of text the moment he opened the tournament — because the launch check only ever opened two of the eighteen files the game cannot run without. It opens all of them now, before it takes the terminal over, and if one is missing or empty it names the file and gives you the one command that puts it back. Your save is never involved. The extras that were always optional — icons, backgrounds, effects — still go quietly missing without stopping you playing.")
+    WHATS_NEW = ("YOU CAN CLEAR A CONVERSATION NOW, AND IT STAYS CLEARED. Every private thread you had ever opened kept a row in the lobby for good — nothing in the game could remove one, and blocking someone did not help, because the mute swept their public lines and left the transcript and its row standing. Pick a name, press D, confirm, and the conversation and its row are gone from your device for good; the person themselves is untouched — if they are in the room they stay in the room, because clearing a thread is not blocking and not a goodbye. It asks first, since there is no undo and no copy anywhere else.")
 
 
     BINDINGS = [

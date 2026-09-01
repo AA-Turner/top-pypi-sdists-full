@@ -11,6 +11,9 @@ import igl.copyleft
 import igl.copyleft.tetgen
 import igl.copyleft.cgal
 import igl.embree
+import igl.spectra
+import igl.predicates
+import igl.cycodebase
 
 @pytest.fixture
 def icosahedron():
@@ -139,6 +142,9 @@ def test_normals_and_distances():
     FN,_,_,_ = igl.per_face_normals(V,I,C)
     FN = igl.per_face_normals(V,F)
     FN = igl.per_face_normals(V,F,Z=np.array([0,0,1],dtype=np.float64))
+    FNs = igl.per_face_normals_stable(V,F)
+    assert FNs.shape == FN.shape
+    np.testing.assert_allclose(np.abs((FNs*FN).sum(axis=1)), 1.0, atol=1e-9)
     VN = igl.per_vertex_normals(V,F)
     VN = igl.per_vertex_normals(V,F,      weighting=igl.PER_VERTEX_NORMALS_WEIGHTING_TYPE_UNIFORM)
     VN = igl.per_vertex_normals(V,F,      weighting=igl.PER_VERTEX_NORMALS_WEIGHTING_TYPE_AREA)
@@ -258,7 +264,25 @@ def test_min_quad():
     data = igl.min_quad_with_fixed_data()
     igl.min_quad_with_fixed_precompute(A,known,Aeq,True,data)
     Z = igl.min_quad_with_fixed_solve(data,B,Y,Beq)
-    
+
+def test_active_set():
+    V,F,T = single_tet()
+    n = V.shape[0]
+    A = -igl.cotmatrix(V,F)
+    B = np.zeros(n,dtype=np.float64)
+    known = np.array([0,1],dtype=np.int64)
+    Y = np.array([0.0,1.0],dtype=np.float64)
+    Aeq = scipy.sparse.csc_matrix((0,n),dtype=np.float64)
+    Beq = np.array([],dtype=np.float64)
+    Aieq = scipy.sparse.csc_matrix((0,n),dtype=np.float64)
+    Bieq = np.array([],dtype=np.float64)
+    lx = np.array([],dtype=np.float64)
+    ux = np.array([],dtype=np.float64)
+    Z = igl.active_set(A,B,known,Y,Aeq,Beq,Aieq,Bieq,lx,ux)
+    assert Z.shape[0] == n
+    assert Z[0] == pytest.approx(0.0)
+    assert Z[1] == pytest.approx(1.0)
+
 def test_volume():
     V = np.array([[0,0,0],[1,0,0],[0,1,0],[0,0,1]],dtype=np.float64)
     T = np.array([[0,1,2,3]],dtype=np.int64)
@@ -338,6 +362,25 @@ def test_voxel():
     GV,side = igl.voxel_grid(V,s=10)
     GV,side = igl.voxel_grid(V,s=10,offset=0.1,pad_count=2)
 
+def test_voxel_grid_box():
+    V,_,_ = single_tet()
+    min_corner = V.min(axis=0)
+    max_corner = V.max(axis=0)
+    GV,side = igl.voxel_grid(min_corner,max_corner,s=10,pad_count=2)
+    assert GV.dtype == np.float64
+    assert side.dtype == np.int64
+    assert GV.shape == (np.prod(side),3)
+    assert side.shape == (3,)
+    # Enclosing the corners is the same as enclosing the points themselves
+    GV2,side2 = igl.voxel_grid(V,0.0,s=10,pad_count=2)
+    assert np.allclose(GV,GV2)
+    assert np.array_equal(side,side2)
+    # Positional args resolve to the box overload too
+    GV3,side3 = igl.voxel_grid(min_corner,max_corner,10,2)
+    assert np.allclose(GV,GV3)
+    with pytest.raises(RuntimeError):
+        igl.voxel_grid(min_corner[:2],max_corner,s=10)
+
 
 def test_sample():
     V,F = igl.icosahedron()
@@ -403,7 +446,8 @@ def test_implicit():
     S = np.sqrt(((GV - np.array([0.5,0.5,0.5],dtype=np.float64))**2).sum(axis=1))-0.25;
     V,F,E2V = igl.marching_cubes(S,GV,res[0],res[1],res[2])
     # unpack keys into (i,j,v) index triplets
-    EV = np.array([[k & 0xFFFFFFFF, k >> 32, v] for k, v in E2V.items()], dtype=np.int64)
+    EV_list = [[k & 0xFFFFFFFF, k >> 32, v] for k, v in E2V.items()]
+    EV = np.array(EV_list, dtype=np.int64) if EV_list else np.empty((0,3), dtype=np.int64)
 
     h = igl.avg_edge_length(V,F)
     m0,m1,m2 = igl.moments(V,F)
@@ -584,6 +628,9 @@ def test_misc():
     theta, cos_theta = igl.dihedral_angles(V,T)
     L = igl.edge_lengths(V,T)
     A = igl.face_areas(V,T)
+    # intrinsic overload: face areas from tet edge lengths alone
+    A_intrinsic = igl.face_areas(L)
+    np.testing.assert_allclose(A_intrinsic, A, atol=1e-9)
     theta, cos_theta = igl.dihedral_angles_intrinsic(L,A)
     D = igl.all_pairs_distances(V,V,squared=False)
     D = igl.all_pairs_distances(V,V,squared=True)
@@ -604,7 +651,14 @@ def test_octree():
     h = h0 / (2**max_depth)
     unique_ijk, J, unique_corners = igl.unique_sparse_voxel_corners(origin,h0,max_depth,ijk)
     unique_S = sdf_sphere(unique_corners)
-    V,F = igl.marching_cubes(unique_S,unique_corners,J,0.0)
+    V,F,E2V = igl.marching_cubes(unique_S,unique_corners,J,0.0)
+    assert V.shape[0] > 0
+    assert F.shape[0] > 0
+    EV_list = [[k & 0xFFFFFFFF, k >> 32, v] for k, v in E2V.items()]
+    EV = np.array(EV_list, dtype=np.int64) if EV_list else np.empty((0,3), dtype=np.int64)
+    assert len(E2V) == EV.shape[0]
+    assert np.all(EV[:,2] >= 0)
+    assert np.all(EV[:,2] < V.shape[0])
 
 def test_is_intrinsic_delaunay() -> None:
     # vs and fs come from a simple plane from pyvista
@@ -789,6 +843,447 @@ def test_find_cross_field_singularities(icosahedron):
     # theorem, so we skip this check for now.
     # assert np.sum(singularityIndex3) == 2 * 4 # Euler characteristic * 4-rosy fields
 
+def test_centroid():
+    # Icosahedron is centered at origin, so centroid should be near zero
+    V, F = igl.icosahedron()
+
+    # Overload returning both centroid and volume
+    c, vol = igl.centroid(V, F)
+    assert c.shape == (3,)
+    assert c.dtype == np.float64
+    assert isinstance(vol, float)
+    assert np.allclose(c, np.zeros(3), atol=1e-10)
+    assert vol > 0
+
+    # Known geometry: unit tetrahedron centroid should be at (0.25, 0.25, 0.25)
+    V_tet = np.array([[0,0,0],[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
+    F_tet = np.array([[2,1,0],[1,3,0],[3,2,0],[2,3,1]], dtype=np.int64)
+    c_tet, vol_tet = igl.centroid(V_tet, F_tet)
+    assert np.allclose(c_tet, [0.25, 0.25, 0.25], atol=1e-10)
+    assert np.isclose(vol_tet, 1.0/6.0, atol=1e-10)
+
+def test_new_io():
+    V, F = triangulated_square()
+    # writeOFF
+    igl.writeOFF("out.off", V, F)
+    # writeSTL / readSTL
+    igl.writeSTL("out.stl", V, F)
+    V2, F2, N2 = igl.readSTL("out.stl")
+    assert V2.dtype == np.float64
+    assert F2.dtype == np.int64
+    assert N2.dtype == np.float64
+    # readCSV
+    np.savetxt("out.csv", V[:2, :], delimiter=",")
+    M = igl.readCSV("out.csv")
+    assert M.shape == (2, 3)
+    assert M.dtype == np.float64
+
+
+def test_new_geometry():
+    V, F = triangulated_square()
+
+    # accumarray with values (S and vals must be 2D)
+    S = np.array([[0], [1], [0], [2]], dtype=np.int64)
+    vals = np.array([[1.0], [2.0], [3.0], [4.0]], dtype=np.float64)
+    A = igl.accumarray(S, vals)
+    assert len(A) == 3
+    assert np.isclose(A[0], 4.0)   # 1.0 + 3.0
+    assert np.isclose(A[1], 2.0)
+    assert np.isclose(A[2], 4.0)
+
+    # accumarray with constant
+    A2 = igl.accumarray(S, 1.0)
+    assert len(A2) == 3
+    assert np.isclose(A2[0], 2.0)  # S[0] and S[2] both map to 0
+
+    # euler_characteristic: V=4, E=5, F=2 → χ=1
+    chi = igl.euler_characteristic(F)
+    assert isinstance(chi, int)
+    assert chi == 1
+
+    # exterior_edges: square has 4 boundary edges
+    E_ext = igl.exterior_edges(F)
+    assert E_ext.shape[1] == 2
+    assert E_ext.shape[0] == 4
+
+    # face_occurrences
+    C_fo = igl.face_occurrences(F)
+    assert C_fo.shape == (F.shape[0],)
+    assert np.all(C_fo == 1)
+
+    # fit_plane
+    pts = np.array([[0,0,0],[1,0,0],[0,1,0],[1,1,0]], dtype=np.float64)
+    N_plane, C_plane = igl.fit_plane(pts)
+    assert N_plane.shape == (3,)
+    assert C_plane.shape == (3,)
+
+    # flipped_triangles: V[:,:2] in standard orientation → no flips
+    V2d = V[:, :2]
+    X_flip = igl.flipped_triangles(V2d, F)
+    assert len(X_flip) == 0
+
+    # hausdorff
+    V2_off = V + 0.001
+    d_h = igl.hausdorff(V, F, V2_off, F)
+    assert isinstance(d_h, float)
+    assert d_h > 0
+
+    # snap_points: returns (I, minD, VI)
+    query = np.array([[0.05, 0.05, 0.0], [0.95, 0.0, 0.0]], dtype=np.float64)
+    I_snap, minD_snap, VI_snap = igl.snap_points(query, V)
+    assert I_snap.shape == (2,)
+    assert minD_snap.shape == (2,)
+    assert VI_snap.shape == (2, 3)
+    assert I_snap.dtype == np.int64
+
+    # turning_number: CCW unit square polygon in 2D → 1.0
+    poly = np.array([[0,0],[1,0],[1,1],[0,1]], dtype=np.float64)
+    tn = igl.turning_number(poly)
+    assert isinstance(tn, float)
+    assert np.isclose(abs(tn), 1.0, atol=1e-10)
+
+    # orient_outward (C must be 2D)
+    V3, F3, T3 = single_tet()
+    C_patch = np.zeros((F3.shape[0], 1), dtype=np.int64)
+    FF_out, I_out = igl.orient_outward(V3, F3, C_patch)
+    assert FF_out.shape == F3.shape
+    assert I_out.shape == (1,)   # max(C)+1 components
+
+    # orientable_patches
+    C_op = igl.orientable_patches(F)
+    assert C_op.shape == (F.shape[0],)
+
+    # extract_manifold_patches: returns (n_patches, P)
+    n_emp, P_emp = igl.extract_manifold_patches(F)
+    assert isinstance(n_emp, int)
+    assert P_emp.shape == (F.shape[0],)
+
+    # flood_fill: 3×3×3 grid with one NaN in the center (res must be 2D)
+    res3 = np.array([[3, 3, 3]], dtype=np.int64)
+    S_grid = np.ones(27, dtype=np.float64)
+    S_grid[13] = float('nan')
+    S_filled = igl.flood_fill(res3, S_grid)
+    assert S_filled.shape == (27,)
+    assert not np.any(np.isnan(S_filled))
+
+
+def test_new_normals_and_attributes():
+    V, F = igl.icosahedron()
+
+    # per_corner_normals: one normal per corner (#F*3 corners total)
+    CN = igl.per_corner_normals(V, F)
+    assert CN.shape == (F.shape[0] * 3, 3)
+    assert CN.dtype == np.float64
+
+    # per_edge_normals: EMAP has #F*3 entries (one per directed edge)
+    N_edge, E_edge, EMAP_edge = igl.per_edge_normals(V, F)
+    assert N_edge.shape[1] == 3
+    assert E_edge.shape[1] == 2
+    assert EMAP_edge.shape[0] == F.shape[0] * 3
+
+    # per_vertex_attribute_smoothing
+    attr = np.ones((V.shape[0], 3), dtype=np.float64)
+    attr_smooth = igl.per_vertex_attribute_smoothing(attr, F)
+    assert attr_smooth.shape == attr.shape
+
+    # sharp_edges: icosahedron is smooth so no sharp edges with pi/4 threshold
+    SE = igl.sharp_edges(V, F, np.pi / 4)
+    assert SE.ndim == 2 and SE.shape[1] == 2
+
+
+def test_new_color():
+    # colormap: array
+    Z = np.linspace(0.0, 1.0, 5, dtype=np.float64)
+    C_cm = igl.colormap(igl.ColorMapType.VIRIDIS, Z)
+    assert C_cm.shape == (5, 3)
+    assert C_cm.dtype == np.float64
+
+    # colormap: scalar
+    c_s = igl.colormap(igl.ColorMapType.JET, 0.5)
+    assert c_s.shape == (3,)
+
+    # hsv_to_rgb / rgb_to_hsv: h is in [0,360] degrees
+    HSV = np.array([[36.0, 1.0, 1.0], [90.0, 0.8, 0.6], [216.0, 0.5, 0.9]], dtype=np.float64)
+    RGB = igl.hsv_to_rgb(HSV)
+    assert RGB.shape == HSV.shape
+    HSV2 = igl.rgb_to_hsv(RGB)
+    assert np.allclose(HSV, HSV2, atol=1e-6)
+
+
+def test_new_math():
+    # polar_dec: R and T only
+    A_eye = np.eye(3, dtype=np.float64)
+    R_pd, T_pd = igl.polar_dec(A_eye)
+    assert R_pd.shape == (3, 3)
+    assert T_pd.shape == (3, 3)
+    assert np.allclose(R_pd, np.eye(3), atol=1e-10)
+
+    # polar_dec with reflections allowed (still returns R,T)
+    R_pd2, T_pd2 = igl.polar_dec(A_eye, include_reflections=True)
+    assert R_pd2.shape == (3, 3)
+
+    # procrustes: known rotation
+    np.random.seed(42)
+    X_p = np.random.randn(10, 3).astype(np.float64)
+    t_known = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+    Y_p = X_p + t_known
+    scale_p, R_p, t_p = igl.procrustes(X_p, Y_p)
+    assert R_p.shape == (3, 3)
+    assert t_p.shape == (3,)
+    assert np.allclose(t_p, t_known, atol=1e-6)
+
+    # rotation_matrix_from_directions (v0, v1 must be 2D)
+    v0 = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+    v1 = np.array([[0.0, 1.0, 0.0]], dtype=np.float64)
+    R_rmd = igl.rotation_matrix_from_directions(v0, v1)
+    assert R_rmd.shape == (3, 3)
+    assert np.allclose(R_rmd @ v0.ravel(), v1.ravel(), atol=1e-10)
+
+    # bezier: single t
+    ctrl = np.array([[0,0,0],[1,1,0],[2,0,0]], dtype=np.float64)
+    P_bez = igl.bezier(ctrl, 0.5)
+    assert P_bez.shape == (1, 3)
+    assert np.allclose(P_bez[0], [1.0, 0.5, 0.0], atol=1e-10)
+
+    # bezier: array T (must be 2D)
+    T_vals = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+    Ps_bez = igl.bezier(ctrl, T_vals)
+    assert Ps_bez.shape == (3, 3)
+
+    # look_at (args must be 2D)
+    eye_la = np.array([[0.0, 0.0, 3.0]], dtype=np.float64)
+    center_la = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    up_la = np.array([[0.0, 1.0, 0.0]], dtype=np.float64)
+    M_view = igl.look_at(eye_la, center_la, up_la)
+    assert M_view.shape == (4, 4)
+
+    # signed_angle (2D, args must be 2D)
+    A2d = np.array([[1.0, 0.0]], dtype=np.float64)
+    B2d = np.array([[0.0, 1.0]], dtype=np.float64)
+    P2d = np.array([[0.0, 0.0]], dtype=np.float64)
+    angle_sa = igl.signed_angle(A2d, B2d, P2d)
+    assert isinstance(angle_sa, float)
+
+    # solid_angle (3D, args must be 2D)
+    A3d = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+    B3d = np.array([[0.0, 1.0, 0.0]], dtype=np.float64)
+    C3d = np.array([[0.0, 0.0, 1.0]], dtype=np.float64)
+    P3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    sa = igl.solid_angle(A3d, B3d, C3d, P3d)
+    assert isinstance(sa, float)
+
+    # random_dir
+    d_rd = igl.random_dir()
+    assert d_rd.shape == (3,)
+    assert np.isclose(np.linalg.norm(d_rd), 1.0, atol=1e-10)
+
+    # random_dir_stratified
+    ds_rds = igl.random_dir_stratified(10)
+    assert ds_rds.shape == (10, 3)
+
+    # super_fibonacci
+    Q_sf = igl.super_fibonacci(10)
+    assert Q_sf.shape == (10, 4)
+    # unit quaternions
+    assert np.allclose(np.linalg.norm(Q_sf, axis=1), 1.0, atol=1e-10)
+
+
+def test_new_intersection():
+    # ray_triangle_intersect: args must be 2D
+    O_rt = np.array([[0.25, 0.25, 1.0]], dtype=np.float64)
+    D_rt = np.array([[0.0, 0.0, -1.0]], dtype=np.float64)
+    V0_rt = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    V1_rt = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+    V2_rt = np.array([[0.0, 1.0, 0.0]], dtype=np.float64)
+    hit_rt, t_rt, u_rt, v_rt, par_rt = igl.ray_triangle_intersect(O_rt, D_rt, V0_rt, V1_rt, V2_rt)
+    assert hit_rt == True
+    assert np.isclose(t_rt, 1.0, atol=1e-8)
+
+    # ray misses triangle
+    O_miss = np.array([[2.0, 2.0, 1.0]], dtype=np.float64)
+    hit_miss, _, _, _, _ = igl.ray_triangle_intersect(O_miss, D_rt, V0_rt, V1_rt, V2_rt)
+    assert hit_miss == False
+
+    # ray_sphere_intersect: args must be 2D
+    o_rs = np.array([[0.0, 0.0, -2.0]], dtype=np.float64)
+    d_rs = np.array([[0.0, 0.0, 1.0]], dtype=np.float64)
+    c_rs = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    n_rs, t0_rs, t1_rs = igl.ray_sphere_intersect(o_rs, d_rs, c_rs, 1.0)
+    assert n_rs == 2   # two intersections
+    assert np.isclose(t0_rs, 1.0, atol=1e-10)
+    assert np.isclose(t1_rs, 3.0, atol=1e-10)
+
+    # segment_segment_intersect: args must be 2D, two crossing segments in XY plane
+    p_ss = np.array([[-1.0, 0.0, 0.0]], dtype=np.float64)
+    r_ss = np.array([[2.0, 0.0, 0.0]], dtype=np.float64)   # segment A: -1 → +1
+    q_ss = np.array([[0.0, -1.0, 0.0]], dtype=np.float64)
+    s_ss = np.array([[0.0, 2.0, 0.0]], dtype=np.float64)   # segment B: -1 → +1
+    hit_ss, t_ss, u_ss = igl.segment_segment_intersect(p_ss, r_ss, q_ss, s_ss)
+    assert hit_ss == True
+    assert np.isclose(t_ss, 0.5, atol=1e-6)
+    assert np.isclose(u_ss, 0.5, atol=1e-6)
+
+    # tri_tri_overlap_test_3d: args must be 2D; vertical plane slices horizontal triangle
+    p1 = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    q1 = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+    r1 = np.array([[0.0, 1.0, 0.0]], dtype=np.float64)
+    p2 = np.array([[0.5, 0.0, -0.5]], dtype=np.float64)
+    q2 = np.array([[0.5, 1.0, -0.5]], dtype=np.float64)
+    r2 = np.array([[0.5, 0.0, 0.5]], dtype=np.float64)
+    overlap = igl.tri_tri_overlap_test_3d(p1, q1, r1, p2, q2, r2)
+    assert overlap == True
+
+    # tri_tri_intersection_test_3d
+    hit_tt, coplanar_tt, src_tt, tgt_tt = igl.tri_tri_intersection_test_3d(
+        p1, q1, r1, p2, q2, r2)
+    assert hit_tt == True
+    assert src_tt.size == 3
+    assert tgt_tt.size == 3
+
+
+def test_new_mesh_ops():
+    V, F = triangulated_square()
+
+    # barycentric_interpolation (I must be 2D)
+    B_bi = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float64)
+    I_bi = np.array([[0], [1]], dtype=np.int64)
+    P_interp = igl.barycentric_interpolation(V, F, B_bi, I_bi)
+    assert P_interp.shape == (2, 3)
+    # first barycentric coord = vertex 0 of face 0 = V[F[0,0]]
+    assert np.allclose(P_interp[0], V[F[0, 0]], atol=1e-10)
+
+    # combine
+    V2c, F2c = triangulated_square()
+    V2c = V2c + 5.0
+    V_comb, F_comb = igl.combine([V, V2c], [F, F2c])
+    assert V_comb.shape[0] == V.shape[0] + V2c.shape[0]
+    assert F_comb.shape[0] == F.shape[0] + F2c.shape[0]
+
+    # edge_topology
+    EV_et, FE_et, EF_et = igl.edge_topology(V, F)
+    assert EV_et.shape[1] == 2
+    assert FE_et.shape == F.shape
+    assert EF_et.shape[1] == 2
+
+    # edges_to_path: chain 0-1-2-3
+    E_chain = np.array([[0, 1], [1, 2], [2, 3]], dtype=np.int64)
+    I_ep, J_ep, K_ep = igl.edges_to_path(E_chain)
+    assert len(I_ep) == 4   # 3 edges → 4 nodes
+    assert len(J_ep) == 3
+    assert len(K_ep) == 3
+
+    # is_boundary_edge: query with exterior edges → all True
+    E_ext2 = igl.exterior_edges(F)
+    B_be = igl.is_boundary_edge(E_ext2, F)
+    assert np.all(B_be)
+
+    # is_boundary_edge: extract overload
+    B_be2, E_be2, EMAP_be2 = igl.is_boundary_edge(F)
+    assert B_be2.dtype == bool
+
+    # is_delaunay
+    D_del = igl.is_delaunay(V, F)
+    assert D_del.shape == F.shape
+    assert D_del.dtype == bool
+
+    # is_irregular_vertex
+    is_irr = igl.is_irregular_vertex(F)
+    assert len(is_irr) == V.shape[0]
+
+    # sample_edges
+    E_se = igl.edges(F)
+    S_se = igl.sample_edges(V, E_se, 2)
+    expected_rows = V.shape[0] + 2 * E_se.shape[0]
+    assert S_se.shape == (expected_rows, 3)
+
+    # vector_area_matrix: size is 2*#V (stacked x and y)
+    VA_mat = igl.vector_area_matrix(F)
+    assert VA_mat.shape[0] == 2 * V.shape[0]
+
+    # tet_tet_adjacency
+    V_tet, F_tet, T_tet = single_tet()
+    TT_tt, TTi_tt = igl.tet_tet_adjacency(T_tet)
+    assert TT_tt.shape == (T_tet.shape[0], 4)
+    assert TTi_tt.shape == (T_tet.shape[0], 4)
+
+    # voronoi_mass
+    M_vor = igl.voronoi_mass(V_tet, T_tet)
+    assert M_vor.shape == (V_tet.shape[0],)
+    assert np.all(M_vor > 0)
+
+
+def test_new_algorithms():
+    V, F = igl.icosahedron()
+
+    # pseudonormal_test: origin is inside the icosahedron
+    FN = igl.per_face_normals(V, F)
+    VN = igl.per_vertex_normals(V, F)
+    EN, E_en, EMAP_en = igl.per_edge_normals(V, F)
+    P_q = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    sqrD_pn, I_pn, C_pn = igl.point_mesh_squared_distance(P_q, V, F)
+    q_pn = P_q[0:1, :]       # must be 2D
+    c_pn = C_pn[0:1, :]      # must be 2D
+    EMAP_en_2d = EMAP_en.reshape(-1, 1)  # must be 2D
+    f_pn = int(I_pn[0])
+    s_pn, n_pn = igl.pseudonormal_test(V, F, FN, VN, EN, EMAP_en_2d, q_pn, c_pn, f_pn)
+    assert isinstance(s_pn, float)
+    assert n_pn.size == 3
+    assert s_pn < 0   # origin is inside → negative sign
+
+    # rigid_alignment
+    np.random.seed(42)
+    P_ra = np.random.randn(10, 3).astype(np.float64)
+    N_ra = P_ra / np.linalg.norm(P_ra, axis=1, keepdims=True)
+    X_ra = P_ra + 0.01 * N_ra
+    R_ra, t_ra = igl.rigid_alignment(X_ra, P_ra, N_ra)
+    assert R_ra.shape == (3, 3)
+    assert t_ra.size == 3
+
+    # iterative_closest_point
+    VB_icp = V + 0.1
+    R_icp, t_icp = igl.iterative_closest_point(V, F, VB_icp, F, num_samples=20, max_iters=3)
+    assert R_icp.shape == (3, 3)
+    assert t_icp.size == 3
+
+    # lbs_matrix
+    np.random.seed(0)
+    V_lbs = np.random.randn(4, 3).astype(np.float64)
+    W_lbs = np.abs(np.random.randn(4, 2).astype(np.float64))
+    W_lbs /= W_lbs.sum(axis=1, keepdims=True)
+    M_lbs = igl.lbs_matrix(V_lbs, W_lbs)
+    assert M_lbs.ndim == 2
+
+    # mvc: query center of CCW unit square → weights sum to 1
+    C_mvc = np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0]], dtype=np.float64)
+    Q_mvc = np.array([[0.5,0.5],[0.25,0.25]], dtype=np.float64)
+    W_mvc = igl.mvc(Q_mvc, C_mvc)
+    assert W_mvc.shape == (2, 4)
+    assert np.allclose(W_mvc.sum(axis=1), 1.0, atol=1e-10)
+
+    # dijkstra (Euclidean weights)
+    VV_d = igl.adjacency_list(F)
+    D_dijk, prev_dijk = igl.dijkstra(V, VV_d, np.int64(0), {np.int64(5)})
+    assert D_dijk.shape == (V.shape[0],)
+    assert D_dijk[0] == 0.0
+    # dijkstra_backtrack: vertex is int, previous must be 2D
+    path_dijk = igl.dijkstra_backtrack(5, prev_dijk.reshape(-1, 1))
+    assert path_dijk[0] == 5
+    assert path_dijk[-1] == 0
+
+    # directed_edge_parents: simple chain 0→1→2
+    E_dep = np.array([[0, 1], [1, 2]], dtype=np.int64)
+    P_dep = igl.directed_edge_parents(E_dep)
+    assert P_dep.shape == (2,)
+    assert P_dep[0] == -1   # edge 0→1 has no parent pointing to 0
+    assert P_dep[1] == 0    # edge 1→2's parent is edge 0→1
+
+    # uniformly_sample_two_manifold: weight space = vertex positions
+    np.random.seed(1)
+    W_us = np.random.rand(V.shape[0], 2).astype(np.float64)
+    WS_us = igl.uniformly_sample_two_manifold(W_us, F, 5, push=0.1)
+    assert WS_us.shape == (5, 2)
+
+
 def test_comb_frame_field(icosahedron):
     V,F = icosahedron
     
@@ -807,3 +1302,955 @@ def test_comb_frame_field(icosahedron):
     # Check output shapes
     assert PD1_combed.shape == (F.shape[0], 3)
     assert PD2_combed.shape == (F.shape[0], 3)
+
+
+def test_new_copyleft_algorithms():
+    # marching_cubes: extract isosurface of a sphere SDF on a regular grid
+    x_res, y_res, z_res = 8, 8, 8
+    x = np.linspace(-1, 1, x_res)
+    y = np.linspace(-1, 1, y_res)
+    z = np.linspace(-1, 1, z_res)
+    # x-fastest ordering: index = ix + iy*x_res + iz*x_res*y_res
+    pts = np.array([[xi, yi, zi] for zi in z for yi in y for xi in x], dtype=np.float64)
+    vals = (np.sqrt(pts[:,0]**2 + pts[:,1]**2 + pts[:,2]**2) - 0.5).astype(np.float64)
+    V_mc, F_mc = igl.copyleft.marching_cubes(vals, pts, x_res, y_res, z_res)
+    assert V_mc.shape[1] == 3
+    assert F_mc.shape[1] == 3
+    assert V_mc.shape[0] > 0
+
+    # quadprog: min 0.5*x^2 + 2*x → x = -2
+    G = np.array([[1.0]], dtype=np.float64)
+    g0 = np.array([2.0], dtype=np.float64)
+    x_qp = igl.copyleft.quadprog(G, g0)
+    assert abs(x_qp[0] + 2.0) < 1e-8
+
+
+def test_new_cgal_algorithms():
+    # simple tetrahedron
+    VA = np.array([[0,0,-1],[2,0,-1],[0,2,-1],[1,1,1]], dtype=np.float64)
+    T = np.array([[0,1,2,3]], dtype=np.int64)
+    FA, _, _ = igl.boundary_facets(T)
+
+    # coplanar: 4 coplanar points vs non-coplanar
+    V_plane = np.array([[0,0,0],[1,0,0],[0,1,0],[1,1,0]], dtype=np.float64)
+    assert igl.copyleft.cgal.coplanar(V_plane) == True
+    assert igl.copyleft.cgal.coplanar(VA) == False
+
+    # delaunay_triangulation: 2D point cloud
+    V2d = np.array([[0,0],[1,0],[0.5,1],[0.25,0.5]], dtype=np.float64)
+    F2d = igl.copyleft.cgal.delaunay_triangulation(V2d)
+    assert F2d.shape[1] == 3
+    assert F2d.dtype == np.int64
+
+    # outer_hull
+    HV, HF, J, flip = igl.copyleft.cgal.outer_hull(VA, FA)
+    assert HV.shape[1] == 3
+    assert HF.shape[1] == 3
+    assert J.shape[0] == HF.shape[0]
+    assert flip.shape[0] == HF.shape[0]
+
+    # extract_cells
+    n_cells, cells = igl.copyleft.cgal.extract_cells(VA, FA)
+    assert cells.shape == (FA.shape[0], 2)
+
+    # peel_outer_hull_layers
+    I_peel, flip_peel, n_peel = igl.copyleft.cgal.peel_outer_hull_layers(VA, FA)
+    assert I_peel.shape[0] == FA.shape[0]
+    assert flip_peel.shape[0] == FA.shape[0]
+
+    # peel_winding_number_layers
+    W_wind, n_wind = igl.copyleft.cgal.peel_winding_number_layers(VA, FA)
+    assert W_wind.shape[0] == VA.shape[0]
+
+
+def test_new_tetgen_algorithms():
+    V_oct = np.array([[1,0,0],[0,1,0],[0,0,1],[-1,0,0],[0,-1,0],[0,0,-1]], dtype=np.float64)
+    F_oct = np.array([[0,1,2],[0,2,4],[0,4,5],[0,5,1],[1,3,2],[1,5,3],[2,3,4],[3,5,4]], dtype=np.int64)
+
+    # cdt: constrained Delaunay tetrahedralization
+    TV, TT, TF = igl.copyleft.tetgen.cdt(V_oct, F_oct)
+    assert TV.shape[1] == 3
+    assert TT.shape[1] == 4
+    assert TF.shape[1] == 3
+    assert TV.shape[0] >= V_oct.shape[0]
+
+    # CDTParam class
+    param = igl.copyleft.tetgen.CDTParam()
+    param.use_bounding_box = False
+    param.flags = "Y"
+    TV2, TT2, TF2 = igl.copyleft.tetgen.cdt(V_oct, F_oct, param)
+    assert TT2.shape[1] == 4
+
+    # mesh_with_skeleton: surface + one bone
+    C = np.array([[0,0,-0.5],[0,0,0.5]], dtype=np.float64)
+    BE = np.array([[0,1]], dtype=np.int64)
+    P = np.zeros((0,), dtype=np.int64)
+    CE = np.zeros((0,2), dtype=np.int64)
+    VV, TT_sk, FF_sk = igl.copyleft.tetgen.mesh_with_skeleton(V_oct, F_oct, C, P, BE, CE)
+    assert VV.shape[1] == 3
+    assert TT_sk.shape[1] == 4
+    assert FF_sk.shape[1] == 3
+
+
+def test_new_embree_algorithms():
+    V_oct = np.array([[1,0,0],[0,1,0],[0,0,1],[-1,0,0],[0,-1,0],[0,0,-1]], dtype=np.float64)
+    F_oct = np.array([[0,1,2],[0,2,4],[0,4,5],[0,5,1],[1,3,2],[1,5,3],[2,3,4],[3,5,4]], dtype=np.int64)
+
+    # bone_visible: bone through center along z-axis
+    s = np.array([0.0, 0.0, -0.5])
+    d = np.array([0.0, 0.0,  0.5])
+    flag = igl.embree.bone_visible(V_oct, F_oct, s, d)
+    assert flag.shape == (V_oct.shape[0],)
+    assert flag.dtype == bool
+
+    # line_mesh_intersection: project octahedron vertices onto itself
+    N = igl.per_vertex_normals(V_oct, F_oct)
+    R = igl.embree.line_mesh_intersection(V_oct, N, V_oct, F_oct)
+    assert R.shape == (V_oct.shape[0], 3)
+
+
+def test_new_triangle_algorithms():
+    V2d = np.array([[0,0],[1,0],[1,1],[0,1]], dtype=np.float64)
+    E2d = np.array([[0,1],[1,2],[2,3],[3,0]], dtype=np.int64)
+
+    # triangle.cdt
+    WV, WF, WE, J = igl.triangle.cdt(V2d, E2d)
+    assert WV.shape[1] == 2
+    assert WF.shape[1] == 3
+    assert WE.shape[1] == 2
+    assert J.shape[0] == V2d.shape[0]
+
+    # triangle.refine: triangulate then refine
+    V_tri, F_tri, _, _, _ = igl.triangle.triangulate(V2d, E2d, flags="Qc")
+    E_empty = np.zeros((0,2), dtype=np.int64)
+    V_ref, F_ref = igl.triangle.refine(V_tri, E_empty, F_tri)
+    assert V_ref.shape[1] == 2
+    assert F_ref.shape[1] == 3
+    assert V_ref.shape[0] >= V_tri.shape[0]
+
+
+def test_polar_svd3x3_and_fit_rotations():
+    # A = R * S with R a known rotation and S SPD; polar decomposition recovers R
+    theta = 0.7
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+    # Diagonal (SPD) stretch => the closest rotation to A = R @ S is exactly R
+    S = np.diag([2.0, 1.5, 1.0])
+    A = R @ S
+    Rr = igl.polar_svd3x3(A)
+    assert Rr.shape == (3, 3)
+    # A proper rotation that recovers R
+    np.testing.assert_allclose(Rr @ Rr.T, np.eye(3), atol=1e-5)
+    assert np.isclose(np.linalg.det(Rr), 1.0)
+    np.testing.assert_allclose(Rr, R, atol=1e-5)
+    # Left polar factor A @ Rr.T is symmetric positive-(semi)definite
+    P = A @ Rr.T
+    np.testing.assert_allclose(P, P.T, atol=1e-5)
+
+    # fit_rotations wraps polar_svd3x3 on a single covariance (dim by dim*n, n=1).
+    # It stores each rotation transposed relative to polar_svd3x3 (ARAP convention).
+    Rf = igl.fit_rotations(A)
+    assert Rf.shape == (3, 3)
+    np.testing.assert_allclose(Rf @ Rf.T, np.eye(3), atol=1e-5)
+    assert np.isclose(np.linalg.det(Rf), 1.0)
+    np.testing.assert_allclose(Rf, Rr.T, atol=1e-5)
+
+
+def test_point_simplex_squared_distance():
+    V = np.array([[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [0.0, 1.0, 0.0]], dtype=np.float64)
+    Ele = np.array([[0, 1, 2]], dtype=np.int64)
+    # Point 2 above the interior point (0.25,0.25,0)
+    p = np.array([0.25, 0.25, 2.0])
+    sqr_d, c, b = igl.point_simplex_squared_distance(p, V, Ele, 0)
+    assert np.isclose(sqr_d, 4.0)
+    np.testing.assert_allclose(c, [0.25, 0.25, 0.0], atol=1e-9)
+    assert np.isclose(b.sum(), 1.0)
+    np.testing.assert_allclose(b @ V, c, atol=1e-9)
+
+    # 2D case: point-to-segment
+    V2 = np.array([[0.0, 0.0], [2.0, 0.0]], dtype=np.float64)
+    E2 = np.array([[0, 1]], dtype=np.int64)
+    sqr2, c2, b2 = igl.point_simplex_squared_distance(np.array([1.0, 3.0]), V2, E2, 0)
+    assert np.isclose(sqr2, 9.0)
+    np.testing.assert_allclose(c2, [1.0, 0.0], atol=1e-9)
+
+
+def test_quad_mesh_helpers():
+    # Unit planar square as a single quad
+    V = np.array([[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [1.0, 1.0, 0.0],
+                  [0.0, 1.0, 0.0]], dtype=np.float64)
+    F = np.array([[0, 1, 2, 3]], dtype=np.int64)
+
+    # quad_edges: 4 unique edges of the quad
+    E = igl.quad_edges(F)
+    assert E.shape == (4, 2)
+    edge_set = set(tuple(sorted(e)) for e in E.tolist())
+    assert edge_set == {(0, 1), (1, 2), (2, 3), (0, 3)}
+
+    # quad_planarity: a planar quad has ~zero non-planarity
+    P = igl.quad_planarity(V, F)
+    assert P.shape[0] == 1
+    assert np.isclose(P[0], 0.0, atol=1e-9)
+
+    # planarize_quad_mesh: a non-planar quad becomes more planar
+    Vnp = V.copy()
+    Vnp[2, 2] = 0.5  # lift one corner out of plane
+    P_before = igl.quad_planarity(Vnp, F)[0]
+    Vout = igl.planarize_quad_mesh(Vnp, F, maxIter=100, threshold=1e-4)
+    assert Vout.shape == V.shape
+    P_after = igl.quad_planarity(Vout, F)[0]
+    assert P_after <= P_before + 1e-12
+
+
+def test_ramer_douglas_peucker():
+    # Nearly-collinear first three points collapse; the sharp turn is kept
+    P = np.array([[0.0, 0.0],
+                  [1.0, 0.0001],
+                  [2.0, 0.0],
+                  [2.0, 2.0]], dtype=np.float64)
+    S, J = igl.ramer_douglas_peucker(P, 0.01)
+    # Interior near-collinear vertex (index 1) is dropped
+    assert J.tolist() == [0, 2, 3]
+    np.testing.assert_allclose(S, P[J], atol=1e-12)
+
+
+def test_path_to_edges_and_connect_boundary():
+    # path_to_edges: open path and closed loop
+    I = np.array([0, 1, 2, 3], dtype=np.int64)
+    E = igl.path_to_edges(I)
+    assert E.tolist() == [[0, 1], [1, 2], [2, 3]]
+    E_loop = igl.path_to_edges(np.array([0, 1, 2], dtype=np.int64), make_loop=True)
+    assert E_loop.tolist() == [[0, 1], [1, 2], [2, 0]]
+
+    # connect_boundary_to_infinity on an open mesh (square from two triangles)
+    V = np.array([[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [1.0, 1.0, 0.0],
+                  [0.0, 1.0, 0.0]], dtype=np.float64)
+    F = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int64)
+    # (V,F) overload appends a single new vertex at infinity
+    VO, FO = igl.connect_boundary_to_infinity(V, F)
+    assert VO.shape[0] == V.shape[0] + 1
+    assert FO.shape[0] == F.shape[0] + 4  # 4 boundary edges connected
+    np.testing.assert_allclose(VO[:V.shape[0]], V)
+    # F-only overload returns the same number of faces
+    FO2 = igl.connect_boundary_to_infinity(F)
+    assert FO2.shape[0] == F.shape[0] + 4
+
+
+def test_smooth_corner_adjacency():
+    # Two triangles sharing an edge; CSR-style corner adjacency
+    V = np.array([[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [1.0, 1.0, 0.0],
+                  [0.0, 1.0, 0.0]], dtype=np.float64)
+    F = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int64)
+    CI, CC = igl.smooth_corner_adjacency(V, F, 0.35)
+    # CC is a cumulative-sum offset array of length 3*#F + 1
+    assert CC.shape[0] == 3 * F.shape[0] + 1
+    assert CC[0] == 0
+    assert CC[-1] == CI.shape[0]
+    assert np.all(np.diff(CC) >= 0)
+
+def test_remesh_at_points():
+    # Single triangle in 3D
+    V = np.array([[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [0.0, 1.0, 0.0]], dtype=np.float64)
+    F = np.array([[0, 1, 2]], dtype=np.int64)
+    # One interior (face) point at the centroid and one on an edge midpoint
+    B = np.array([[1/3, 1/3, 1/3],
+                  [0.5, 0.5, 0.0]], dtype=np.float64)
+    FI = np.array([0, 0], dtype=np.int64)
+    VV, FF, J, K = igl.triangle.remesh_at_points(V, F, B, FI)
+    # Output vertices keep the input as the top rows
+    assert VV.shape[1] == 3
+    assert VV.shape[0] >= V.shape[0]
+    np.testing.assert_allclose(VV[:V.shape[0]], V)
+    # New faces index into VV and map back to original faces via J
+    assert FF.shape[1] == 3
+    assert J.shape[0] == FF.shape[0]
+    assert FF.max() < VV.shape[0]
+    assert J.max() < F.shape[0]
+    # K tracks each sampled point's index into VV
+    assert K.shape[0] == B.shape[0]
+    assert K.max() < VV.shape[0]
+    # The centroid face-point must have been inserted as a real vertex
+    np.testing.assert_allclose(VV[K[0]], B[0] @ V)
+
+
+def test_simplex_simplex_squared_distance():
+    # Two parallel segments in 3D separated by distance 1 along z
+    V1 = np.array([[0.0, 0.0, 0.0],
+                   [1.0, 0.0, 0.0]], dtype=np.float64)
+    V2 = np.array([[0.0, 0.0, 1.0],
+                   [1.0, 0.0, 1.0]], dtype=np.float64)
+    sqrD, B1, B2 = igl.simplex_simplex_squared_distance(V1, V2)
+    assert np.isclose(sqrD, 1.0)
+    # Barycentric coordinates: one per corner of each simplex, summing to 1
+    assert B1.shape[0] == V1.shape[0]
+    assert B2.shape[0] == V2.shape[0]
+    assert np.isclose(B1.sum(), 1.0)
+    assert np.isclose(B2.sum(), 1.0)
+    # Reconstructed closest points should be 1 apart
+    P1 = B1 @ V1
+    P2 = B2 @ V2
+    assert np.isclose(np.linalg.norm(P1 - P2), 1.0)
+
+    # Point-to-triangle: point directly above a triangle's centroid
+    T = np.array([[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [0.0, 1.0, 0.0]], dtype=np.float64)
+    P = np.array([[1/3, 1/3, 2.0]], dtype=np.float64)
+    sqrD2, Bp, Bt = igl.simplex_simplex_squared_distance(P, T)
+    assert np.isclose(sqrD2, 4.0)
+    assert np.isclose(Bt.sum(), 1.0)
+
+
+def test_lexicographic_triangulation():
+    # Simple square: 4 points in general position
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=np.float64)
+    F = igl.lexicographic_triangulation(P)
+    assert F.shape[1] == 3
+    # 4 points in convex position => 2 triangles
+    assert F.shape[0] == 2
+    # all indices are valid
+    assert F.min() >= 0
+    assert F.max() < P.shape[0]
+
+
+def test_spectra_lscm():
+    V, F = igl.icosahedron()
+    UV = igl.spectra.lscm(V, F)
+    assert UV.shape == (V.shape[0], 2)
+    assert np.all(np.isfinite(UV))
+
+
+def test_spectra_eigs():
+    V, F = igl.icosahedron()
+    L = igl.cotmatrix(V, F)
+    M = igl.massmatrix(V, F)
+    k = 3
+    # smallest-magnitude generalized eigenpairs: L u = s M u
+    U, S = igl.spectra.eigs(L, M, k, igl.spectra.EigsType.EIGS_TYPE_SM)
+    assert U.shape == (V.shape[0], k)
+    assert S.shape == (k,)
+    assert np.all(np.isfinite(U))
+    assert np.all(np.isfinite(S))
+
+
+def test_predicates_orientation_enum():
+    assert igl.predicates.Orientation.POSITIVE.value == 1
+    assert igl.predicates.Orientation.NEGATIVE.value == -1
+    assert igl.predicates.Orientation.COLLINEAR.value == 0
+    # aliases share the same integer value
+    assert igl.predicates.Orientation.INSIDE.value == igl.predicates.Orientation.POSITIVE.value
+    assert igl.predicates.Orientation.OUTSIDE.value == igl.predicates.Orientation.NEGATIVE.value
+
+
+def test_predicates_orient2d():
+    a = np.array([0.0, 0.0])
+    b = np.array([1.0, 0.0])
+    c = np.array([0.0, 1.0])
+    assert igl.predicates.orient2d(a, b, c) == igl.predicates.Orientation.POSITIVE
+    assert igl.predicates.orient2d(a, c, b) == igl.predicates.Orientation.NEGATIVE
+    assert igl.predicates.orient2d(a, b, np.array([2.0, 0.0])) == igl.predicates.Orientation.COLLINEAR
+
+
+def test_predicates_orient3d():
+    a = np.array([0.0, 0.0, 0.0])
+    b = np.array([1.0, 0.0, 0.0])
+    c = np.array([0.0, 1.0, 0.0])
+    d_above = np.array([0.0, 0.0, 1.0])
+    d_below = np.array([0.0, 0.0, -1.0])
+    r_above = igl.predicates.orient3d(a, b, c, d_above)
+    r_below = igl.predicates.orient3d(a, b, c, d_below)
+    assert r_above != r_below
+    # vectorized
+    A = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    B = np.array([[1.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    C = np.array([[0.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+    D = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, -1.0]])
+    R = igl.predicates.orient3d(A, B, C, D)
+    assert R.shape == (2,)
+
+
+def test_predicates_incircle():
+    a = np.array([1.0, 0.0])
+    b = np.array([0.0, 1.0])
+    c = np.array([-1.0, 0.0])
+    inside = np.array([0.0, 0.0])
+    outside = np.array([2.0, 0.0])
+    assert igl.predicates.incircle(a, b, c, inside).value == 1   # INSIDE == POSITIVE == 1
+    assert igl.predicates.incircle(a, b, c, outside).value == -1  # OUTSIDE == NEGATIVE == -1
+
+
+def test_predicates_insphere():
+    a = np.array([1.0, 0.0, 0.0])
+    b = np.array([-1.0, 0.0, 0.0])
+    c = np.array([0.0, 1.0, 0.0])
+    d = np.array([0.0, 0.0, 1.0])
+    inside = np.array([0.0, 0.0, 0.0])
+    assert igl.predicates.insphere(a, b, c, d, inside).value == 1  # INSIDE == POSITIVE == 1
+
+
+def test_predicates_delaunay_triangulation():
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=np.float64)
+    F = igl.predicates.delaunay_triangulation(P)
+    assert F.shape[1] == 3
+    assert F.shape[0] == 2
+    assert F.min() >= 0
+    assert F.max() < P.shape[0]
+
+
+def test_predicates_lexicographic_triangulation():
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=np.float64)
+    F = igl.predicates.lexicographic_triangulation(P)
+    assert F.shape[1] == 3
+    assert F.shape[0] == 2
+
+
+def test_predicates_ear_clipping():
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]], dtype=np.float64)
+    ok, eF = igl.predicates.ear_clipping(P)
+    assert ok
+    assert eF.shape == (1, 3)
+
+
+def test_predicates_segment_segment_intersect():
+    # crossing segments
+    A = np.array([0.0, 0.0])
+    B = np.array([1.0, 1.0])
+    C = np.array([0.0, 1.0])
+    D = np.array([1.0, 0.0])
+    assert igl.predicates.segment_segment_intersect(A, B, C, D)
+    # non-crossing
+    E = np.array([2.0, 0.0])
+    F_ = np.array([3.0, 1.0])
+    assert not igl.predicates.segment_segment_intersect(A, B, E, F_)
+
+
+def test_predicates_triangle_triangle_intersect():
+    a1 = np.array([0.0, 0.0, 0.0])
+    a2 = np.array([1.0, 0.0, 0.0])
+    a3 = np.array([0.0, 1.0, 0.0])
+    b1 = np.array([0.5, 0.0, -0.5])
+    b2 = np.array([0.5, 0.0, 0.5])
+    b3 = np.array([0.5, 1.0, 0.0])
+    intersects, coplanar = igl.predicates.triangle_triangle_intersect(a1, a2, a3, b1, b2, b3)
+    assert intersects
+    assert not coplanar
+
+
+def test_predicates_find_self_intersections():
+    V, F = igl.icosahedron()
+    # icosahedron has no self-intersections
+    found, IF, CP = igl.predicates.find_self_intersections(V, F)
+    assert not found
+    assert IF.shape[0] == 0
+
+
+def test_predicates_find_intersections():
+    V, F = igl.icosahedron()
+    # test same mesh against itself — should find intersections
+    found, IF, CP = igl.predicates.find_intersections(V, F, V, F)
+    # Should find adjacent triangle "intersections" (shared edges/verts)
+    assert IF.shape[1] == 2
+
+
+def test_predicates_point_inside_convex_polygon():
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=np.float64)
+    inside = np.array([0.5, 0.5])
+    outside = np.array([2.0, 2.0])
+    assert igl.predicates.point_inside_convex_polygon(P, inside)
+    assert not igl.predicates.point_inside_convex_polygon(P, outside)
+
+
+def test_predicates_polygons_to_triangles():
+    V = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0],
+                  [0.0, 1.0, 0.0], [2.0, 0.0, 0.0], [2.0, 1.0, 0.0]], dtype=np.float64)
+    I = np.array([0, 1, 2, 3, 1, 4, 5, 2], dtype=np.int64)
+    C = np.array([0, 4, 8], dtype=np.int64)
+    F, J = igl.predicates.polygons_to_triangles(V, I, C)
+    assert F.shape[1] == 3
+    assert F.shape[0] == 4  # two quads -> 4 triangles
+    assert J.shape[0] == F.shape[0]
+
+
+# --------------------------------------------------------------------------
+# Cubic Bézier curves (igl core)
+# --------------------------------------------------------------------------
+
+def test_cubic():
+    C = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, -1.0], [3.0, 0.0]])
+    P = igl.cubic(C, 0.5)
+    assert P.shape == (1, 2)
+    # (C0 + 3 C1 + 3 C2 + C3) / 8
+    assert np.allclose(P[0], [1.5, 0.0], atol=1e-12)
+    # endpoints
+    assert np.allclose(igl.cubic(C, 0.0)[0], C[0], atol=1e-12)
+    assert np.allclose(igl.cubic(C, 1.0)[0], C[3], atol=1e-12)
+
+
+def test_cubic_is_flat():
+    curved = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, -1.0], [3.0, 0.0]])
+    assert igl.cubic_is_flat(curved, 1e-2) == False
+    nearly = np.array([[0.0, 0.0], [1.0, 0.1], [2.0, -0.1], [3.0, 0.0]])
+    assert igl.cubic_is_flat(nearly, 1e-2) == True
+    assert igl.cubic_is_flat(nearly, 1e-4) == False
+    # degenerate (all identical points) is well behaved
+    degen = np.zeros((4, 2))
+    assert igl.cubic_is_flat(degen, 1.0) == True
+
+
+def test_cubic_split():
+    C = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, -1.0], [3.0, 0.0]])
+    C1, C2 = igl.cubic_split(C, 0.5)
+    assert C1.shape == (4, 2)
+    assert C2.shape == (4, 2)
+    assert np.allclose(C1[0], C[0], atol=1e-12)
+    assert np.allclose(C1[1], [0.5, 0.5], atol=1e-12)
+    assert np.allclose(C1[2], [1.0, 0.25], atol=1e-12)
+    assert np.allclose(C1[3], [1.5, 0.0], atol=1e-12)
+    assert np.allclose(C2[0], [1.5, 0.0], atol=1e-12)
+    assert np.allclose(C2[1], [2.0, -0.25], atol=1e-12)
+    assert np.allclose(C2[2], [2.5, -0.5], atol=1e-12)
+    assert np.allclose(C2[3], C[3], atol=1e-12)
+    # the two halves meet at C(t)
+    assert np.allclose(C1[3], igl.cubic(C, 0.5)[0], atol=1e-12)
+
+
+def test_cubic_monomial_bases():
+    C = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, -1.0], [3.0, 0.0]])
+    M, D, B = igl.cubic_monomial_bases(C)
+    assert M.shape == (4, 2)
+    assert D.shape == (3, 2)
+    assert np.asarray(B).size == 6
+    # C(t) = M[0] + M[1] t + M[2] t^2 + M[3] t^3 ; check against igl.cubic
+    for t in (0.0, 0.25, 0.5, 0.75, 1.0):
+        powers = np.array([1.0, t, t * t, t * t * t])
+        assert np.allclose(powers @ M, igl.cubic(C, t)[0], atol=1e-12)
+
+
+def test_fit_cubic_bezier():
+    # sample a hemicircle
+    th = np.linspace(0.0, np.pi, 101)
+    d = np.column_stack([np.cos(th), np.sin(th)])
+    error = 1e-6
+    cubics = igl.fit_cubic_bezier(d, error)
+    assert isinstance(cubics, list)
+    assert 1 < len(cubics) < 10
+    for c in cubics:
+        assert c.shape == (4, 2)
+    # every sample is within `error` of the fitted spline
+    T = np.linspace(0.0, 1.0, 1000)
+    X = np.vstack([igl.bezier(c, T.reshape(-1, 1)) for c in cubics])
+    for j in range(d.shape[0]):
+        sd = np.min(np.sum((X - d[j]) ** 2, axis=1))
+        assert sd < error
+
+
+# --------------------------------------------------------------------------
+# igl.cycodebase (cubic Bézier root finding and distance queries)
+# --------------------------------------------------------------------------
+
+def test_cycodebase_roots():
+    # t^3 - 6 t^2 + 11 t - 6 = (t-1)(t-2)(t-3)
+    coef = np.array([-6.0, 11.0, -6.0, 1.0])
+    n, R = igl.cycodebase.roots(coef, 0.0, 4.0)
+    assert n == 3
+    assert R.shape == (3,)
+    assert np.allclose(np.sort(R), [1.0, 2.0, 3.0], atol=1e-12)
+    # restricting the interval keeps only the first root, pads with NaN
+    n1, R1 = igl.cycodebase.roots(coef, 0.0, 1.5)
+    assert n1 == 1
+    assert np.isclose(R1[0], 1.0, atol=1e-12)
+    assert np.isnan(R1[1]) and np.isnan(R1[2])
+
+
+def test_cycodebase_box_cubic():
+    C = np.array([[0.0, 0.0], [1.0, 2.0], [2.0, -2.0], [3.0, 0.0]])
+    B1, B2 = igl.cycodebase.box_cubic(C)
+    B1 = np.asarray(B1).ravel()
+    B2 = np.asarray(B2).ravel()
+    assert np.isclose(B1[0], 0.0, atol=1e-12)
+    assert np.isclose(B1[1], -0.57735026918962584, atol=1e-12)
+    assert np.isclose(B2[0], 3.0, atol=1e-12)
+    assert np.isclose(B2[1], 0.57735026918962584, atol=1e-12)
+    # the box must contain the endpoints
+    assert (B1 <= C[0] + 1e-12).all() and (C[0] <= B2 + 1e-12).all()
+    assert (B1 <= C[3] + 1e-12).all() and (C[3] <= B2 + 1e-12).all()
+
+    # indexed overload: two cubics sharing an endpoint
+    P = np.array([[0.0, 0.0], [1.0, 2.0], [2.0, -2.0], [3.0, 0.0],
+                  [4.0, 2.0], [5.0, -2.0], [6.0, 0.0]])
+    Cidx = np.array([[0, 1, 2, 3], [3, 4, 5, 6]], dtype=np.int64)
+    MB1, MB2 = igl.cycodebase.box_cubic(P, Cidx)
+    assert MB1.shape == (2, 2)
+    assert MB2.shape == (2, 2)
+    assert np.allclose(MB1[0], B1, atol=1e-12)
+    assert np.allclose(MB2[0], B2, atol=1e-12)
+
+
+def test_cycodebase_point_cubic_squared_distance():
+    C = np.array([[0.0, 0.0], [1.0, 2.0], [2.0, -2.0], [3.0, 0.0]])
+    Q = np.array([[1.5, 0.0], [2.0, 0.5], [2.5, 1.0]])
+    sqrD, S, K = igl.cycodebase.point_cubic_squared_distance(Q, C)
+    assert sqrD.shape == (3,)
+    assert S.shape == (3,)
+    assert K.shape == (3, 2)
+    assert np.allclose(sqrD, [0.0, 0.5, 1.25], atol=1e-12)
+    assert np.allclose(S, [0.5, 0.5, 1.0], atol=1e-12)
+    assert np.allclose(K, [[1.5, 0.0], [1.5, 0.0], [3.0, 0.0]], atol=1e-12)
+
+
+def _unit_square_spline():
+    """A closed spline made of four straight cubic Bézier edges of the unit
+    square, traversed counter-clockwise."""
+    corners = [np.array([0.0, 0.0]), np.array([1.0, 0.0]),
+               np.array([1.0, 1.0]), np.array([0.0, 1.0])]
+    P = []
+    C = []
+    for i in range(4):
+        a = corners[i]
+        b = corners[(i + 1) % 4]
+        base = len(P)
+        P.append(a)
+        P.append(a + (b - a) / 3.0)
+        P.append(a + 2.0 * (b - a) / 3.0)
+        # last edge closes back onto the very first control point
+        if i < 3:
+            C.append([base, base + 1, base + 2, base + 3])
+        else:
+            C.append([base, base + 1, base + 2, 0])
+    return np.array(P), np.array(C, dtype=np.int64)
+
+
+def test_cycodebase_spline_eytzinger_aabb_and_distance():
+    P, C = _unit_square_spline()
+    B1, B2, leaf = igl.cycodebase.spline_eytzinger_aabb(P, C)
+    assert B1.shape[1] == 2
+    assert B2.shape == B1.shape
+    assert leaf.shape[0] == B1.shape[0]
+
+    Q = np.array([[0.5, 0.5],   # center, 0.5 from every edge
+                  [0.5, 0.0]])  # exactly on the bottom edge
+    sqrD, I, S, K = igl.cycodebase.point_spline_squared_distance(Q, P, C)
+    assert sqrD.shape == (2,)
+    assert I.shape == (2,)
+    assert S.shape == (2,)
+    assert K.shape == (2, 2)
+    assert np.isclose(sqrD[0], 0.25, atol=1e-12)
+    assert np.isclose(sqrD[1], 0.0, atol=1e-12)
+
+
+def test_cycodebase_point_spline_squared_distance_aabb_reuse():
+    # Build the Eytzinger AABB once, then reuse it across query sets without
+    # rebuilding. Accelerated results must match the unaccelerated overload.
+    P, C = _unit_square_spline()
+    B1, B2, leaf = igl.cycodebase.spline_eytzinger_aabb(P, C)
+
+    Q = np.array([[0.5, 0.5], [0.5, 0.0], [0.2, 0.9], [1.1, 0.3]])
+    ref = igl.cycodebase.point_spline_squared_distance(Q, P, C)
+    fast = igl.cycodebase.point_spline_squared_distance(Q, P, C, B1, B2, leaf)
+    for a, b in zip(ref, fast):
+        assert np.allclose(a, b)
+
+    # Reuse the same tree for a different query set.
+    Q2 = np.array([[0.9, 0.9], [0.5, 0.5]])
+    sqrD2, I2, S2, K2 = igl.cycodebase.point_spline_squared_distance(
+        Q2, P, C, B1, B2, leaf)
+    assert sqrD2.shape == (2,)
+    assert np.isclose(sqrD2[1], 0.25, atol=1e-12)
+
+
+def test_cycodebase_point_cubic_squared_distance_bases_reuse():
+    # Precompute the monomial bases once, then reuse across query sets.
+    C = np.array([[0.0, 0.0], [1.0, 2.0], [2.0, -2.0], [3.0, 0.0]])
+    Q = np.array([[1.5, 0.0], [2.0, 0.5], [2.5, 1.0]])
+    ref = igl.cycodebase.point_cubic_squared_distance(Q, C)
+    M, D, B = igl.cubic_monomial_bases(C)
+    fast = igl.cycodebase.point_cubic_squared_distance(Q, C, D, B)
+    for a, b in zip(ref, fast):
+        assert np.allclose(a, b)
+
+
+# --------------------------------------------------------------------------
+# New predicates for cubic Bézier curves / splines
+# --------------------------------------------------------------------------
+
+def test_predicates_cubic_winding_number():
+    C = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, -1.0], [3.0, 0.0]])
+    assert np.isclose(
+        igl.predicates.cubic_winding_number(C, np.array([1.1, 1.1])),
+        0.29147615882815, atol=1e-12)
+    assert np.isclose(
+        igl.predicates.cubic_winding_number(C, np.array([1.45, 0.0])),
+        -0.5, atol=1e-12)
+    # degenerate: all control points identical -> zero
+    assert igl.predicates.cubic_winding_number(np.zeros((4, 2)),
+                                               np.array([1.2, 1.0])) == 0.0
+
+
+def test_predicates_point_in_convex_hull():
+    a = np.array([0.0, 0.0])
+    b = np.array([1.0, 1.0])
+    c = np.array([2.0, -1.0])
+    d = np.array([3.0, 0.0])
+    Or = igl.predicates.Orientation
+    assert igl.predicates.point_in_convex_hull(np.array([1.5, 0.0]), a, b, c, d) == Or.POSITIVE
+    assert igl.predicates.point_in_convex_hull(np.array([-1.0, 0.0]), a, b, c, d) == Or.NEGATIVE
+    assert igl.predicates.point_in_convex_hull(np.array([0.0, 0.0]), a, b, c, d) == Or.COLLINEAR
+    assert igl.predicates.point_in_convex_hull(np.array([1.0, -0.4]), a, b, c, d) == Or.POSITIVE
+    assert igl.predicates.point_in_convex_hull(np.array([2.0, 0.6]), a, b, c, d) == Or.NEGATIVE
+
+
+def test_predicates_spline_winding_number():
+    P, C = _unit_square_spline()
+    B1, B2, leaf = igl.cycodebase.spline_eytzinger_aabb(P, C)
+    Q = np.array([[0.5, 0.5],   # inside the CCW loop
+                  [2.0, 2.0]])  # outside
+    W = igl.predicates.spline_winding_number(P, C, B1, B2, leaf, Q)
+    assert W.shape == (2,)
+    assert np.isclose(abs(W[0]), 1.0, atol=1e-9)
+    assert np.isclose(W[1], 0.0, atol=1e-9)
+
+
+# --------------------------------------------------------------------------
+# resolve_duplicated_faces
+# --------------------------------------------------------------------------
+
+def test_resolve_duplicated_faces():
+    # A mesh with no duplicated faces is returned unchanged.
+    F = np.array([[0, 1, 2], [2, 3, 0]], dtype=np.int64)
+    F2, J = igl.resolve_duplicated_faces(F)
+    assert np.array_equal(F2, F)
+    assert list(J.ravel()) == [0, 1]
+
+    # A pair of oppositely-oriented copies of the same face cancels out, while a
+    # distinct unique face is kept (rule 1).
+    F = np.array([[0, 1, 2],   # unique face, kept
+                  [2, 1, 3],   # face B, +
+                  [3, 1, 2]],  # face B reversed, - -> cancels with the above
+                 dtype=np.int64)
+    F2, J = igl.resolve_duplicated_faces(F)
+    assert set(map(tuple, F2.tolist())) == {(0, 1, 2)}
+    assert list(J.ravel()) == [0]
+
+    # Two positive copies and one negative copy: keep a single positive face
+    # (rule 2). J indexes back into the input.
+    F = np.array([[0, 1, 2], [0, 1, 2], [1, 0, 2]], dtype=np.int64)
+    F2, J = igl.resolve_duplicated_faces(F)
+    assert F2.shape[0] == 1
+    assert tuple(F2[0]) == (0, 1, 2)
+    assert F.shape[1] == F2.shape[1]
+    assert np.array_equal(F[J.ravel()], F2)
+
+    # Non-orientable triangle (three identical copies, |pos-neg| > 1): all of its
+    # copies are dropped, unrelated faces survive (rule 4).
+    F = np.array([[0, 1, 2], [0, 1, 2], [0, 1, 2], [3, 4, 5]], dtype=np.int64)
+    F2, J = igl.resolve_duplicated_faces(F)
+    assert set(map(tuple, F2.tolist())) == {(3, 4, 5)}
+
+
+def test_boundary_conditions():
+    V, F, T = single_tet()
+
+    # Point handles located exactly at every vertex: each handle fixes its own
+    # vertex, so bc is the identity (column j is 1 at handle j, 0 elsewhere).
+    C = V.copy()
+    P = np.arange(V.shape[0], dtype=np.int64)
+    b, bc = igl.boundary_conditions(V, F, C, P)
+    assert b.shape[0] == bc.shape[0]
+    assert bc.shape[1] == P.shape[0]
+    order = np.argsort(b.ravel())
+    assert np.array_equal(b.ravel()[order], P)
+    assert np.allclose(bc[order], np.eye(P.shape[0]))
+
+    # Bone edge with an interior sample: a strip whose middle-bottom vertex (1)
+    # lies exactly on the bone between the two handles at vertices 0 and 2. All
+    # three bottom vertices become boundary samples of the single bone (weight 1).
+    Vb = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [1.0, 0.0, 0.0],
+                   [0.0, 1.0, 0.0], [0.5, 1.0, 0.0], [1.0, 1.0, 0.0]])
+    Fb = np.array([[0, 1, 3], [1, 4, 3], [1, 2, 4], [2, 5, 4]], dtype=np.int64)
+    Cb = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    BE = np.array([[0, 1]], dtype=np.int64)
+    b, bc = igl.boundary_conditions(Vb, Fb, Cb, BE=BE)
+    assert bc.shape[1] == BE.shape[0]  # one weight column per bone
+    assert set(b.ravel().tolist()) == {0, 1, 2}
+    assert np.allclose(bc, 1.0)
+
+def test_fast_winding_number():
+    # Unit-sphere mesh from a subdivided icosahedron.
+    V, F = igl.icosahedron()
+    for _ in range(3):
+        V, F = igl.upsample(V, F)
+    V = V / np.linalg.norm(V, axis=1, keepdims=True)
+
+    Q = np.array([[0.0, 0.0, 0.0],   # inside  -> ~1
+                  [0.5, 0.0, 0.0],   # inside  -> ~1
+                  [2.0, 0.0, 0.0],   # outside -> ~0
+                  [0.0, 0.0, 3.0]])  # outside -> ~0
+
+    def inside_outside(W):
+        assert W.shape == (Q.shape[0],)
+        assert W[0] > 0.9 and W[1] > 0.9
+        assert abs(W[2]) < 0.1 and abs(W[3]) < 0.1
+
+    # Mesh one-shot
+    Wm = igl.fast_winding_number(V, F, Q)
+    inside_outside(Wm)
+
+    # Point cloud: vertices as oriented points with voronoi areas
+    N = V.copy()  # outward unit normals on a unit sphere
+    A = np.asarray(igl.massmatrix(V, F, igl.MASSMATRIX_TYPE_VORONOI).diagonal()).ravel()
+
+    # Point-cloud one-shot
+    Wp = igl.fast_winding_number(V, N, A, Q)
+    inside_outside(Wp)
+
+    # Reusable triangle-soup BVH: same answer as the one-shot, reusable across
+    # multiple query sets without rebuilding.
+    bvh = igl.FastWindingNumberBVH()
+    bvh.init(V, F, 2)
+    Wb = bvh.winding_number(Q)
+    inside_outside(Wb)
+    assert np.allclose(Wb, bvh.winding_number(Q))
+
+    # Point-cloud octree precompute + cached evaluation matches the one-shot.
+    point_indices, CH, CN, W = igl.octree(V)
+    CM, R, EC = igl.fast_winding_number_precompute(V, N, A, point_indices, CH, 2)
+    Wc = igl.fast_winding_number(V, N, A, point_indices, CH, CM, R, EC, Q)
+    assert np.allclose(Wc, Wp, atol=1e-6)
+
+
+def test_ambient_occlusion():
+    # Core (embree-free) ambient occlusion available directly on `igl`.
+    V, F = igl.icosahedron()
+    N = igl.per_vertex_normals(V, F)
+    P = V + 1e-4 * N
+
+    S = igl.ambient_occlusion(V, F, P, N, 256)
+    assert S.shape == (V.shape[0],)
+    assert np.all(S >= 0.0) and np.all(S <= 1.0)
+
+    # A convex mesh sampled along outward normals occludes nothing.
+    assert S.mean() < 0.05
+    # Flipping the normals inward makes the same points substantially occluded.
+    S_in = igl.ambient_occlusion(V, F, P, -N, 256)
+    assert S_in.mean() > 0.1
+    assert S_in.mean() > S.mean()
+
+
+def test_vertex_components_from_adjacency_matrix():
+    # Two disconnected components: a triangle {0,1,2} and an edge {3,4}.
+    edges = [(0, 1), (1, 2), (0, 2), (3, 4)]
+    n = 5
+    rows, cols = [], []
+    for i, j in edges:
+        rows += [i, j]
+        cols += [j, i]
+    A = scipy.sparse.csr_matrix(
+        (np.ones(len(rows)), (rows, cols)), shape=(n, n)).astype(np.int64)
+    c, counts = igl.vertex_components_from_adjacency_matrix(A)
+    assert c.shape[0] == n
+    # vertices in the same component share an id; different components differ
+    assert c[0] == c[1] == c[2]
+    assert c[3] == c[4]
+    assert c[0] != c[3]
+    # counts is per-component and sums to the number of vertices
+    assert counts.sum() == n
+    assert sorted(counts.ravel().tolist()) == [2, 3]
+
+def test_swept_volume():
+    V,F = igl.icosahedron()
+    # Rigid motion: translate 2 units along x in 5 steps
+    T = np.tile(np.eye(4,dtype=np.float64),(5,1,1))
+    T[:,0,3] = np.linspace(0,2,5)
+    SV,SF = igl.swept_volume(V,F,T,igl.SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,16,0.0)
+    assert SV.dtype == np.float64
+    assert SF.dtype == np.int64
+    assert SV.shape[1] == 3
+    assert SF.shape[1] == 3
+    assert SV.shape[0] > 0
+    assert SF.shape[0] > 0
+    # Swept volume spans the motion (icosahedron has unit-ish radius)
+    assert SV[:,0].min() < -0.5
+    assert SV[:,0].max() > 2.5
+    # A list of 3×4 transforms is accepted and equivalent
+    SV2,SF2 = igl.swept_volume(V,F,[Ti[:3,:] for Ti in T],grid_res=16)
+    assert np.allclose(SV,SV2)
+    assert np.array_equal(SF,SF2)
+    # A positive isolevel dilates the result
+    SV3,SF3 = igl.swept_volume(V,F,T,grid_res=16,isolevel=0.25)
+    assert SV3[:,1].max() > SV[:,1].max()
+    with pytest.raises(RuntimeError):
+        igl.swept_volume(V,F,[])
+    with pytest.raises(RuntimeError):
+        igl.swept_volume(V,F,[np.eye(3)])
+
+def swept_translation(n=5,dist=2.0):
+    """#n by 4 by 4 list of transforms translating `dist` along x."""
+    T = np.tile(np.eye(4,dtype=np.float64),(n,1,1))
+    T[:,0,3] = np.linspace(0,dist,n)
+    return T
+
+def test_swept_volume_bounding_box():
+    V,F = igl.icosahedron()
+    T = swept_translation()
+    mn,mx = igl.swept_volume_bounding_box(V,T)
+    assert mn.dtype == np.float64
+    assert mx.dtype == np.float64
+    assert mn.shape == (3,)
+    assert mx.shape == (3,)
+    assert np.all(mn <= mx)
+    # Box is the reference pose's box swept 2 units along x
+    assert np.allclose(mn,V.min(axis=0))
+    assert np.allclose(mx,V.max(axis=0)+np.array([2.0,0,0]))
+    # 3x4 transforms give the same box
+    mn2,mx2 = igl.swept_volume_bounding_box(V,[Ti[:3,:] for Ti in T])
+    assert np.allclose(mn,mn2)
+    assert np.allclose(mx,mx2)
+    with pytest.raises(RuntimeError):
+        igl.swept_volume_bounding_box(V,[])
+
+def test_swept_volume_signed_distance():
+    V,F = igl.icosahedron()
+    T = swept_translation()
+    grid_res = 16
+    isolevel = 0.0
+    mn,mx = igl.swept_volume_bounding_box(V,T)
+    h = (mx-mn).max()/(grid_res-1)
+    pad = max(int(np.ceil(isolevel/h)),0)+1
+    GV,res = igl.voxel_grid(mn,mx,s=grid_res+2*pad,pad_count=pad)
+    S = igl.swept_volume_signed_distance(
+        V,F,T,igl.SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,GV,res,h,isolevel)
+    assert S.dtype == np.float64
+    assert S.shape == (GV.shape[0],)
+    assert not np.any(np.isnan(S))
+    # Signs straddle the surface
+    assert S.min() < 0 and S.max() > 0
+    # Contouring these values reproduces igl.swept_volume exactly
+    SV,SF,_ = igl.marching_cubes(
+        S-isolevel,GV,int(res[0]),int(res[1]),int(res[2]),0.0)
+    SV2,SF2 = igl.swept_volume(
+        V,F,T,igl.SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,grid_res,isolevel)
+    assert np.allclose(SV,SV2)
+    assert np.array_equal(SF,SF2)
+    # Feeding the result back in as S0 takes a min with itself: idempotent
+    S2 = igl.swept_volume_signed_distance(
+        V,F,T,igl.SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,GV,res,h,isolevel,S)
+    assert np.allclose(S,S2)
+    # isolevel=inf (the default) is exact everywhere, so no NaNs to flood fill
+    Sinf = igl.swept_volume_signed_distance(V,F,T,GV=GV,res=res,h=h)
+    assert not np.any(np.isnan(Sinf))
+    near = np.abs(Sinf) < h
+    assert np.allclose(S[near],Sinf[near])
+    with pytest.raises(RuntimeError):
+        igl.swept_volume_signed_distance(V,F,T,GV=GV,res=res[:2],h=h)
+    with pytest.raises(RuntimeError):
+        igl.swept_volume_signed_distance(V,F,T,GV=GV,res=res,h=h,S0=S[:5])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymssql
-Version: 2.3.13
+Version: 2.4.0
 Summary: DB-API interface to Microsoft SQL Server for Python. (new Cython-based version)
 Author-email: Damien Churchill <damoxc@gmail.com>
 Maintainer-email: Mikhail Terekhov <termim@gmail.com>
@@ -614,6 +614,18 @@ Recent Changes
 ==============
 
 
+Version 2.4.0 - 2026-08-31 - Mikhail Terekhov
+=============================================
+
+General
+-------
+
+- Update license information in pyproject.toml, thanks to ecederstrand (PR #1003).
+- Update win-iconv to 0.0.10.
+- Fix datetime conversion for BCP operations and build on Windows (PR #1015).
+- Update to latest OpenSSL version on Windows (currently 4.0.2).
+- Update FreeTDS to 1.5.19 for wheels.
+
 Version 2.3.13 - 2026-02-13 - Mikhail Terekhov
 ==============================================
 
@@ -621,12 +633,3 @@ General
 -------
 
 - Fix type stubs with generics, overloads, and corrected types, thanks to jacks0n.
-
-
-Version 2.3.12 - 2026-02-10 - Mikhail Terekhov
-==============================================
-
-General
--------
-
-- Update manylinux base image to manylinux_2_28 to fix CVE-2023-0464, thanks to grgalex@ba.uoa.gr.

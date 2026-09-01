@@ -54,16 +54,19 @@ pub struct RegistryClientBuilder<'a> {
     torch_backend: Option<TorchStrategy>,
     cache: Cache,
     base_client_builder: BaseClientBuilder<'a>,
+    metadata_range_request: MetadataRangeRequest,
 }
 
 impl<'a> RegistryClientBuilder<'a> {
     pub fn new(base_client_builder: BaseClientBuilder<'a>, cache: Cache) -> Self {
+        let metadata_range_request = base_client_builder.configured_metadata_range_request();
         Self {
             index_locations: IndexLocations::default(),
             index_strategy: IndexStrategy::default(),
             torch_backend: None,
             cache,
             base_client_builder: base_client_builder.redirect(RedirectPolicy::RetriggerMiddleware),
+            metadata_range_request,
         }
     }
 
@@ -202,6 +205,7 @@ impl<'a> RegistryClientBuilder<'a> {
             client,
             read_timeout,
             flat_indexes: Arc::default(),
+            metadata_range_request: self.metadata_range_request,
         })
     }
 }
@@ -225,6 +229,28 @@ pub struct RegistryClient {
     read_timeout: Duration,
     /// The flat index entries for each `--find-links`-style index URL, with one slot per index.
     flat_indexes: Arc<Mutex<FlatIndexCache>>,
+    /// The behavior when metadata range requests are unsupported.
+    metadata_range_request: MetadataRangeRequest,
+}
+
+/// The behavior when wheel metadata cannot be fetched with HTTP range requests.
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
+pub enum MetadataRangeRequest {
+    /// Download the entire wheel to read the metadata.
+    #[default]
+    Fallback,
+    /// Fail instead of downloading the entire wheel.
+    Require,
+}
+
+impl From<bool> for MetadataRangeRequest {
+    fn from(require: bool) -> Self {
+        if require {
+            Self::Require
+        } else {
+            Self::Fallback
+        }
+    }
 }
 
 /// The format of the package metadata returned by querying an index.
@@ -1179,6 +1205,14 @@ impl RegistryClient {
                 Ok(metadata) => return Ok(metadata),
                 Err(err) => {
                     if err.is_http_range_requests_unsupported(url, index) {
+                        if self.metadata_range_request == MetadataRangeRequest::Require {
+                            return Err(ErrorKind::MetadataRangeRequestsRequired(
+                                url.clone(),
+                                Box::new(err),
+                            )
+                            .into());
+                        }
+
                         // The range request version failed. Fall back to streaming the file to search
                         // for the METADATA file.
                         warn!("Range requests not supported for {filename}; streaming wheel");

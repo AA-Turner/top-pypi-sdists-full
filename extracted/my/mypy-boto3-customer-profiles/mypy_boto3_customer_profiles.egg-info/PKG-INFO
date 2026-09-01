@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-customer-profiles
-Version: 1.43.40
-Summary: Type annotations for boto3 CustomerProfiles 1.43.40 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.84
+Summary: Type annotations for boto3 CustomerProfiles 1.43.84 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 CustomerProfiles 1.43.40](https://pypi.org/project/boto3/) compatible
+[boto3 CustomerProfiles 1.43.84](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.40' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.84' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CustomerProfiles` service.
 4. Use provided commands to install generated packages.
@@ -353,6 +353,7 @@ from mypy_boto3_customer_profiles.paginator import (
     ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
+    ListSegmentSubscriptionEventsPaginator,
     ListUploadJobsPaginator,
 )
 
@@ -391,6 +392,9 @@ list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_pa
 )
 list_segment_definitions_paginator: ListSegmentDefinitionsPaginator = client.get_paginator(
     "list_segment_definitions"
+)
+list_segment_subscription_events_paginator: ListSegmentSubscriptionEventsPaginator = (
+    client.get_paginator("list_segment_subscription_events")
 )
 list_upload_jobs_paginator: ListUploadJobsPaginator = client.get_paginator("list_upload_jobs")
 ```

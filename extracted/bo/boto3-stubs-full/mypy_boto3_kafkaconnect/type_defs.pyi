@@ -111,6 +111,8 @@ __all__ = (
     "ProvisionedCapacityTypeDef",
     "ProvisionedCapacityUpdateTypeDef",
     "ResponseMetadataTypeDef",
+    "RestartConnectorRequestTypeDef",
+    "RestartConnectorResponseTypeDef",
     "S3LocationDescriptionTypeDef",
     "S3LocationTypeDef",
     "S3LogDeliveryDescriptionTypeDef",
@@ -323,6 +325,10 @@ class ListWorkerConfigurationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     namePrefix: NotRequired[str]
 
+class RestartConnectorRequestTypeDef(TypedDict):
+    connectorArn: str
+    onlyFailedTasks: NotRequired[bool]
+
 class S3LogDeliveryDescriptionTypeDef(TypedDict):
     bucket: NotRequired[str]
     enabled: NotRequired[bool]
@@ -408,6 +414,11 @@ class ListConnectorOperationsResponseTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RestartConnectorResponseTypeDef(TypedDict):
+    connectorArn: str
+    connectorOperationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateConnectorResponseTypeDef(TypedDict):

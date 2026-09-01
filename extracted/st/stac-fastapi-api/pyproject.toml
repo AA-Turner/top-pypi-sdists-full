@@ -32,12 +32,12 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "brotli_asgi",
-    "stac-fastapi.types~=6.4",
+    "stac-fastapi.types~=6.6",
 ]
 
 [project.optional-dependencies]
 metrics = [
-    "prometheus-fastapi-instrumentator>=8",
+    "prometheus-fastapi-instrumentator>=8.1.0",
 ]
 
 [dependency-groups]

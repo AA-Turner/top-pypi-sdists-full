@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: stac-fastapi-extensions
-Version: 6.5.0
+Version: 6.6.0
 Summary: Extensions for stac-fastapi apis.
 Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi
 Author-email: ArturoAI <engineering@arturo.ai>
@@ -16,5 +16,5 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
-Requires-Dist: stac-fastapi-api~=6.4
-Requires-Dist: stac-fastapi-types~=6.4
+Requires-Dist: stac-fastapi-api~=6.6
+Requires-Dist: stac-fastapi-types~=6.6

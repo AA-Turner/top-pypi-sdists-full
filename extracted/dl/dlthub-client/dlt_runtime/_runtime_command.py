@@ -67,9 +67,9 @@ from dlt_runtime.runtime_clients.auth.errors import (
     UnexpectedStatus as AuthUnexpectedStatus,
 )
 from dlt_runtime.runtime_clients.dataplane_api.models import (
+    PlainVariableUpsert,
+    SecretVariableUpsert,
     VariableChangeResultStatus,
-    VariableUpsert,
-    VariableUpsertType,
 )
 
 if TYPE_CHECKING:
@@ -187,6 +187,7 @@ from dlt_runtime.strings import (
     JOB_NO_SELECTOR_MATCH,
     JOB_SCHEDULE_TOGGLE_FAILED,
     LOGIN_CANCELLED_RESUME_HINT,
+    VARIABLE_SECRET_NEEDS_VALUE,
     WORKSPACE_CONNECT_CREATE_DECLINED,
     WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY,
     WORKSPACE_CREATE_REQUIRES_NAME,
@@ -2493,16 +2494,16 @@ def variable_set(
 ) -> None:
     if value is None:
         value = _prompt_variable_value(name)
+    if secret and not value:
+        raise RuntimeClientException(VARIABLE_SECRET_NEEDS_VALUE)
     response = _change_workspace_variables(
         api_client,
         _to_uuid(auth_service.workspace_id),
         profile=profile,
         upserts=[
-            VariableUpsert(
-                name=name,
-                value=value,
-                type_=VariableUpsertType.SECRET if secret else VariableUpsertType.PLAIN,
-            )
+            SecretVariableUpsert(name=name, value=value, type_="secret")
+            if secret
+            else PlainVariableUpsert(name=name, value=value, type_="plain")
         ],
     )
     _print_variable_change(response.results, scope_label=_variable_scope_label(profile))

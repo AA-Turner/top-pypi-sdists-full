@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-vector-stores-faiss
-Version: 0.6.0
+Version: 0.7.0
 Summary: llama-index vector_stores faiss integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uipath-langchain
-Version: 0.16.11
+Version: 0.16.13
 Summary: Python SDK that enables developers to build and deploy LangGraph agents to the UiPath Cloud Platform
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-langchain-python
@@ -30,23 +30,23 @@ Requires-Dist: pydantic-settings>=2.6.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: rdflib<8.0.0,>=7.0.0
 Requires-Dist: uipath-core<0.6.0,>=0.5.29
-Requires-Dist: uipath-langchain-client[openai]<1.18.0,>=1.17.3
-Requires-Dist: uipath-llm-client<1.18.0,>=1.17.1
-Requires-Dist: uipath-platform<0.3.0,>=0.2.20
+Requires-Dist: uipath-langchain-client[openai]<1.19.0,>=1.18.0
+Requires-Dist: uipath-llm-client<1.19.0,>=1.18.0
+Requires-Dist: uipath-platform<0.3.0,>=0.2.22
 Requires-Dist: uipath-runtime<0.14.0,>=0.13.0
 Requires-Dist: uipath<2.15.0,>=2.14.6
 Provides-Extra: all
-Requires-Dist: uipath-langchain-client[all]<1.18.0,>=1.17.3; extra == 'all'
+Requires-Dist: uipath-langchain-client[all]<1.19.0,>=1.18.0; extra == 'all'
 Provides-Extra: anthropic
-Requires-Dist: uipath-langchain-client[anthropic]<1.18.0,>=1.17.3; extra == 'anthropic'
+Requires-Dist: uipath-langchain-client[anthropic]<1.19.0,>=1.18.0; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3-stubs>=1.41.4; extra == 'bedrock'
-Requires-Dist: uipath-langchain-client[bedrock]<1.18.0,>=1.17.3; extra == 'bedrock'
+Requires-Dist: uipath-langchain-client[bedrock]<1.19.0,>=1.18.0; extra == 'bedrock'
 Provides-Extra: fireworks
-Requires-Dist: uipath-langchain-client[fireworks]<1.18.0,>=1.17.3; extra == 'fireworks'
+Requires-Dist: uipath-langchain-client[fireworks]<1.19.0,>=1.18.0; extra == 'fireworks'
 Provides-Extra: vertex
-Requires-Dist: uipath-langchain-client[google]<1.18.0,>=1.17.3; extra == 'vertex'
-Requires-Dist: uipath-langchain-client[vertexai]<1.18.0,>=1.17.3; extra == 'vertex'
+Requires-Dist: uipath-langchain-client[google]<1.19.0,>=1.18.0; extra == 'vertex'
+Requires-Dist: uipath-langchain-client[vertexai]<1.19.0,>=1.18.0; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # UiPath LangChain Python SDK

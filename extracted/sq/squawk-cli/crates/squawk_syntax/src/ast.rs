@@ -36,12 +36,12 @@ use std::marker::PhantomData;
 use crate::syntax_node::{SyntaxNode, SyntaxNodeChildren, SyntaxToken};
 use squawk_parser::SyntaxKind;
 
-pub(crate) use self::node_ext::normalize_name_node;
+pub use self::node_ext::normalize_name_node;
 pub use self::{
     generated::tokens::*,
-    node_ext::{BinOp, LitKind, PostfixOp},
+    node_ext::{BinOp, CastKind, LitKind, PostfixOp, PrefixOp},
     nodes::*,
-    traits::{HasCreateTable, HasWithClause, NameLike},
+    traits::{HasCreateTable, HasPathRef, HasSelectTail, HasWithClause, NameLike},
 };
 
 /// The main trait to go from untyped `SyntaxNode`  to a typed ast. The

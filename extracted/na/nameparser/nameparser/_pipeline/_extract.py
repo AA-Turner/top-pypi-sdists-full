@@ -4,36 +4,30 @@ Consumes: ParseState.original.
 Produces: extracted (role + inner span per delimited region), masked
 (full regions incl. delimiter chars, skipped by tokenize),
 UNBALANCED_DELIMITER ambiguities for opens with no close.
-A Role.MAIDEN region is the WHOLE inner span, marker word included --
-nothing here strips one. classify tags a marker inside it like any
-other token, and group drops it from a multi-token clause (#329).
-Reads: Policy.nickname_delimiters, Policy.maiden_delimiters, and
+A Role.MAIDEN region is the WHOLE inner span, marker included (all of
+it, a phrase marker being several words) -- nothing here strips one.
+classify tags a marker inside it like any other token, and group drops
+it from a multi-token clause (#329).
+A region reaches that role two ways: the pair that matched sits in
+Policy.maiden_delimiters (M1), or the content itself opens with a
+marker word (M3), which reassigns the role after the match and so is
+the one thing here that a bucket alone does not decide.
+Reads: Policy.nickname_delimiters, Policy.maiden_delimiters,
+Lexicon.maiden_markers, and
 Lexicon.suffix_words / suffix_acronyms / suffix_acronyms_ambiguous
-through _suffix_shaped, which lets a clause's CONTENT overrule the
-delimiter's verdict: 'Andrew Perkins (MBA)' is not a nickname, so
-only the two delimiter spans are masked and the content rejoins the
-token stream.
+through _suffix_shaped.
 
-Matching rules (the #273 mechanism): one left-to-right scan over the
-original text, no nesting. At each position the LEFTMOST boundary-valid
-opener among ALL configured pairs wins -- position order, never pair
-order, decides between conventions that share a character in opposite
-roles ('“' closes „…“ but opens “…”; '»' closes «…» but opens »…«), so
-"Hans „Erster“ und “Zweiter” Müller" extracts both names. For pairs
-whose open == close (quotes), the open must sit at a word boundary
-(start of text or after whitespace) and the close before one (end,
-whitespace, or a comma char) -- this is what keeps the apostrophe in
-O'Connor literal. Empty enclosures are masked (removed from the token
-stream) but extract nothing; delimiter characters inside a matched
-region are literal content for every other pair.
+Implements rules N1, N2, S1, M1 and M3 of docs/design/rules.md (the #273
+matching mechanism); each is cited at its code below. One scan
+mechanic worth stating up front: matching is one left-to-right pass,
+no nesting, and delimiter characters inside a matched region are
+literal content for every other pair.
 
 Bucket precedence is NOT decided here: Policy canonicalizes overlap
-away before parsing (a pair listed in maiden_delimiters is dropped
-from the effective nickname set -- maiden wins; the v1 facade restores
-v1's nickname-wins reading via a pre-subtraction in _config_shim), so
-the two buckets are always disjoint by the time this stage runs. The
-nickname-before-maiden candidate order below is only a same-position
-tie-break for exotic configs where two pairs share an OPEN character.
+away before parsing, so the two buckets are always disjoint by the
+time this stage runs. The nickname-before-maiden candidate order
+below is only a same-position tie-break for exotic configs where two
+pairs share an OPEN character.
 """
 from __future__ import annotations
 
@@ -45,9 +39,13 @@ from nameparser._lexicon import Lexicon, _normalize
 from nameparser._pipeline._state import (
     COMMA_CHARS, ParseState, PendingAmbiguity,
 )
+from nameparser._pipeline._vocab import maiden_marker_run
 from nameparser._types import AmbiguityKind, Role, Span
 
 
+# rules.md#S1: "a bracketed clause whose content is suffix-shaped is
+# not a nickname: the brackets are dropped and the content reads
+# exactly as if written bare"
 def _suffix_shaped(content: str, lexicon: Lexicon) -> bool:
     """v1 parse_nicknames' escape (parser.py:1125-1141): an unambiguous
     suffix_words member (edge-normalized), an unambiguous acronym
@@ -61,6 +59,42 @@ def _suffix_shaped(content: str, lexicon: Lexicon) -> bool:
             or content.endswith("."))
 
 
+# rules.md#M3: "a bracketed clause whose content opens with a
+# recognized marker and carries a word after it reads as the
+# maiden name, whichever bucket the enclosing pair sits in"
+def _maiden_marked(content: str, lexicon: Lexicon) -> bool:
+    """The clause says 'maiden' out loud, so the caller does not have to
+    say it in Policy. Requires a word AFTER the marker: a lone marker in
+    brackets is a word in brackets, and M1 deliberately keeps a one-word
+    clause's word (it may be the surname Nee). A PHRASE marker is one
+    marker, so the word after is the word after the whole run --
+    '(z domu Nowak)' has one, '(z domu)' has none. The word after is
+    not tested for anything -- M3's Accepted line, and the reason a
+    bracketed '(née V)' reads maiden 'V' where the bare 'née V' gives
+    M2 a suffix.
+
+    This stage runs before tokenize, so it calls maiden_marker_run
+    itself rather than reading the tags classify will set. The two
+    questions are deliberately not the same one: this splits on
+    WHITESPACE, so a marker the writer glued to punctuation is not one
+    here ('née,'); the tokenizer splits that comma off and classify
+    still tags the token, which is what keeps _group's Role.MAIDEN
+    filter reachable. Sharing the PREDICATE does not merge the two
+    questions -- each hands it a different sequence of words."""
+    words = content.split()
+    # A one-word clause cannot satisfy the condition whatever the
+    # vocabulary says -- `run > 0 and 1 > run` is unsatisfiable -- so
+    # refuse it before any fold or lookup, as the pre-#434 words[0]
+    # test did for free.
+    if len(words) < 2:
+        return False
+    run = maiden_marker_run(words, lexicon.maiden_markers)
+    return run > 0 and len(words) > run
+
+
+# rules.md#N2: "a quote whose open and close are the same character
+# opens only at a word start and closes only at a word end, so an
+# apostrophe inside or at the end of a word is literal"
 def _open_ok(text: str, i: int) -> bool:
     return i == 0 or text[i - 1].isspace()
 
@@ -130,6 +164,11 @@ def _unmatched(open_: str, offset: int) -> tuple[int, PendingAmbiguity]:
     ))
 
 
+# rules.md#N1: "a clause enclosed by a configured nickname delimiter
+# pair reads as the nickname and is lifted out of the name; an empty
+# enclosure is simply dropped"
+# rules.md#M1: "with a delimiter pair configured for maiden names, its
+# enclosed clause reads as the maiden name" (history: decisions.md#M1)
 def extract_delimited(state: ParseState) -> ParseState:
     text = state.original
     policy = state.policy
@@ -204,6 +243,21 @@ def extract_delimited(state: ParseState) -> ParseState:
             masked.append(Span(j, j + len(close)))
         else:
             if inner.start < inner.end:
+                # M3 upgrades a nickname clause; a configured maiden
+                # pair is M1's and is left alone. The role test is
+                # False whenever a maiden pair matched, but it cannot
+                # change the OUTCOME, and no test can catch its
+                # removal: `order` above holds exactly two roles, so a
+                # role that is not NICKNAME is already MAIDEN and the
+                # assignment would be a no-op either way. It is kept
+                # for the day `order` gains a third bucket, when it
+                # becomes the difference between M3 claiming that
+                # bucket's clauses and leaving them. Measured
+                # 2026-08-26: dropping it leaves the suite and all
+                # three gates green.
+                if (role is Role.NICKNAME and _maiden_marked(
+                        text[inner.start:inner.end], state.lexicon)):
+                    role = Role.MAIDEN
                 extracted.append((role, inner))
             masked.append(Span(i, j + len(close)))
         # position-driven scanning makes overlapping matches

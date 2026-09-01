@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: junitparser
-Version: 5.0.1
+Version: 5.0.2
 Summary: Manipulates JUnit/xUnit Result XML files
 Keywords: junit,xunit,xml,parser
 Author: Weiwei Wang

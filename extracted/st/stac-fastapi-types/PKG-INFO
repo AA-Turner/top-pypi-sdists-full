@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: stac-fastapi-types
-Version: 6.5.0
+Version: 6.6.0
 Summary: Core API for stac-fastapi modules.
 Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi
 Author-email: ArturoAI <engineering@arturo.ai>
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Requires-Dist: attrs>=23.2.0
-Requires-Dist: fastapi>=0.138.2
+Requires-Dist: fastapi>=0.141.1
 Requires-Dist: iso8601<2.2.0,>=1.0.2
 Requires-Dist: pydantic-settings>=2
 Requires-Dist: stac-pydantic<4.0,>=3.3.0

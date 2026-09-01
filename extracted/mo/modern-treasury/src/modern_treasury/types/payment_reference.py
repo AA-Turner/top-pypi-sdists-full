@@ -53,7 +53,6 @@ class PaymentReference(BaseModel):
         "cross_river_transaction_id",
         "currencycloud_conversion_id",
         "currencycloud_payment_id",
-        "dc_bank_transaction_id",
         "eft_trace_number",
         "evolve_core_batch",
         "evolve_core_file_key",
@@ -114,6 +113,7 @@ class PaymentReference(BaseModel):
         "western_alliance_payment_id",
         "western_alliance_transaction_id",
         "western_alliance_wire_confirmation_number",
+        "wise_transfer_id",
     ]
     """The type of reference number."""
 
@@ -123,7 +123,7 @@ class PaymentReference(BaseModel):
     Must be accompanied by the referenceable_type or will return an error.
     """
 
-    referenceable_type: Literal["payment_order", "reversal", "return"]
+    referenceable_type: Literal["payment_order", "reversal", "return", "incoming_payment_detail", "transaction"]
     """One of the referenceable types.
 
     This must be accompanied by the id of the referenceable or will return an error.

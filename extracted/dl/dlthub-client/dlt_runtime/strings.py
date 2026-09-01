@@ -39,6 +39,9 @@ TRIGGER_STATUS_MESSAGES: Final[dict[str, str]] = {
         "This schedule is paused, so the scheduler did not start this run."
         " Resume the schedule to let it run again."
     ),
+    "skipped_workspace_archived": (
+        "The workspace is archived and read-only. Unarchive it to start new runs."
+    ),
 }
 
 
@@ -172,4 +175,9 @@ WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY: Final[str] = (
 JOB_SELECTOR_NOT_FOUND: Final[str] = (
     "Job '{selector}' not found. Run `dlthub job list` to see available"
     " selectors, or pass a full `jobs.<section>.<name>` ref / UUID."
+)
+
+# A secret with no value is unreadable afterwards, so it can never be diagnosed.
+VARIABLE_SECRET_NEEDS_VALUE: Final[str] = (
+    "A secret needs a value. Pass --value, or type one when prompted."
 )

@@ -10,8 +10,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    List,
-    Type,
     Union,
     cast,
 )
@@ -660,7 +658,7 @@ class AsyncEthModuleTest:
 
     @pytest.mark.asyncio
     async def test_ExtraDataToPOAMiddleware(
-        self, async_w3: "AsyncWeb3[Any]", request_mocker: Type[RequestMocker]
+        self, async_w3: "AsyncWeb3[Any]", request_mocker: type[RequestMocker]
     ) -> None:
         async_w3.middleware_onion.inject(ExtraDataToPOAMiddleware, "poa", layer=0)
         extra_data = f"0x{'ff' * 33}"
@@ -776,8 +774,8 @@ class AsyncEthModuleTest:
         assert get_auth["address"] == async_math_contract.address
         assert get_auth["nonce"] == nonce + 1
         assert isinstance(get_auth["yParity"], int)
-        assert isinstance(get_auth["r"], HexBytes)
-        assert isinstance(get_auth["s"], HexBytes)
+        assert isinstance(get_auth["r"], int)
+        assert isinstance(get_auth["s"], int)
 
         # reset code
         reset_auth = {
@@ -1011,7 +1009,7 @@ class AsyncEthModuleTest:
 
     @pytest.mark.asyncio
     async def test_eth_max_priority_fee_with_fee_history_calculation(
-        self, async_w3: "AsyncWeb3[Any]", request_mocker: Type[RequestMocker]
+        self, async_w3: "AsyncWeb3[Any]", request_mocker: type[RequestMocker]
     ) -> None:
         async with request_mocker(
             async_w3,
@@ -1206,7 +1204,7 @@ class AsyncEthModuleTest:
     async def test_eth_get_raw_transaction_by_block_raises_error(
         self,
         async_w3: "AsyncWeb3[Any]",
-        unknown_block_num_or_hash: Union[int, HexBytes],
+        unknown_block_num_or_hash: int | HexBytes,
     ) -> None:
         with pytest.raises(
             TransactionNotFound,
@@ -1519,7 +1517,7 @@ class AsyncEthModuleTest:
         async_w3: "AsyncWeb3[Any]",
         async_panic_errors_contract: "AsyncContract",
         panic_error: str,
-        params: List[Any],
+        params: list[Any],
     ) -> None:
         method = getattr(
             async_panic_errors_contract.functions,
@@ -1547,12 +1545,16 @@ class AsyncEthModuleTest:
             mocked_request_url=f"https://web3.py/gateway/{normalized_contract_address}/{OFFCHAIN_LOOKUP_TEST_DATA}.json",  # noqa: E501
             mocked_json_data=WEB3PY_AS_HEXBYTES,
         )
-        response_caller = await async_offchain_lookup_contract.caller().testOffchainLookup(  # noqa: E501 type: ignore
-            OFFCHAIN_LOOKUP_TEST_DATA
+        response_caller = (
+            await async_offchain_lookup_contract.caller().testOffchainLookup(  # noqa: E501 type: ignore
+                OFFCHAIN_LOOKUP_TEST_DATA
+            )
         )
-        response_function_call = await async_offchain_lookup_contract.functions.testOffchainLookup(  # noqa: E501 type: ignore
-            OFFCHAIN_LOOKUP_TEST_DATA
-        ).call()
+        response_function_call = (
+            await async_offchain_lookup_contract.functions.testOffchainLookup(  # noqa: E501 type: ignore
+                OFFCHAIN_LOOKUP_TEST_DATA
+            ).call()
+        )
         assert async_w3.codec.decode(["string"], response_caller)[0] == "web3py"
         assert async_w3.codec.decode(["string"], response_function_call)[0] == "web3py"
 
@@ -1917,7 +1919,9 @@ class AsyncEthModuleTest:
         with pytest.raises(TimeExhausted) as exc_info:
             await async_w3.eth.wait_for_transaction_receipt(txn_hash, timeout=timeout)
 
-        assert (_ in str(exc_info) for _ in [repr(txn_hash), timeout])
+        assert all(
+            str(value) in str(exc_info.value) for value in [repr(txn_hash), timeout]
+        )
 
     @pytest.mark.asyncio
     async def test_async_eth_wait_for_transaction_receipt_with_log_entry(
@@ -2234,36 +2238,6 @@ class AsyncEthModuleTest:
         assert transaction_count >= 1
 
     @pytest.mark.asyncio
-    async def test_eth_getUncleCountByBlockHash(
-        self, async_w3: "AsyncWeb3[Any]", async_empty_block: BlockData
-    ) -> None:
-        with pytest.warns(
-            DeprecationWarning,
-            match=r"get_uncle_count is deprecated: all get_uncle\* "
-            r"methods will be removed in v8",
-        ):
-            uncle_count = await async_w3.eth.get_uncle_count(async_empty_block["hash"])
-
-            assert is_integer(uncle_count)
-            assert uncle_count == 0
-
-    @pytest.mark.asyncio
-    async def test_eth_getUncleCountByBlockNumber(
-        self, async_w3: "AsyncWeb3[Any]", async_empty_block: BlockData
-    ) -> None:
-        with pytest.warns(
-            DeprecationWarning,
-            match=r"get_uncle_count is deprecated: all get_uncle\* "
-            r"methods will be removed in v8",
-        ):
-            uncle_count = await async_w3.eth.get_uncle_count(
-                async_empty_block["number"]
-            )
-
-            assert is_integer(uncle_count)
-            assert uncle_count == 0
-
-    @pytest.mark.asyncio
     async def test_eth_getBlockTransactionCountByNumber_block_with_txn(
         self, async_w3: "AsyncWeb3[Any]", async_block_with_txn: BlockData
     ) -> None:
@@ -2402,7 +2376,7 @@ class AsyncEthModuleTest:
     ) -> None:
         # Note: `underpriced transaction` error is only consistent with
         # ``txpool.nolocals`` flag as of Geth ``v1.15.4``.
-        # https://github.com/ethereum/web3.py/pull/3636
+        # https://github.com/ApeWorX/web3.py/pull/3636
         txn_params: TxParams = {
             "from": async_keyfile_account_address_dual_type,
             "to": async_keyfile_account_address_dual_type,
@@ -2697,7 +2671,7 @@ class EthModuleTest:
         assert is_integer(max_priority_fee)
 
     def test_eth_max_priority_fee_with_fee_history_calculation(
-        self, w3: "Web3", request_mocker: Type[RequestMocker]
+        self, w3: "Web3", request_mocker: type[RequestMocker]
     ) -> None:
         with request_mocker(
             w3,
@@ -2871,28 +2845,6 @@ class EthModuleTest:
 
         assert is_integer(transaction_count)
         assert transaction_count >= 1
-
-    def test_eth_getUncleCountByBlockHash(
-        self, w3: "Web3", empty_block: BlockData
-    ) -> None:
-        with pytest.warns(
-            DeprecationWarning, match=r"All get_uncle\* methods have been deprecated"
-        ):
-            uncle_count = w3.eth.get_uncle_count(empty_block["hash"])
-
-            assert is_integer(uncle_count)
-            assert uncle_count == 0
-
-    def test_eth_getUncleCountByBlockNumber(
-        self, w3: "Web3", empty_block: BlockData
-    ) -> None:
-        with pytest.warns(
-            DeprecationWarning, match=r"All get_uncle\* methods have been deprecated"
-        ):
-            uncle_count = w3.eth.get_uncle_count(empty_block["number"])
-
-            assert is_integer(uncle_count)
-            assert uncle_count == 0
 
     def test_eth_get_code(
         self, w3: "Web3", math_contract_address: ChecksumAddress
@@ -3604,7 +3556,7 @@ class EthModuleTest:
     ) -> None:
         # Note: `underpriced transaction` error is only consistent with
         # ``txpool.nolocals`` flag as of Geth ``v1.15.4``.
-        # https://github.com/ethereum/web3.py/pull/3636
+        # https://github.com/ApeWorX/web3.py/pull/3636
         txn_params: TxParams = {
             "from": keyfile_account_address_dual_type,
             "to": keyfile_account_address_dual_type,
@@ -3921,8 +3873,8 @@ class EthModuleTest:
         assert get_auth["address"] == math_contract.address
         assert get_auth["nonce"] == nonce + 1
         assert isinstance(get_auth["yParity"], int)
-        assert isinstance(get_auth["r"], HexBytes)
-        assert isinstance(get_auth["s"], HexBytes)
+        assert isinstance(get_auth["r"], int)
+        assert isinstance(get_auth["s"], int)
 
         # reset code
         reset_auth = {
@@ -4171,7 +4123,7 @@ class EthModuleTest:
         w3: "Web3",
         panic_errors_contract: "Contract",
         panic_error: str,
-        params: List[Any],
+        params: list[Any],
     ) -> None:
         method = getattr(
             panic_errors_contract.functions,
@@ -4730,7 +4682,9 @@ class EthModuleTest:
         with pytest.raises(TimeExhausted) as exc_info:
             w3.eth.wait_for_transaction_receipt(txn_hash, timeout=timeout)
 
-        assert (_ in str(exc_info) for _ in [repr(txn_hash), timeout])
+        assert all(
+            str(value) in str(exc_info.value) for value in [repr(txn_hash), timeout]
+        )
 
     def test_eth_wait_for_transaction_receipt_with_log_entry(
         self,
@@ -5016,7 +4970,7 @@ class EthModuleTest:
 
     @pytest.mark.parametrize("unknown_block_num_or_hash", (1234567899999, UNKNOWN_HASH))
     def test_eth_get_raw_transaction_by_block_raises_error(
-        self, w3: "Web3", unknown_block_num_or_hash: Union[int, HexBytes]
+        self, w3: "Web3", unknown_block_num_or_hash: int | HexBytes
     ) -> None:
         with pytest.raises(
             TransactionNotFound,

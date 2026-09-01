@@ -167,6 +167,7 @@ class GetProcessBundleDescriptorRequest(google.protobuf.message.Message):
 
     PROCESS_BUNDLE_DESCRIPTOR_ID_FIELD_NUMBER: builtins.int
     process_bundle_descriptor_id: builtins.str
+    """(Required) The id of the ProcessBundleDescriptor to retrieve."""
     def __init__(
         self,
         *,
@@ -928,6 +929,10 @@ global___ProcessBundleRequest = ProcessBundleRequest
 
 @typing_extensions.final
 class ProcessBundleResponse(google.protobuf.message.Message):
+    """The response to a ProcessBundleRequest, returned by the SDK harness after
+    bundle processing completes (or is partially completed with residual roots).
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -1064,6 +1069,10 @@ global___MonitoringInfosMetadataRequest = MonitoringInfosMetadataRequest
 
 @typing_extensions.final
 class ProcessBundleProgressResponse(google.protobuf.message.Message):
+    """A response containing progress information for a currently active bundle.
+    This is returned in response to a ProcessBundleProgressRequest.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -1425,6 +1434,12 @@ global___ProcessBundleSplitResponse = ProcessBundleSplitResponse
 
 @typing_extensions.final
 class FinalizeBundleRequest(google.protobuf.message.Message):
+    """A request sent by the runner to finalize a bundle that previously indicated
+    it requires finalization (via requires_finalization in ProcessBundleResponse).
+    This is sent after the runner has committed the output of the bundle, allowing
+    the SDK to perform any post-commit cleanup.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     INSTRUCTION_ID_FIELD_NUMBER: builtins.int
@@ -1443,7 +1458,9 @@ global___FinalizeBundleRequest = FinalizeBundleRequest
 
 @typing_extensions.final
 class FinalizeBundleResponse(google.protobuf.message.Message):
-    """Empty"""
+    """A response to a FinalizeBundleRequest, indicating that finalization is complete.
+    Empty
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1511,6 +1528,11 @@ class Elements(google.protobuf.message.Message):
 
     @typing_extensions.final
     class DrainMode(google.protobuf.message.Message):
+        """Indicates whether the bundle is being drained. When draining, sources
+        should stop producing new data and the SDK should finish processing
+        in-flight elements.
+        """
+
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         class _Enum:
@@ -1520,13 +1542,19 @@ class Elements(google.protobuf.message.Message):
         class _EnumEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Elements.DrainMode._Enum.ValueType], builtins.type):
             DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
             UNSPECIFIED: Elements.DrainMode._Enum.ValueType  # 0
+            """Drain mode has not been specified."""
             NOT_DRAINING: Elements.DrainMode._Enum.ValueType  # 1
+            """The bundle is not being drained; normal processing continues."""
             DRAINING: Elements.DrainMode._Enum.ValueType  # 2
+            """The bundle is being drained; sources should stop producing new data."""
 
         class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
         UNSPECIFIED: Elements.DrainMode.Enum.ValueType  # 0
+        """Drain mode has not been specified."""
         NOT_DRAINING: Elements.DrainMode.Enum.ValueType  # 1
+        """The bundle is not being drained; normal processing continues."""
         DRAINING: Elements.DrainMode.Enum.ValueType  # 2
+        """The bundle is being drained; sources should stop producing new data."""
 
         def __init__(
             self,
@@ -1594,6 +1622,9 @@ class Elements(google.protobuf.message.Message):
         TRACESTATE_FIELD_NUMBER: builtins.int
         VALUE_KIND_FIELD_NUMBER: builtins.int
         drain: global___Elements.DrainMode.Enum.ValueType
+        """(Optional) Indicates whether the bundle is being drained, allowing the
+        SDK to handle drain semantics for this element.
+        """
         traceparent: builtins.str
         """(Optional) As part of https://www.w3.org/TR/trace-context/ we are forwarding a trace and participating in it.
         Traceparent header represents the incoming request in a tracing system in a common format.
@@ -1696,6 +1727,10 @@ global___Elements = Elements
 class StateRequest(google.protobuf.message.Message):
     """
     State API
+
+    A request sent by the SDK harness to the runner to manipulated
+    state associated with a particular StateKey. State requests are scoped to
+    the instruction (bundle) that is currently being processed.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -1746,6 +1781,10 @@ global___StateRequest = StateRequest
 
 @typing_extensions.final
 class StateResponse(google.protobuf.message.Message):
+    """A response from the runner to a StateRequest, containing the result of
+    the requested state operation.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ID_FIELD_NUMBER: builtins.int
@@ -1789,6 +1828,11 @@ global___StateResponse = StateResponse
 
 @typing_extensions.final
 class StateKey(google.protobuf.message.Message):
+    """A key identifying which state to access. Exactly one of the oneof type
+    fields must be set, determining the kind of state being requested
+    (e.g. side input data, user state, or runner-managed references).
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -2316,7 +2360,9 @@ global___StateAppendRequest = StateAppendRequest
 
 @typing_extensions.final
 class StateAppendResponse(google.protobuf.message.Message):
-    """A response to append state."""
+    """A response to a StateAppendRequest. Currently empty as append operations
+    do not return data.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -2328,7 +2374,7 @@ global___StateAppendResponse = StateAppendResponse
 
 @typing_extensions.final
 class StateClearRequest(google.protobuf.message.Message):
-    """A request to clear state."""
+    """A request to clear all state associated with the given StateKey."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -2340,7 +2386,9 @@ global___StateClearRequest = StateClearRequest
 
 @typing_extensions.final
 class StateClearResponse(google.protobuf.message.Message):
-    """A response to clear state."""
+    """A response to a StateClearRequest. Currently empty as clear operations
+    do not return data.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -2352,14 +2400,19 @@ global___StateClearResponse = StateClearResponse
 
 @typing_extensions.final
 class OrderedListRange(google.protobuf.message.Message):
-    """A message describes a sort key range [start, end)."""
+    """A message describing a sort key range [start, end) for ordered list state.
+    Used in OrderedListUserState to specify which portion of the ordered list
+    to retrieve.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     START_FIELD_NUMBER: builtins.int
     END_FIELD_NUMBER: builtins.int
     start: builtins.int
+    """(Required) The inclusive start of the sort key range."""
     end: builtins.int
+    """(Required) The exclusive end of the sort key range."""
     def __init__(
         self,
         *,
@@ -2537,6 +2590,10 @@ global___LogEntry = LogEntry
 
 @typing_extensions.final
 class LogControl(google.protobuf.message.Message):
+    """A control message sent from the runner to the SDK harness to configure
+    logging behavior. Currently empty, reserved for future log-level control.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     def __init__(
@@ -2547,6 +2604,10 @@ global___LogControl = LogControl
 
 @typing_extensions.final
 class StartWorkerRequest(google.protobuf.message.Message):
+    """A request from the runner to start a new SDK worker process with the given
+    configuration, including endpoint addresses and parameters.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -2572,16 +2633,22 @@ class StartWorkerRequest(google.protobuf.message.Message):
     PROVISION_ENDPOINT_FIELD_NUMBER: builtins.int
     PARAMS_FIELD_NUMBER: builtins.int
     worker_id: builtins.str
+    """(Required) A unique identifier for the worker to start."""
     @property
-    def control_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor: ...
+    def control_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor:
+        """(Required) The control endpoint the worker should connect to."""
     @property
-    def logging_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor: ...
+    def logging_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor:
+        """(Optional) The logging endpoint the worker should use."""
     @property
-    def artifact_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor: ...
+    def artifact_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor:
+        """(Optional) The artifact retrieval endpoint the worker should use."""
     @property
-    def provision_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor: ...
+    def provision_endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor:
+        """(Optional) The provisioning endpoint the worker should use."""
     @property
-    def params(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    def params(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """(Optional) Additional runner-specific parameters to pass to the worker."""
     def __init__(
         self,
         *,
@@ -2599,10 +2666,15 @@ global___StartWorkerRequest = StartWorkerRequest
 
 @typing_extensions.final
 class StartWorkerResponse(google.protobuf.message.Message):
+    """A response from a StartWorkerRequest. If the worker failed to start,
+    the error field will contain a human-readable error message.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ERROR_FIELD_NUMBER: builtins.int
     error: builtins.str
+    """(Optional) Error message if the worker failed to start."""
     def __init__(
         self,
         *,
@@ -2614,10 +2686,13 @@ global___StartWorkerResponse = StartWorkerResponse
 
 @typing_extensions.final
 class StopWorkerRequest(google.protobuf.message.Message):
+    """A request from the runner to stop a running SDK worker process."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     WORKER_ID_FIELD_NUMBER: builtins.int
     worker_id: builtins.str
+    """(Required) The unique identifier of the worker to stop."""
     def __init__(
         self,
         *,
@@ -2633,6 +2708,7 @@ class StopWorkerResponse(google.protobuf.message.Message):
 
     ERROR_FIELD_NUMBER: builtins.int
     error: builtins.str
+    """(Optional) Human-readable error message if the worker failed to stop cleanly."""
     def __init__(
         self,
         *,

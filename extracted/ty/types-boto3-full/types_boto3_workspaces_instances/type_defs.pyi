@@ -38,6 +38,7 @@ from .literals import (
     InstanceMetadataTagsEnumType,
     InterfaceTypeEnumType,
     MarketTypeEnumType,
+    NestedVirtualizationEnumType,
     PlatformTypeEnumType,
     ProvisionStateEnumType,
     ResourceTypeEnumType,
@@ -147,6 +148,7 @@ class CpuOptionsRequestTypeDef(TypedDict):
     AmdSevSnp: NotRequired[AmdSevSnpEnumType]
     CoreCount: NotRequired[int]
     ThreadsPerCore: NotRequired[int]
+    NestedVirtualization: NotRequired[NestedVirtualizationEnumType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str

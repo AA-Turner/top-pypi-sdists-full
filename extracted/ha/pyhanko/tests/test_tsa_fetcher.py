@@ -27,20 +27,52 @@ MESSAGE_DIGEST = hashlib.sha256(MESSAGE).digest()
 
 
 @pytest.mark.asyncio
-async def test_ts_fetch_aiohttp_error():
+async def test_ts_fetch_supplied_session_error():
     with pytest.raises(TimestampRequestError):
         async with aiohttp.ClientSession() as session:
-            ts = AIOHttpTimeStamper(
-                "http://example.invalid", session, timeout=FETCH_TIMEOUT
+            ts = HTTPTimeStamper(
+                "http://example.invalid",
+                timeout=FETCH_TIMEOUT,
+                session=session,
             )
             await ts.async_timestamp(MESSAGE_DIGEST, 'sha256')
 
 
 @pytest.mark.asyncio
-async def test_ts_fetch_requests_error():
+async def test_ts_fetch_error():
     with pytest.raises(TimestampRequestError):
         ts = HTTPTimeStamper("http://example.invalid", timeout=FETCH_TIMEOUT)
         await ts.async_timestamp(MESSAGE_DIGEST, 'sha256')
+
+
+@pytest.mark.asyncio
+async def test_deprecated_aiohttp_timestamper_forwards():
+    async with aiohttp.ClientSession() as session:
+        with pytest.warns(DeprecationWarning):
+            ts = AIOHttpTimeStamper(
+                "http://example.invalid", session, timeout=FETCH_TIMEOUT
+            )
+        assert ts._session is session
+        with pytest.raises(TimestampRequestError):
+            await ts.async_timestamp(MESSAGE_DIGEST, 'sha256')
+
+
+@pytest.mark.parametrize(
+    'auth,expected',
+    [
+        (None, None),
+        (('user', 'pass'), aiohttp.BasicAuth('user', 'pass')),
+        (aiohttp.BasicAuth('user', 'pass'), aiohttp.BasicAuth('user', 'pass')),
+    ],
+)
+def test_auth_coercion(auth, expected):
+    ts = HTTPTimeStamper("http://example.invalid", auth=auth)
+    assert ts.auth == expected
+
+
+def test_auth_coercion_rejects_nonsense():
+    with pytest.raises(TypeError, match='BasicAuth'):
+        HTTPTimeStamper("http://example.invalid", auth=object())
 
 
 @pytest.mark.parametrize(
@@ -136,11 +168,11 @@ def test_dummy_timestamp():
 
 
 @freeze_time('2020-11-01')
-def test_http_timestamp(requests_mock):
+def test_http_timestamp_bad_content_type(pki_services):
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL_ONE_FIELD))
 
     # bad content-type
-    requests_mock.post(DUMMY_HTTP_TS.url, content=ts_response_callback)
+    pki_services.post(DUMMY_HTTP_TS.url, content=ts_response_callback)
     from pyhanko.sign.timestamps import TimestampRequestError
 
     with pytest.raises(TimestampRequestError):
@@ -152,10 +184,13 @@ def test_http_timestamp(requests_mock):
             existing_fields_only=True,
         )
 
-    requests_mock.post(
+
+@freeze_time('2020-11-01')
+def test_http_timestamp(pki_services):
+    pki_services.post(
         DUMMY_HTTP_TS.url,
         content=ts_response_callback,
-        headers={'Content-Type': 'application/timestamp-reply'},
+        content_type='application/timestamp-reply',
     )
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL_ONE_FIELD))
     out = signers.sign_pdf(

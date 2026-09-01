@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-readers-file
-Version: 0.6.0
+Version: 0.7.0
 Summary: llama-index readers file integration
 Author-email: Your Name <you@example.com>
 Maintainer: FarisHijazi, Haowjy, ephe-meral, hursh-desai, iamarunbrahma, jon-chuang, mmaatouk, ravi03071991, sangwongenip, thejessezhang

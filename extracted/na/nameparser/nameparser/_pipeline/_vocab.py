@@ -1,7 +1,7 @@
 """Shared vocabulary predicates for pipeline stages.
 
-Text-level tests used by more than one stage; token/piece-level
-predicates live with their stage. All take normalized-or-raw text
+Text-level tests used by more than one stage; piece-level ones live
+in _pieces, the sibling layer over tokens-plus-tags. All take normalized-or-raw text
 explicitly -- no state.
 
 is_wholly_suffix departs from that shape twice, deliberately. It is
@@ -15,10 +15,17 @@ extra_suffix_delimiters), and threading both past every caller costs
 more than the config parameter saves. Still no state: Policy is frozen
 config, not pipeline state.
 
+maiden_marker_run is run-level for the first of those reasons and not
+the second: a maiden marker may be a PHRASE ('z domu'), so how far one
+reaches is a question about a run of words that no per-word membership
+test can answer, and the vocabulary reaches it as a plain frozenset
+field like every other predicate here.
+
 Layering: imports _lexicon, _types, and _policy only.
 """
 from __future__ import annotations
 
+import functools
 import re
 import unicodedata
 from collections.abc import Callable, Iterable, Sequence
@@ -95,6 +102,31 @@ def is_initial_shaped(text: str) -> bool:
     return bool(_INITIAL.fullmatch(text))
 
 
+# v1 regexes.py "roman_numeral", pinned by tests/v2/test_regex_sync.py.
+_ROMAN = re.compile(r'^(X|IX|IV|V?I{0,3})$', re.I)
+
+
+# rules.md#S2: "a trailing word of the suffix vocabulary reads as a
+# suffix" -- the roman-numeral half of that rule, which the initial
+# veto would otherwise take: V, I and X are suffix vocabulary AND bare
+# capitals, and a bare capital inside a name is a middle initial.
+def is_trailing_numeral_suffix(text: str, preceding: str) -> bool:
+    """assign's roman-numeral fork, shared with group's bound-given
+    reserve (#401): a FINAL single-token piece that is a roman numeral
+    reads as the suffix when the piece before it does not look like
+    part of an initial run. `preceding` is that piece's first token;
+    the callers establish that `text` is last and that a name piece
+    precedes it.
+
+    is_initial_shaped, not is_initial: this asks whether the preceding
+    piece looks like part of an initial run, which is a question
+    about layout, and #320 narrowed the tag to initials that can
+    really stand in for a name. Reading the tag here made '씨.' stop
+    suppressing the fork and cost 'John 씨. V' its family name."""
+    return (_ROMAN.match(text) is not None
+            and not is_initial_shaped(preceding))
+
+
 def is_initial(text: str) -> bool:
     """'A.' / 'j.' / bare capital -- v1's is_an_initial, narrowed to
     scripts that HAVE initials (#320). v1's \\w is Unicode-aware and
@@ -105,6 +137,19 @@ def is_initial(text: str) -> bool:
     too. Downstream of that one strict-test No, the glued honorific in
     a name carrying such a token went unpeeled ('田中さん 様.')."""
     return is_initial_shaped(text) and not _in_initialless_script(text)
+
+
+_DOTTED = re.compile(r"(?:[^\W\d_]\.)+")
+
+
+def _dotted(text: str) -> bool:
+    """Written with its periods: one after each letter ('M.A.',
+    'J.D.'), the acronym's own spelling. A single trailing period
+    ('Ma.', 'Ed.', 'Ms.') is the abbreviation shape any word can wear
+    -- the honorific's, a name's -- and is not the gate's "written
+    with periods" (rules.md#S2). Until #296's review the gate was
+    "any period", and 'Smith, Ms.' passed it as the degree."""
+    return _DOTTED.fullmatch(text) is not None
 
 
 def suffix_as_written(n: str, text: str, lexicon: Lexicon) -> bool:
@@ -124,7 +169,7 @@ def suffix_as_written(n: str, text: str, lexicon: Lexicon) -> bool:
     # removed periods only for the suffix_acronyms test); suffix WORDS
     # match on the plain normalized form
     a = n.replace(".", "")
-    if "." in text and a in lexicon.suffix_acronyms_ambiguous:
+    if a in lexicon.suffix_acronyms_ambiguous and _dotted(text):
         return True
     return (a in lexicon.suffix_acronyms
             and a not in lexicon.suffix_acronyms_ambiguous) \
@@ -134,7 +179,7 @@ def suffix_as_written(n: str, text: str, lexicon: Lexicon) -> bool:
 def _is_suffix_strict_n(n: str, text: str, lexicon: Lexicon) -> bool:
     if is_initial(text):
         # period-written ambiguous acronyms are exempt from the veto
-        return "." in text and \
+        return _dotted(text) and \
             n.replace(".", "") in lexicon.suffix_acronyms_ambiguous
     return suffix_as_written(n, text, lexicon)
 
@@ -178,6 +223,8 @@ def splits_into_suffixes(text: str, cores: frozenset[str],
     return False
 
 
+# rules.md#S3: "a word with interior periods reads as a suffix when
+# any of its period-separated chunks is suffix vocabulary"
 def period_joined_vocab(text: str, lexicon: Lexicon) -> str | None:
     """v1's parse_pieces derivation for interior-period tokens
     ('Lt.Gov.', 'Msc.Ed.', and by the ANY rule 'Mr.Smith'): ANY title
@@ -225,7 +272,7 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
         return False
     predicate = (is_suffix_lenient if policy.lenient_comma_suffixes
                  else is_suffix_strict)
-    # v1 expand_suffix_delimiter parity (#191): a configured delimiter
+    # v1 expand_suffix_delimiter parity (#206): a configured delimiter
     # is TRANSPARENT in the all-suffix tests -- v1 split the part string
     # on the delimiter before checking, so the delimiter never counted
     cores = delimiter_cores(policy.extra_suffix_delimiters)
@@ -246,6 +293,108 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
         else:
             k += 1
     return all(counts_as_suffix(t) for t in merged)
+
+
+# The two derived views of a marker vocabulary, cached per-vocabulary
+# on _script_segment._longest_entry's precedent -- same function shape
+# (a scalar derived from a vocabulary frozenset), same key space, and
+# its reasoning for maxsize=16 carries over verbatim: a process holds
+# the default vocabulary plus one per constructed pack parser, so 16
+# bounds many-lexicon churn without ever evicting in normal use.
+# (NOT _extract._delimiter_chars' precedent, which these once cited:
+# that one is consulted once per parse, so it says nothing about a
+# lookup on the per-token path.) Keying on the frozenset costs a
+# cached hash, not a sweep of its contents.
+@functools.lru_cache(maxsize=16)
+def _longest_marker(markers: frozenset[str]) -> int:
+    """How many words the longest entry of `markers` spans -- the
+    lookahead bound, computed from the vocabulary rather than fixed at a
+    literal so a caller's four-word entry works and an all-single-word
+    set leaves the common path at one lookup. Entries are stored
+    space-joined with single separators, so the space count IS the word
+    count."""
+    return max((entry.count(" ") + 1 for entry in markers), default=0)
+
+
+@functools.lru_cache(maxsize=16)
+def _marker_heads(markers: frozenset[str]) -> frozenset[str]:
+    """The first word of every entry -- the set a run can possibly open
+    with. Entries are already stored per-word folded, so an entry's
+    first word is the same fold the lookup builds."""
+    return frozenset(entry.split(" ", 1)[0] for entry in markers)
+
+
+def maiden_marker_head(n: str, markers: frozenset[str]) -> bool:
+    """Could a maiden marker run START here? `n` is _normalize(word),
+    passed in so callers fold once -- suffix_as_written's shape exactly
+    ("`n` is `_normalize(text)`, passed in so callers normalize once"),
+    and with no raw-text sibling for the same reason it has none: every
+    caller is on the per-token path and has the fold in hand already.
+
+    A SUPERSET test. True means only that some entry opens with this
+    word, never that a run matches -- maiden_marker_run is the answer,
+    and it calls this function, so the two cannot drift. Exported
+    because a caller scanning a whole token stream needs to know
+    whether assembling a candidate sequence is worth doing at all, and
+    for almost every token it is not: _classify's pass would otherwise
+    walk structural boundaries once per token to build a lookahead the
+    predicate discards on this very test.
+    """
+    return n in _marker_heads(markers)
+
+
+def maiden_marker_run(words: Sequence[str], markers: frozenset[str]) -> int:
+    """How many of `words` a maiden marker claims, longest first; 0 for
+    none.
+
+    Phrases are stored space-joined and per-word normalized (_title_key's
+    storage rule), so the key is rebuilt the same way here -- normalizing
+    the joined phrase instead would leave interior periods.
+
+    `words` must be words that stand TOGETHER -- one clause's, or one
+    segment's. This answers only what the vocabulary says about the
+    sequence it is handed; whether a sequence is a sequence is the
+    caller's, and classify's contiguity rule is where that is decided
+    for the token stream.
+
+    Longest first, so a caller configuring both 'geb' and 'geb von' gets
+    the phrase where it matches and the bare word everywhere else. The
+    one answer to "does a marker start here, and where does it end": the
+    stages that can call it do (classify over token texts, extract over
+    a clause's whitespace words), and the stage that runs after classify
+    reads the tags classify recorded instead
+    (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+    """
+    # Fast path first: no entry opens with this word, so no length can
+    # match. It cannot hide a match -- every key the loop builds opens
+    # with _normalize(words[0]) unless that word folds away, and a
+    # folded-away first word fails the n-word test below for every
+    # n > 1 and is not a stored entry for n == 1.
+    if not words:
+        return 0
+    head = _normalize(words[0])
+    if not maiden_marker_head(head, markers):
+        return 0
+    cap = min(len(words), _longest_marker(markers))
+    # Fold each word ONCE, then key from a prefix. _title_key(words[:n])
+    # per candidate length re-folds the whole prefix every time, which
+    # is quadratic in cap and makes a one-word hit cost more than a
+    # two-word one -- the longest key is always built and discarded
+    # first, and all but one shipped entry is a single word. The join
+    # below IS _title_key's body over pre-folded words (per-word fold,
+    # empties dropped, space-joined); test_vocab pins that the two
+    # agree, since this is a copy of a fold whose definition lives in
+    # _lexicon.
+    folded = [head] + [_normalize(w) for w in words[1:cap]]
+    for n in range(cap, 0, -1):
+        key = " ".join(filter(None, folded[:n]))
+        # a word that folds away is DROPPED from the key, so 'née'
+        # followed by a lone '.' would key as 'née' and a one-word
+        # marker would claim the period as part of its run. n words in,
+        # n words out: anything else is not this key's n-word phrase.
+        if key.count(" ") == n - 1 and key in markers:
+            return n
+    return 0
 
 
 def _normalized_for_script(text: str) -> str | None:

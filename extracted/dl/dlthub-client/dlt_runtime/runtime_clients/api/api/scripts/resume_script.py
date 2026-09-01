@@ -11,6 +11,7 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.resume_script_response_409 import ResumeScriptResponse409
 from ...models.script_response import ScriptResponse
 from ...types import Response
 
@@ -37,6 +38,7 @@ def _parse_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | ResumeScriptResponse409
     | ScriptResponse
     | None
 ):
@@ -65,6 +67,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ResumeScriptResponse409.from_dict(response.json())
+
+        return response_409
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -78,6 +85,7 @@ def _build_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | ResumeScriptResponse409
     | ScriptResponse
 ]:
     return Response(
@@ -98,6 +106,7 @@ def sync_detailed(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | ResumeScriptResponse409
     | ScriptResponse
 ]:
     """ResumeScript
@@ -117,7 +126,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ScriptResponse]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ResumeScriptResponse409 | ScriptResponse]
     """
 
     kwargs = _get_kwargs(
@@ -142,6 +151,7 @@ def sync(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | ResumeScriptResponse409
     | ScriptResponse
     | None
 ):
@@ -162,7 +172,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ScriptResponse
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ResumeScriptResponse409 | ScriptResponse
     """
 
     return sync_detailed(
@@ -182,6 +192,7 @@ async def asyncio_detailed(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | ResumeScriptResponse409
     | ScriptResponse
 ]:
     """ResumeScript
@@ -201,7 +212,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ScriptResponse]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ResumeScriptResponse409 | ScriptResponse]
     """
 
     kwargs = _get_kwargs(
@@ -224,6 +235,7 @@ async def asyncio(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | ResumeScriptResponse409
     | ScriptResponse
     | None
 ):
@@ -244,7 +256,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ScriptResponse
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ResumeScriptResponse409 | ScriptResponse
     """
 
     return (

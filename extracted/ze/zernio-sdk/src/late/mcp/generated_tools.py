@@ -2968,9 +2968,9 @@ def register_generated_tools(mcp, _get_client):
                 ad_id: (required)
                 status
                 budget
-                targeting: Meta + TikTok (demographics/interests) and Google (keyword edits only).
-        Pinterest / X / LinkedIn return 501.
-                creative: Replace the ad's creative. Meta + TikTok only.
+                targeting: Meta + TikTok (demographics/interests), Google (keyword edits only),
+        and LinkedIn (geo countries). Pinterest / X return 501.
+                creative: Replace the ad's creative. Meta, TikTok, and LinkedIn.
 
         - **Meta**: requires `headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`. The
           ad's existing creative is replaced via a new `/act_X/adcreatives` upload + ad
@@ -2978,6 +2978,9 @@ def register_generated_tools(mcp, _get_client):
         - **TikTok**: patch-style. Pass any subset; `headline` is ignored (TikTok creatives
           have no headline slot). `body` becomes the in-feed `ad_text`; `linkUrl` becomes
           `landing_page_url`; `videoUrl` triggers a fresh upload.
+        - **LinkedIn**: uploads new media (image via `imageUrl` or video via `videoUrl`),
+          creates a new inline media creative on the same campaign, and pauses the old
+          creative (best-effort). The old creative is retained for historical reporting.
                 name: Rename the ad. Now propagated to Meta (POST /{ad-id}); non-Meta platforms return 501."""
         client = _get_client()
         try:
@@ -3108,6 +3111,8 @@ def register_generated_tools(mcp, _get_client):
         spark_auth_code: str | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
+        lead_gen_form_id: str | None = None,
+        status: str | None = None,
         optimization_goal: str | None = None,
     ) -> str:
         """Boost post as ad
@@ -3212,6 +3217,8 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
+                lead_gen_form_id: Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals.
+                status: Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default); PAUSED creates them paused so you can review before they spend. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
                 optimization_goal: Meta only. Explicit ad-set `optimization_goal` override. When omitted,
         defaults to the value derived from `goal`. The value must be compatible
         with the objective Meta derives from `goal`, not with the objective used
@@ -3249,6 +3256,8 @@ def register_generated_tools(mcp, _get_client):
                 spark_auth_code=spark_auth_code,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
+                lead_gen_form_id=lead_gen_form_id,
+                status=status,
                 optimization_goal=optimization_goal,
             )
             return _format_response(response)
@@ -3378,8 +3387,9 @@ def register_generated_tools(mcp, _get_client):
 
         **LinkedIn**
         - `engagement`, `traffic`, `awareness` and `video_views` create standalone Direct Sponsored Content ads. `traffic` requires `linkUrl`; `video_views` requires `video`.
+        - `lead_generation`: requires `leadGenFormId` (an adForm ID from POST /v1/ads/lead-forms). The campaign objective is set to MAX_LEAD and the creative's `leadgenCallToAction` destination is set to `urn:li:adForm:{id}`.
         - `job_applicants` requires a `platformSpecificData.jobs` creative.
-        - For `lead_generation` or `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
+        - For `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
 
         **OpenAI Ads**
         - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 422.
@@ -3392,7 +3402,7 @@ def register_generated_tools(mcp, _get_client):
                 validate_only: Meta only, single standalone shape only (no creatives[], adSetId, or RESERVED). Dry-run: each node runs Meta's execution_options validate_only and NOTHING is created or persisted. Children need real parents, so a fresh tree validates the campaign + creative (the ad set needs its campaign to exist — pass existingCampaignId to validate it too; the ad itself is never validatable pre-create). A Meta validation failure returns the 400 verbatim; success returns 200 with per-node results instead of an ad.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
-                status: Meta and TikTok. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused.
+                status: Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
                 campaign_status: Meta only. Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
           - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the
@@ -3409,7 +3419,7 @@ def register_generated_tools(mcp, _get_client):
                 description: Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead.
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter.
                 link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url).
-                lead_gen_form_id: Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` (or `videoUrls`) entry plus your text variations to get Meta's "Multiple Text Options" behavior on a lead ad.
+                lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on Meta instant-form lead ads.
                 image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display.
                 video: Meta (facebook, instagram) and LinkedIn. Creates a single VIDEO ad. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame) — supply MP4 H.264/AAC, 3s-30min, 75KB-500MB.
@@ -7474,6 +7484,59 @@ def register_generated_tools(mcp, _get_client):
                 platform: Social media platform to connect (required)
                 profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
                 redirect_url: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+
+        On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
+        `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason` and
+        `dashboard_url` are conditional and must be treated as optional.
+
+        This list is NOT exhaustive and new values may be added at any time. Treat an unrecognized
+        value as a generic failure rather than matching it exhaustively. Existing values are not
+        renamed or removed without notice.
+
+        OAuth and callback:
+          oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
+          internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
+          missing_google_permissions, platform_requires_destination, reconnect_account_mismatch,
+          invalid_request
+
+        Access and limits:
+          profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
+          profile_limit_exceeded, payment_required
+
+        Destination selection:
+          no_facebook_pages, facebook_pages_error, no_google_locations, google_locations_error,
+          google_permission_denied, no_snapchat_public_profiles, snapchat_profiles_error,
+          discord_no_guild, slack_no_team
+
+        WhatsApp:
+          whatsapp_error, one_whatsapp_per_profile, whatsapp_number_already_connected,
+          whatsapp_number_pinned_to_profile, connection_cancelled
+
+        Google Ads (platform=googleads):
+          google_ads_auth_failed, google_ads_invalid_state, google_ads_config_error,
+          google_ads_token_failed, google_ads_quota_exhausted, google_ads_callback_error
+
+        TikTok Ads (platform=tiktokads):
+          tiktok_ads_auth_failed, tiktok_ads_invalid_state, tiktok_ads_access_denied,
+          tiktok_ads_config_error, tiktok_ads_token_failed, tiktok_ads_account_not_found,
+          tiktok_ads_callback_error
+
+        X Ads (platform=xads):
+          x_ads_denied, x_ads_auth_failed, x_ads_config_error, x_ads_account_not_found,
+          x_ads_state_error, x_ads_token_failed, x_ads_token_missing, x_ads_callback_error
+
+        Shopify (platform=shopify):
+          shopify_auth_failed, shopify_config_error, shopify_invalid_state, shopify_invalid_hmac,
+          shopify_invalid_shop, shopify_missing_scopes, shopify_callback_error
+
+        1. On this endpoint every upstream OAuth error is collapsed into `oauth_denied`. The
+        provider's own value (for example Meta's `access_denied`) is not forwarded. The dedicated
+        ads flows below are different: they use their own denial slugs and `google_ads_auth_failed`
+        and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
+
+        2. On the tiktok and twitter ads flows `platform` carries the ads platform id
+        (`tiktokads`, `xads`), not the value used in the request path. The googleads and shopify
+        flows report `googleads` and `shopify`.
                 headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
                 login_method: Instagram only. Which of the two Instagram connection methods to use. Ignored for every other platform.
 
@@ -7553,7 +7616,12 @@ def register_generated_tools(mcp, _get_client):
         """Connect ads for a platform
 
             Args:
-                platform: Platform to connect ads for. Only platforms with ads support are accepted. (required)
+                platform: Platform to connect ads for. Only platforms with ads support are accepted.
+
+        `instagram` requires an Instagram account connected with loginMethod=facebook_login whose
+        token carries ads_management and ads_read. With an account connected through the default
+        instagram_login flow no ads account can be created; do not use this value for those accounts.
+         (required)
                 profile_id: Your Zernio profile ID (required)
                 account_id: Existing SocialAccount ID. Required for `twitter` (X Ads). Optional for `tiktok` —
         omit to enter ads-only mode (no TikTok posting account linked; ad creation uses
@@ -7566,8 +7634,12 @@ def register_generated_tools(mcp, _get_client):
         `tiktok`, `twitter` and `googleads` land on the URL unchanged, while the
         same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`)
         append `connected`, `profileId`, `accountId`, `username` and, on API-key
-        calls, `connect_token`. On failure every platform appends error details,
-        starting with `error` and `platform`. When omitted, the browser lands on
+        calls, `connect_token`. On failure the same error contract applies as on
+        GET /v1/connect/{platform}: `error` and `platform` are always appended,
+        other params are optional, and the value list there is not exhaustive.
+        Note that on the tiktok, twitter and googleads flows `platform` carries
+        the ads platform id (`tiktokads`, `xads`, `googleads`), not the value
+        used in the request path. When omitted, the browser lands on
         the Zernio dashboard.
                 headless: Enable headless mode (same-token platforms only)
                 force: Force a fresh OAuth even when an account already exists. Normally the
@@ -11635,7 +11707,7 @@ def register_generated_tools(mcp, _get_client):
             category: WhatsApp only (Meta Direct Send). Combined with message and without templateName, starts the conversation with a business-initiated UTILITY message and no pre-approved template; Meta matches or auto-creates a template asynchronously. The WhatsApp Business Account must be eligible for Direct Send, otherwise the send fails with an error telling you to use an approved message template instead. Cannot be combined with templateName (templates are already categorized at creation). Utility messages only; marketing content is not allowed under this category. Accepted on the JSON body only, not on multipart requests.
             link_preview: WhatsApp only. Set false to send the Direct Send (category: 'utility') text message without a link-preview thumbnail for the first URL in the text. Defaults to true, which is how every WhatsApp text has been sent to date. Does not apply to template sends. Accepted on the JSON body only, not on multipart requests.
             template_language: WhatsApp only. Template language code (e.g. en_US).
-            template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled automatically from the approved template and take no value here (use headerMedia to override the header asset per send). Buttons that are not dynamic-URL buttons (copy-code, flow) take no value here either; use templateButtonParams.
+            template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. For positional templates the list must cover every slot: supplying fewer values than the template's header + body + dynamic URL-button count is rejected with a 400 (code INVALID_TEMPLATE_PARAMS) naming the expected split, rather than delivering a template whose button URL was filled from the wrong value. A dynamic URL button covered by templateButtonParams needs no value here unless another uncovered dynamic URL button follows it, since the override applies after slot numbering. Media headers (image, video, document) are filled automatically from the approved template and take no value here (use headerMedia to override the header asset per send). Buttons that are not dynamic-URL buttons (copy-code, flow) take no value here either; use templateButtonParams.
             template_button_params: WhatsApp only. Values for template buttons that carry one at send time, each addressed by the button's position in the approved template. This is the only way to send a copy-code button's payload (a Pix payment code, a coupon) or a flow token, because templateParams is a flat array of text variables and covers dynamic URL buttons only. Supplying a button here overrides whatever templateParams would have derived for that same index, so the send never carries one button twice; repeating an index within this array is rejected with 400. Each index must name a button of the matching kind on the approved template, which is also checked before the send and returns 400 (INVALID_TEMPLATE_BUTTON_PARAM) rather than a Meta rejection.
             header_media: WhatsApp only. Overrides a media-header template's header asset for THIS send, so a template with an image/video/document header can carry a different asset per message (e.g. each recipient their own invoice PDF). Without it, the template's approved sample asset is sent. Provide exactly one of link or id.
             header_location: WhatsApp only. Required to send a template whose approved header format is LOCATION: Meta only accepts the location's lat/long at send time, never at template creation, so there is nothing to fill in automatically. Cannot be combined with headerMedia (a template has exactly one header)."""
@@ -12185,7 +12257,7 @@ def register_generated_tools(mcp, _get_client):
             conversation_id: The conversation ID (Zernio id or platform conversation id) (required)
             message_id: The message id as returned by the list-messages endpoint (the platform message id) (required)
             index: Zero-based position of the attachment in the message's attachments array (required)
-            account_id: Social account ID (required)
+            account_id: Social account ID. Required: without it the request returns 400 missing_required_field. (required)
             format: `redirect` (default) answers 302 to the media; `json` returns the url in the body"""
         client = _get_client()
         try:
@@ -13704,7 +13776,7 @@ def register_generated_tools(mcp, _get_client):
         """Create post
 
             Args:
-                title
+                title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
                 content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
                 media_items
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms.
@@ -13713,7 +13785,7 @@ def register_generated_tools(mcp, _get_client):
                 is_draft: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
                 timezone
                 tags: Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed.
-                hashtags
+                hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.
                 mentions: Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field.
                 crossposting_enabled
                 metadata
@@ -13804,7 +13876,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             post_id: (required)
-            title
+            title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
             content
             media_items
             platforms: Target platforms and accounts for this post. Each item must include platform and accountId.
@@ -13814,7 +13886,7 @@ def register_generated_tools(mcp, _get_client):
             timezone
             visibility
             tags
-            hashtags
+            hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.
             mentions
             crossposting_enabled
             metadata
@@ -17008,6 +17080,29 @@ def register_generated_tools(mcp, _get_client):
                 event=event,
                 webhook_id=webhook_id,
                 event_id=event_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Redeliver a webhook event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def webhooks_redeliver_webhook_event(webhook_id: str, event_id: str) -> str:
+        """Redeliver a webhook event
+
+        Args:
+            webhook_id: ID of the webhook subscription that delivered the event (required)
+            event_id: Stable event ID of the delivery to replay (required)"""
+        client = _get_client()
+        try:
+            response = client.webhooks.redeliver_webhook_event(
+                webhook_id=webhook_id, event_id=event_id
             )
             return _format_response(response)
         except Exception as e:

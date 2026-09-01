@@ -1,3 +1,4 @@
+from collections.abc import Collection, Sequence
 from datetime import (
     datetime,
     timezone,
@@ -5,15 +6,8 @@ from datetime import (
 from typing import (
     TYPE_CHECKING,
     Any,
-    Collection,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
     cast,
 )
-import warnings
 
 from eth_typing import (
     Address,
@@ -66,7 +60,7 @@ if TYPE_CHECKING:
     )
 
 
-def Web3() -> Type["_Web3"]:
+def Web3() -> type["_Web3"]:
     from web3 import (
         Web3 as Web3Main,
     )
@@ -76,7 +70,7 @@ def Web3() -> Type["_Web3"]:
 
 def init_web3(
     provider: "BaseProvider" = None,
-    middleware: Optional[Sequence[Tuple["Middleware", str]]] = None,
+    middleware: Sequence[tuple["Middleware", str]] | None = None,
 ) -> "_Web3":
     from web3 import (
         Web3 as Web3Main,
@@ -113,7 +107,7 @@ def customize_web3(w3: "_Web3") -> "_Web3":
 def normalize_name(name: str) -> str:
     """
     Clean the fully qualified name, as defined in ENS `EIP-137
-    <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-137.md#name-syntax>`_  # blocklint: pragma # noqa: E501
+    <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-137.md#name-syntax>`_  # noqa: E501
 
     This does *not* enforce whether ``name`` is a label or fully qualified domain.
 
@@ -127,7 +121,7 @@ def normalize_name(name: str) -> str:
 
     if is_empty_name(name):
         return ""
-    elif isinstance(name, (bytes, bytearray)):
+    elif isinstance(name, bytes | bytearray):
         name = name.decode("utf-8")
 
     return normalize_name_ensip15(name).as_text
@@ -167,20 +161,10 @@ def dns_encode_name(name: str) -> HexBytes:
     return HexBytes(b"".join(dns_prepped_labels) + b"\x00")
 
 
-def ens_encode_name(name: str) -> bytes:
-    warnings.warn(
-        "``ens_encode_name`` is deprecated and will be removed in the next "
-        "major version. Use ``dns_encode_name`` instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return bytes(dns_encode_name(name))
-
-
 def is_valid_name(name: str) -> bool:
     """
     Validate whether the fully qualified name is valid, as defined in ENS `EIP-137
-    <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-137.md#name-syntax>`_  # blocklint: pragma # noqa: E501
+    <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-137.md#name-syntax>`_  # noqa: E501
 
     :param str name: the dot-separated ENS name
     :returns: True if ``name`` is set, and :meth:`~ens.ENS.nameprep` will not
@@ -195,11 +179,11 @@ def is_valid_name(name: str) -> bool:
         return False
 
 
-def to_utc_datetime(timestamp: float) -> Optional[datetime]:
+def to_utc_datetime(timestamp: float) -> datetime | None:
     return datetime.fromtimestamp(timestamp, timezone.utc) if timestamp else None
 
 
-def sha3_text(val: Union[str, bytes]) -> HexBytes:
+def sha3_text(val: str | bytes) -> HexBytes:
     if isinstance(val, str):
         val = val.encode("utf-8")
     return Web3().keccak(val)
@@ -240,7 +224,7 @@ def raw_name_to_hash(name: str) -> HexBytes:
     behind the scenes. For advanced usage, it is a helpful utility.
 
     This normalizes the name with `nameprep
-    <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-137.md#name-syntax>`_  # blocklint: pragma # noqa: E501
+    <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-137.md#name-syntax>`_  # noqa: E501
     before hashing.
 
     :param str name: ENS name to hash
@@ -278,9 +262,7 @@ def assert_signer_in_modifier_kwargs(modifier_kwargs: Any) -> ChecksumAddress:
     return modifier_dict["from"]
 
 
-def is_none_or_zero_address(
-    addr: Union[Address, ChecksumAddress, HexAddress],
-) -> bool:
+def is_none_or_zero_address(addr: Address | ChecksumAddress | HexAddress) -> bool:
     return not addr or addr == EMPTY_ADDR_HEX or addr == b"\x00" * 20
 
 
@@ -303,7 +285,7 @@ def is_valid_ens_name(ens_name: str) -> bool:
 
 def init_async_web3(
     provider: "AsyncBaseProvider" = None,
-    middleware: Optional[Sequence[Tuple["Middleware", str]]] = (),
+    middleware: Sequence[tuple["Middleware", str]] | None = (),
 ) -> "AsyncWeb3[Any]":
     from web3 import (
         AsyncWeb3 as AsyncWeb3Main,
@@ -329,7 +311,7 @@ def init_async_web3(
             )
         )
 
-    async_w3: "AsyncWeb3[Any]"
+    async_w3: AsyncWeb3[Any]
     if provider is default:
         async_w3 = AsyncWeb3Main(
             middleware=middleware, ens=None, modules={"eth": (AsyncEthMain)}

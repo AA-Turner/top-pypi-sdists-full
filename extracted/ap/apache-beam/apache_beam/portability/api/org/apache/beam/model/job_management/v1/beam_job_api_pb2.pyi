@@ -123,6 +123,8 @@ global___RunJobRequest = RunJobRequest
 
 @typing_extensions.final
 class RunJobResponse(google.protobuf.message.Message):
+    """The response from submitting a job for execution."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     JOB_ID_FIELD_NUMBER: builtins.int
@@ -218,7 +220,9 @@ global___DrainJobResponse = DrainJobResponse
 
 @typing_extensions.final
 class JobInfo(google.protobuf.message.Message):
-    """A subset of info provided by ProvisionApi.ProvisionInfo"""
+    """A subset of info provided by ProvisionApi.ProvisionInfo
+    Represents metadata about a submitted job.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -264,6 +268,8 @@ global___GetJobsRequest = GetJobsRequest
 
 @typing_extensions.final
 class GetJobsResponse(google.protobuf.message.Message):
+    """The response from requesting a list of all invoked jobs."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     JOB_INFO_FIELD_NUMBER: builtins.int
@@ -302,6 +308,8 @@ global___GetJobStateRequest = GetJobStateRequest
 
 @typing_extensions.final
 class JobStateEvent(google.protobuf.message.Message):
+    """An event representing a job state transition. Emitted by GetState and GetStateStream."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     STATE_FIELD_NUMBER: builtins.int
@@ -345,6 +353,8 @@ global___GetJobPipelineRequest = GetJobPipelineRequest
 
 @typing_extensions.final
 class GetJobPipelineResponse(google.protobuf.message.Message):
+    """The response from requesting a job's pipeline representation."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     PIPELINE_FIELD_NUMBER: builtins.int
@@ -385,6 +395,8 @@ global___JobMessagesRequest = JobMessagesRequest
 
 @typing_extensions.final
 class JobMessage(google.protobuf.message.Message):
+    """A single log message or diagnostic event from a running job."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     class _MessageImportance:
@@ -394,28 +406,46 @@ class JobMessage(google.protobuf.message.Message):
     class _MessageImportanceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[JobMessage._MessageImportance.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         MESSAGE_IMPORTANCE_UNSPECIFIED: JobMessage._MessageImportance.ValueType  # 0
+        """The importance was not specified."""
         JOB_MESSAGE_DEBUG: JobMessage._MessageImportance.ValueType  # 1
+        """Debug-level messages, typically very verbose."""
         JOB_MESSAGE_DETAILED: JobMessage._MessageImportance.ValueType  # 2
+        """Detailed informational messages."""
         JOB_MESSAGE_BASIC: JobMessage._MessageImportance.ValueType  # 3
+        """Basic informational messages."""
         JOB_MESSAGE_WARNING: JobMessage._MessageImportance.ValueType  # 4
+        """Warning messages indicating potential issues."""
         JOB_MESSAGE_ERROR: JobMessage._MessageImportance.ValueType  # 5
+        """Error messages indicating failures."""
 
-    class MessageImportance(_MessageImportance, metaclass=_MessageImportanceEnumTypeWrapper): ...
+    class MessageImportance(_MessageImportance, metaclass=_MessageImportanceEnumTypeWrapper):
+        """Importance levels for job messages, ordered from least to most severe."""
+
     MESSAGE_IMPORTANCE_UNSPECIFIED: JobMessage.MessageImportance.ValueType  # 0
+    """The importance was not specified."""
     JOB_MESSAGE_DEBUG: JobMessage.MessageImportance.ValueType  # 1
+    """Debug-level messages, typically very verbose."""
     JOB_MESSAGE_DETAILED: JobMessage.MessageImportance.ValueType  # 2
+    """Detailed informational messages."""
     JOB_MESSAGE_BASIC: JobMessage.MessageImportance.ValueType  # 3
+    """Basic informational messages."""
     JOB_MESSAGE_WARNING: JobMessage.MessageImportance.ValueType  # 4
+    """Warning messages indicating potential issues."""
     JOB_MESSAGE_ERROR: JobMessage.MessageImportance.ValueType  # 5
+    """Error messages indicating failures."""
 
     MESSAGE_ID_FIELD_NUMBER: builtins.int
     TIME_FIELD_NUMBER: builtins.int
     IMPORTANCE_FIELD_NUMBER: builtins.int
     MESSAGE_TEXT_FIELD_NUMBER: builtins.int
     message_id: builtins.str
+    """(Required) A unique identifier for this message."""
     time: builtins.str
+    """(Required) The time at which the message was emitted, as a string representation."""
     importance: global___JobMessage.MessageImportance.ValueType
+    """(Required) The importance level of this message."""
     message_text: builtins.str
+    """(Required) The text content of the message."""
     def __init__(
         self,
         *,
@@ -430,14 +460,20 @@ global___JobMessage = JobMessage
 
 @typing_extensions.final
 class JobMessagesResponse(google.protobuf.message.Message):
+    """A streaming response from GetMessageStream, containing either a job message
+    or a job state change event.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     MESSAGE_RESPONSE_FIELD_NUMBER: builtins.int
     STATE_RESPONSE_FIELD_NUMBER: builtins.int
     @property
-    def message_response(self) -> global___JobMessage: ...
+    def message_response(self) -> global___JobMessage:
+        """A log message or diagnostic event from the job."""
     @property
-    def state_response(self) -> global___JobStateEvent: ...
+    def state_response(self) -> global___JobStateEvent:
+        """A job state transition event."""
     def __init__(
         self,
         *,
@@ -532,6 +568,8 @@ global___JobState = JobState
 
 @typing_extensions.final
 class GetJobMetricsRequest(google.protobuf.message.Message):
+    """A request to fetch metrics for a given job."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     JOB_ID_FIELD_NUMBER: builtins.int
@@ -548,11 +586,14 @@ global___GetJobMetricsRequest = GetJobMetricsRequest
 
 @typing_extensions.final
 class GetJobMetricsResponse(google.protobuf.message.Message):
+    """A response containing metrics for a given job."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     METRICS_FIELD_NUMBER: builtins.int
     @property
-    def metrics(self) -> global___MetricResults: ...
+    def metrics(self) -> global___MetricResults:
+        """(Required) The metrics results containing both attempted and committed values."""
     def __init__(
         self,
         *,
@@ -572,9 +613,11 @@ class MetricResults(google.protobuf.message.Message):
     ATTEMPTED_FIELD_NUMBER: builtins.int
     COMMITTED_FIELD_NUMBER: builtins.int
     @property
-    def attempted(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[org.apache.beam.model.pipeline.v1.metrics_pb2.MonitoringInfo]: ...
+    def attempted(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[org.apache.beam.model.pipeline.v1.metrics_pb2.MonitoringInfo]:
+        """Metrics reflecting the result of attempted (non-committed) computations."""
     @property
-    def committed(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[org.apache.beam.model.pipeline.v1.metrics_pb2.MonitoringInfo]: ...
+    def committed(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[org.apache.beam.model.pipeline.v1.metrics_pb2.MonitoringInfo]:
+        """Metrics reflecting the result of committed computations."""
     def __init__(
         self,
         *,
@@ -616,21 +659,31 @@ class PipelineOptionType(google.protobuf.message.Message):
     class _EnumEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PipelineOptionType._Enum.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         STRING: PipelineOptionType._Enum.ValueType  # 0
+        """A string value."""
         BOOLEAN: PipelineOptionType._Enum.ValueType  # 1
+        """A boolean (true/false) value."""
         INTEGER: PipelineOptionType._Enum.ValueType  # 2
         """whole numbers, see https://json-schema.org/understanding-json-schema/reference/numeric.html"""
         NUMBER: PipelineOptionType._Enum.ValueType  # 3
+        """A floating-point number."""
         ARRAY: PipelineOptionType._Enum.ValueType  # 4
+        """An array of values."""
         OBJECT: PipelineOptionType._Enum.ValueType  # 5
+        """A nested object."""
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     STRING: PipelineOptionType.Enum.ValueType  # 0
+    """A string value."""
     BOOLEAN: PipelineOptionType.Enum.ValueType  # 1
+    """A boolean (true/false) value."""
     INTEGER: PipelineOptionType.Enum.ValueType  # 2
     """whole numbers, see https://json-schema.org/understanding-json-schema/reference/numeric.html"""
     NUMBER: PipelineOptionType.Enum.ValueType  # 3
+    """A floating-point number."""
     ARRAY: PipelineOptionType.Enum.ValueType  # 4
+    """An array of values."""
     OBJECT: PipelineOptionType.Enum.ValueType  # 5
+    """A nested object."""
 
     def __init__(
         self,
@@ -674,6 +727,8 @@ global___PipelineOptionDescriptor = PipelineOptionDescriptor
 
 @typing_extensions.final
 class DescribePipelineOptionsResponse(google.protobuf.message.Message):
+    """The response from describing pipeline options, containing a list of option descriptors."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     OPTIONS_FIELD_NUMBER: builtins.int

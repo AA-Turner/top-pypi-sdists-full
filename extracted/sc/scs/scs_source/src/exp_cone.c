@@ -1,8 +1,3 @@
-/*
- * Exponential cone projection via Newton's method.
- * Handles both primal and dual exponential cones using Moreau decomposition.
- */
-
 #include "cones.h"
 #include "glbopts.h"
 #include "linalg.h"
@@ -30,29 +25,14 @@ static inline void _copy(scs_float *dest, const scs_float *src) {
   dest[2] = src[2];
 }
 
-static inline scs_float norm_diff_sq_3(const scs_float *a, const scs_float *b) {
-  scs_float d0 = a[0] - b[0];
-  scs_float d1 = a[1] - b[1];
-  scs_float d2 = a[2] - b[2];
-  return d0 * d0 + d1 * d1 + d2 * d2;
-}
-
-/* As defined in Friberg, 2021 (multiplied by positive polynomial). */
-static scs_float hfun_f(const scs_float *v0, scs_float rho) {
+/* As defined in Friberg, 2021 (multiplied by positive polynomial) */
+static void hfun(const scs_float *v0, scs_float rho, scs_float *f,
+                 scs_float *df) {
   scs_float t0 = v0[2], s0 = v0[1], r0 = v0[0];
   scs_float exprho = EXPF(rho);
-  scs_float expnegrho = 1.0 / exprho; /* EXPF(-rho) == 1/EXPF(rho) */
+  scs_float expnegrho = EXPF(-rho);
 
-  return ((rho - 1) * r0 + s0) * exprho - (r0 - rho * s0) * expnegrho -
-         (rho * (rho - 1) + 1) * t0;
-}
-
-static void hfun_fd(const scs_float *v0, scs_float rho, scs_float *f,
-                    scs_float *df) {
-  scs_float t0 = v0[2], s0 = v0[1], r0 = v0[0];
-  scs_float exprho = EXPF(rho);
-  scs_float expnegrho = 1.0 / exprho; /* EXPF(-rho) == 1/EXPF(rho) */
-
+  /* Function value at v0 */
   *f = ((rho - 1) * r0 + s0) * exprho - (r0 - rho * s0) * expnegrho -
        (rho * (rho - 1) + 1) * t0;
 
@@ -67,14 +47,14 @@ static scs_float root_search_binary(const scs_float *v0, scs_float xl,
   const scs_float EPS = 1e-12; /* looser tolerance for binary search */
   const scs_int MAXITER = 40;
   scs_int i;
-  scs_float x_plus = x, f;
+  scs_float x_plus = x, f, df;
 
 #if VERBOSITY > 0
   scs_printf("Exp cone: Newton method failed, resorting to binary search.\n");
 #endif
 
   for (i = 0; i < MAXITER; i++) {
-    f = hfun_f(v0, x);
+    hfun(v0, x, &f, &df);
 
     if (f < 0.0) {
       xl = x;
@@ -108,7 +88,7 @@ static scs_float root_search_newton(const scs_float *v0, scs_float xl,
   scs_int i;
 
   for (i = 0; i < MAXITER; i++) {
-    hfun_fd(v0, x, &f, &df);
+    hfun(v0, x, &f, &df);
 
     if (ABS(f) <= EPS) { /* root found */
       break;
@@ -165,52 +145,52 @@ static scs_float root_search_newton(const scs_float *v0, scs_float xl,
 static scs_float proj_primal_exp_cone_heuristic(const scs_float *v0,
                                                 scs_float *vp) {
   scs_float t0 = v0[2], s0 = v0[1], r0 = v0[0];
-  scs_float dist_sq, tp, newdist_sq;
+  scs_float dist, tp, newdist;
 
   /* Perspective boundary */
   vp[2] = MAX(t0, 0.0);
   vp[1] = 0.0;
   vp[0] = MIN(r0, 0.0);
-  dist_sq = norm_diff_sq_3(v0, vp);
+  dist = SCS(norm_diff)(v0, vp, 3);
 
   /* Perspective interior */
   if (s0 > 0.0) {
     tp = MAX(t0, s0 * EXPF(r0 / s0));
-    newdist_sq = (tp - t0) * (tp - t0);
-    if (newdist_sq < dist_sq) {
+    newdist = tp - t0;
+    if (newdist < dist) {
       vp[2] = tp;
       vp[1] = s0;
       vp[0] = r0;
-      dist_sq = newdist_sq;
+      dist = newdist;
     }
   }
-  return dist_sq;
+  return dist;
 }
 
 /* Try heuristic (cheap) projection for polar cone */
 static scs_float proj_polar_exp_cone_heuristic(const scs_float *v0,
                                                scs_float *vd) {
   scs_float t0 = v0[2], s0 = v0[1], r0 = v0[0];
-  scs_float dist_sq, td, newdist_sq;
+  scs_float dist, td, newdist;
 
   /* Perspective boundary */
   vd[2] = MIN(t0, 0.0);
   vd[1] = MIN(s0, 0.0);
   vd[0] = 0.0;
-  dist_sq = norm_diff_sq_3(v0, vd);
+  dist = SCS(norm_diff)(v0, vd, 3);
 
   /* Perspective interior */
   if (r0 > 0.0) {
     td = MIN(t0, -r0 * EXPF(s0 / r0 - 1.0));
-    newdist_sq = (t0 - td) * (t0 - td);
-    if (newdist_sq < dist_sq) {
+    newdist = t0 - td;
+    if (newdist < dist) {
       vd[2] = td;
       vd[1] = s0;
       vd[0] = r0;
-      dist_sq = newdist_sq;
+      dist = newdist;
     }
   }
-  return dist_sq;
+  return dist;
 }
 
 static scs_float ppsi(const scs_float *v0) {
@@ -258,18 +238,18 @@ static scs_float domega(scs_float rho) {
 }
 
 /* Generate upper and lower search bounds for root of hfun */
-static void exp_search_bracket(const scs_float *v0, scs_float pdist_sq,
-                               scs_float ddist_sq, scs_float *low_out,
+static void exp_search_bracket(const scs_float *v0, scs_float pdist,
+                               scs_float ddist, scs_float *low_out,
                                scs_float *upr_out) {
   scs_float t0 = v0[2], s0 = v0[1], r0 = v0[0];
   scs_float baselow = -EXP_CONE_INFINITY_VALUE;
   scs_float baseupr = EXP_CONE_INFINITY_VALUE;
   scs_float low = -EXP_CONE_INFINITY_VALUE;
   scs_float upr = EXP_CONE_INFINITY_VALUE;
-  scs_float Dp, Dd, curbnd, fl, fu, tpu, tdl, sgn, val;
+  scs_float Dp, Dd, curbnd, fl, fu, df, tpu, tdl, sgn, val;
 
-  Dp = SQRTF(MAX(pdist_sq - MIN(s0, 0.0) * MIN(s0, 0.0), 0.0));
-  Dd = SQRTF(MAX(ddist_sq - MIN(r0, 0.0) * MIN(r0, 0.0), 0.0));
+  Dp = SQRTF(pdist * pdist - MIN(s0, 0.0) * MIN(s0, 0.0));
+  Dd = SQRTF(ddist * ddist - MIN(r0, 0.0) * MIN(r0, 0.0));
 
   if (t0 > 0.0) {
     curbnd = LOGF(t0 / ppsi(v0));
@@ -306,8 +286,8 @@ static void exp_search_bracket(const scs_float *v0, scs_float pdist_sq,
   upr = _clip(MAX(low, upr), baselow, baseupr);
 
   if (low != upr) {
-    fl = hfun_f(v0, low);
-    fu = hfun_f(v0, upr);
+    hfun(v0, low, &fl, &df);
+    hfun(v0, upr, &fu, &df);
 
     if (fl * fu > 0.0) {
       if (ABS(fl) < ABS(fu)) {
@@ -327,21 +307,21 @@ static scs_float proj_sol_primal_exp_cone(const scs_float *v0, scs_float rho,
                                           scs_float *vp) {
   scs_float linrho = (rho - 1.0) * v0[0] + v0[1];
   scs_float exprho = EXPF(rho);
-  scs_float quadrho, dist_sq;
+  scs_float quadrho, dist;
 
   if (linrho > 0.0 && _isfinite(exprho)) {
     quadrho = rho * (rho - 1.0) + 1.0;
     vp[2] = exprho * linrho / quadrho;
     vp[1] = linrho / quadrho;
     vp[0] = rho * linrho / quadrho;
-    dist_sq = norm_diff_sq_3(vp, v0);
+    dist = SCS(norm_diff)(vp, v0, 3);
   } else {
     vp[2] = EXP_CONE_INFINITY_VALUE;
     vp[1] = 0.0;
     vp[0] = 0.0;
-    dist_sq = EXP_CONE_INFINITY_VALUE;
+    dist = EXP_CONE_INFINITY_VALUE;
   }
-  return dist_sq;
+  return dist;
 }
 
 /* convert from rho to polar projection */
@@ -349,21 +329,21 @@ static scs_float proj_sol_polar_exp_cone(const scs_float *v0, scs_float rho,
                                          scs_float *vd) {
   scs_float linrho = v0[0] - rho * v0[1];
   scs_float exprho = EXPF(-rho);
-  scs_float quadrho, dist_sq;
+  scs_float quadrho, dist;
 
   if (linrho > 0.0 && _isfinite(exprho)) {
     quadrho = rho * (rho - 1.0) + 1.0;
     vd[2] = -exprho * linrho / quadrho;
     vd[1] = (1.0 - rho) * linrho / quadrho;
     vd[0] = linrho / quadrho;
-    dist_sq = norm_diff_sq_3(v0, vd);
+    dist = SCS(norm_diff)(v0, vd, 3);
   } else {
     vd[2] = -EXP_CONE_INFINITY_VALUE;
     vd[1] = 0.0;
     vd[0] = 0.0;
-    dist_sq = EXP_CONE_INFINITY_VALUE;
+    dist = EXP_CONE_INFINITY_VALUE;
   }
-  return dist_sq;
+  return dist;
 }
 
 /* Project onto primal or dual exponential cone, performed in-place.
@@ -372,7 +352,7 @@ static scs_float proj_sol_polar_exp_cone(const scs_float *v0, scs_float rho,
  */
 scs_float SCS(proj_pd_exp_cone)(scs_float *v0, scs_int primal) {
   scs_float TOL = 1e-8; /* pow(1e-10, 2.0 / 3.0); */
-  scs_float xl, xh, pdist_sq, ddist_sq, err, rho, dist_hat_sq;
+  scs_float xl, xh, pdist, ddist, err, rho, dist_hat;
   scs_float vp[3], vd[3], v_hat[3];
   scs_int opt;
 
@@ -386,8 +366,8 @@ scs_float SCS(proj_pd_exp_cone)(scs_float *v0, scs_int primal) {
     v0[2] *= -1.0;
   }
 
-  pdist_sq = proj_primal_exp_cone_heuristic(v0, vp);
-  ddist_sq = proj_polar_exp_cone_heuristic(v0, vd);
+  pdist = proj_primal_exp_cone_heuristic(v0, vp);
+  ddist = proj_polar_exp_cone_heuristic(v0, vd);
 
   err = ABS(vp[0] + vd[0] - v0[0]);
   err = MAX(err, ABS(vp[1] + vd[1] - v0[1]));
@@ -397,45 +377,45 @@ scs_float SCS(proj_pd_exp_cone)(scs_float *v0, scs_int primal) {
    * or optimality conditions are satisfied
    */
   opt = (v0[1] <= 0.0 && v0[0] <= 0.0);
-  opt |= (MIN(pdist_sq, ddist_sq) <= TOL * TOL);
+  opt |= (MIN(pdist, ddist) <= TOL);
   opt |= (err <= TOL && SCS(dot)(vp, vd, 3) <= TOL);
 
   if (opt) {
     if (primal) {
       _copy(v0, vp);
-      return SQRTF(pdist_sq);
+      return pdist;
     }
     /* Polar cone -> dual cone. */
     v0[0] = -vd[0];
     v0[1] = -vd[1];
     v0[2] = -vd[2];
-    return SQRTF(ddist_sq);
+    return ddist;
   }
 
-  exp_search_bracket(v0, pdist_sq, ddist_sq, &xl, &xh);
+  exp_search_bracket(v0, pdist, ddist, &xl, &xh);
   rho = root_search_newton(v0, xl, xh, 0.5 * (xl + xh));
 
   if (primal) {
     /* Primal cone projection. */
-    dist_hat_sq = proj_sol_primal_exp_cone(v0, rho, v_hat);
-    if (dist_hat_sq <= pdist_sq) {
+    dist_hat = proj_sol_primal_exp_cone(v0, rho, v_hat);
+    if (dist_hat <= pdist) {
       _copy(vp, v_hat);
-      pdist_sq = dist_hat_sq;
+      pdist = dist_hat;
     }
     _copy(v0, vp);
-    return SQRTF(pdist_sq);
+    return pdist;
   }
 
   /* Polar cone projection. */
-  dist_hat_sq = proj_sol_polar_exp_cone(v0, rho, v_hat);
-  if (dist_hat_sq <= ddist_sq) {
+  dist_hat = proj_sol_polar_exp_cone(v0, rho, v_hat);
+  if (dist_hat <= ddist) {
     _copy(vd, v_hat);
-    ddist_sq = dist_hat_sq;
+    ddist = dist_hat;
   }
 
   /* Polar cone -> dual cone. */
   v0[0] = -vd[0];
   v0[1] = -vd[1];
   v0[2] = -vd[2];
-  return SQRTF(ddist_sq);
+  return ddist;
 }

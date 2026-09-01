@@ -291,7 +291,7 @@ def apply(
         .set_index(object_id_column)[object_type_column]
         .to_dict()
     )
-    object_records = ocel.objects.to_dict("records")
+    object_records = ocel.objects.to_dict(orient="records")
     for record in object_records:
         if _is_null(record.get(object_id_column)) or _is_null(record.get(object_type_column)):
             raise ValueError("OCEL2 CSV objects must have non-empty ids and types.")
@@ -339,7 +339,7 @@ def apply(
 
     timed_change_groups = {}
     epoch = pd.Timestamp("1970-01-01T00:00:00Z")
-    for change_index, record in enumerate(ocel.object_changes.to_dict("records")):
+    for change_index, record in enumerate(ocel.object_changes.to_dict(orient="records")):
         oid = record.get(object_id_column)
         known_type = object_type.get(oid)
         record_type = record.get(object_type_column, known_type)
@@ -399,7 +399,7 @@ def apply(
     rows = []
     header_len = len(header)
 
-    event_records = list(enumerate(ocel.events.to_dict("records")))
+    event_records = list(enumerate(ocel.events.to_dict(orient="records")))
     event_records = sorted(
         event_records,
         key=lambda item: (_timestamp_sort_key(item[1][event_timestamp_column]), item[0]),

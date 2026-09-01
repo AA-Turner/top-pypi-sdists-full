@@ -1,4 +1,5 @@
-"""The 2.0 ``HumanName`` facade (migration spec §2): a mutable wrapper
+"""The 2.0 ``HumanName`` facade (mechanisms.md#FACADE-CONTRACT): a
+mutable wrapper
 over a frozen ParsedName, delegating parsing to the core Parser resolved
 from the bound Constants shim. Keeps every v1 spelling. Deleted in 3.0.
 
@@ -31,7 +32,8 @@ import nameparser._render as _render
 from nameparser._config_shim import CONSTANTS, Constants, _cached_parser
 from nameparser._lexicon import _normalize
 from nameparser._parser import Parser
-from nameparser._types import FOLDED_TAG, ParsedName, Role, Token
+from nameparser._types import (FOLDED_TAG, UNCLASSIFIED_TAG, ParsedName,
+                               Role, Token)
 
 _V2_FIELD = {"first": "given", "last": "family"}  # v1 name -> v2 name
 _V1_SPELLING = {v2: v1 for v1, v2 in _V2_FIELD.items()}
@@ -41,7 +43,8 @@ _MEMBERS = tuple(_V1_SPELLING.get(r.value, r.value) for r in Role)
 
 
 
-#: v1 parsing hooks the facade never calls (spec §2 exception 2 / #280).
+#: v1 parsing hooks the facade never calls
+#: (mechanisms.md#FACADE-CONTRACT / #280).
 _V1_HOOKS = (
     "pre_process", "post_process", "parse_full_name", "parse_pieces",
     "parse_nicknames", "join_on_conjunctions", "squash_emoji",
@@ -152,7 +155,8 @@ class HumanName:
                 DeprecationWarning, stacklevel=3)
 
     # -- render defaults -----------------------------------------------------
-    # One-line validating setters (spec §2): assigning a non-str (or, for
+    # One-line validating setters (mechanisms.md#FACADE-CONTRACT):
+    # assigning a non-str (or, for
     # the two fields that allow it, non-str-non-None) raises TypeError at
     # assignment time instead of failing later inside .format().
 
@@ -218,7 +222,8 @@ class HumanName:
     # -- config / parsing ---------------------------------------------------
 
     def _resolve(self) -> Parser:
-        """Dirty-tracked parser resolution (spec §3): rebuild the
+        """Dirty-tracked parser resolution
+        (mechanisms.md#CONFIG-SHIM-SNAPSHOT): rebuild the
         snapshot only when the bound Constants' generation moved."""
         gen = self._C._generation
         if self._snapshot_gen != gen:
@@ -472,10 +477,14 @@ class HumanName:
         return _normalize(text) in self._lexicon.conjunctions
 
     def _split_last(self) -> tuple[list[str], list[str]]:
-        # v1 parser.py _split_last, verbatim: vocabulary lookup at ACCESS
-        # time (so assigned last names split too), with the all-particle
-        # guard (a family name is assumed not to consist entirely of
-        # particles, e.g. surname "Do" which also appears in PREFIXES)
+        # rules.md#R2: "a name part whose every word is particle
+        # vocabulary is a part where none of them is doing a
+        # particle's work" -- the all-particle guard
+        # below is this rule, and predates its statement: v1 assumed a
+        # family name does not consist entirely of particles, e.g. the
+        # surname "Do" which also appears in PARTICLES. v1
+        # parser.py _split_last otherwise verbatim, vocabulary lookup
+        # at ACCESS time so assigned last names split too.
         words = " ".join(self.last_list).split()
         i = 0
         while i < len(words) and self._is_particle(words[i]):
@@ -517,20 +526,40 @@ class HumanName:
         if len(initials) > 0:
             return self.initials_separator.join(initials)
         # Return '' (never empty_attribute_default, which may be None)
-        # when a part has no initialable words, e.g. a middle name
-        # consisting only of prefixes ("de la"). Callers drop these
-        # parts entirely.
+        # when a part has no initialable words. group_initials below
+        # decides what that means: one such element among others is
+        # dropped; a group that yields nothing AND is wholly particles
+        # initials its words; and a group that yields nothing for any
+        # other reason -- a conjunction, or particles mixed with one --
+        # is still dropped ("Vega, Santa de y" drops its middle).
         return ""
 
     def _initials_lists(self) -> tuple[list[str], list[str], list[str]]:
         """Initials for the first, middle and last name groups. Parts
-        that yield no initials (e.g. a prefix-only middle name like
-        "de la") are dropped rather than kept as empty strings.
+        that yield no initials are dropped rather than kept as empty
+        strings -- except a part that is wholly PARTICLES, whose words
+        initial as ordinary name words since #404, so the prefix-only
+        middle name "de la" is no longer an example of the dropping.
         """
         def group_initials(names: list[str],
                             firstname: bool = False) -> list[str]:
-            return [i for i in (self._process_initial(n, firstname)
-                                 for n in names if n) if i]
+            got = [i for i in (self._process_initial(n, firstname)
+                                for n in names if n) if i]
+            words = [w for n in names if n for w in n.split()]
+            if got or not words or not all(self._is_particle(w)
+                                           for w in words):
+                return got
+            # rules.md#R3: "except the particles of a part whose every
+            # word is one, which are not acting as particles there"
+            # -- nothing survived
+            # the filter, so the whole group is particles. The
+            # facade's twin of the core's
+            # UNJOINED_TAG. NOT pinned against it: both case runners
+            # compare the seven role fields only, and Case carries no
+            # initials column, so the one covering test is
+            # tests/test_initials.py::test_initials_middle_name_all_prefixes. _split_last already applies the same guard to
+            # the base, which is why last_base was never empty here.
+            return [w[0] for w in words]
         return (group_initials(self.first_list, True),
                 group_initials(self.middle_list),
                 group_initials(self.last_list))
@@ -685,7 +714,8 @@ class HumanName:
         self._suffix_delimiter = state.get("suffix_delimiter",
                                            defaults.suffix_delimiter)
         self._full_name = state.get("_full_name", "")
-        # Components come back exactly as pickled (spec §2): synthetic
+        # Components come back exactly as pickled
+        # (mechanisms.md#FACADE-CONTRACT): synthetic
         # tokens, never a re-parse. Build them per *_list ENTRY rather
         # than from one joined string -- an entry may hold several words
         # ("Ph. D.", "Q.C. M.P."), and re-splitting the joined string on
@@ -717,8 +747,17 @@ class HumanName:
                         f"nameparser"
                     )
                 for position, word in enumerate(entry.split()):
-                    tokens.append(Token(
-                        word, None, role,
-                        frozenset({"joined"}) if position else frozenset()))
+                    # UNCLASSIFIED_TAG for the same reason replace()
+                    # stamps it: a pickle carries the *_list STRINGS
+                    # and no tags, so nothing here was read by a parse
+                    # and case repair must ask the vocabulary rather
+                    # than read an absent conjunction tag. Without it a
+                    # restored "juan ortega y gasset" repairs to
+                    # "Ortega Y Gasset", which is neither v1's answer
+                    # nor the same name's unpickled one.
+                    tags = {UNCLASSIFIED_TAG}
+                    if position:
+                        tags.add("joined")
+                    tokens.append(Token(word, None, role, frozenset(tags)))
         self._parsed = ParsedName(
             original=str(state.get("original", "")), tokens=tuple(tokens))

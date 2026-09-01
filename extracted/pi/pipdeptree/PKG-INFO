@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipdeptree
-Version: 4.2.2
+Version: 4.2.3
 Summary: Command line utility to show dependency tree of packages.
 Keywords: application,cache,directory,log,user
 Maintainer-Email: Bernát Gábor <gaborjbernat@gmail.com>, Kemal Zebari <kemalzebra@gmail.com>, Vineet Naik <naikvin@gmail.com>

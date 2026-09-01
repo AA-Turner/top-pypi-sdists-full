@@ -19,6 +19,7 @@ __all__ = [
     "PaymentOrder",
     "Accounting",
     "CurrentHold",
+    "OriginatingPartyAddress",
     "ReferenceNumbers",
     "ReferenceNumber",
     "UltimateOriginatingAccount",
@@ -84,6 +85,35 @@ class CurrentHold(BaseModel):
     """When the hold was resolved"""
 
 
+class OriginatingPartyAddress(BaseModel):
+    """
+    If present, this address will override the default originating party address used on the payment order. This works across all payment types.
+    """
+
+    country: Optional[str] = None
+    """Country code conforms to [ISO 3166-1 alpha-2]"""
+
+    line1: Optional[str] = None
+
+    line2: Optional[str] = None
+
+    locality: Optional[str] = None
+    """Locality or City.
+
+    Use the full city name rather than an abbreviation (e.g. San Francisco).
+    """
+
+    postal_code: Optional[str] = None
+    """The postal code of the address."""
+
+    region: Optional[str] = None
+    """Region or State.
+
+    This field is free-form; for US states, we recommend a two-letter code (e.g.
+    CA). Full state names are also accepted.
+    """
+
+
 class ReferenceNumber(BaseModel):
     id: str
 
@@ -129,7 +159,6 @@ class ReferenceNumber(BaseModel):
         "cross_river_transaction_id",
         "currencycloud_conversion_id",
         "currencycloud_payment_id",
-        "dc_bank_transaction_id",
         "eft_trace_number",
         "evolve_core_batch",
         "evolve_core_file_key",
@@ -190,6 +219,7 @@ class ReferenceNumber(BaseModel):
         "western_alliance_payment_id",
         "western_alliance_transaction_id",
         "western_alliance_wire_confirmation_number",
+        "wise_transfer_id",
     ]
     """The type of the reference number. Referring to the vendor payment id."""
 
@@ -334,6 +364,14 @@ class PaymentOrder(BaseModel):
 
     originating_account_id: str
     """The ID of one of your organization's internal accounts."""
+
+    originating_account_type: Literal["internal_account", "virtual_account"]
+
+    originating_party_address: Optional[OriginatingPartyAddress] = None
+    """
+    If present, this address will override the default originating party address
+    used on the payment order. This works across all payment types.
+    """
 
     originating_party_name: Optional[str] = None
     """

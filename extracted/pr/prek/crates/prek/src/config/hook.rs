@@ -487,7 +487,7 @@ pub(crate) struct HookOptions {
     pub additional_dependencies: Option<Vec<String>>,
     /// Additional arguments to pass to the hook.
     pub args: Option<Vec<String>>,
-    /// Environment variables to set for the hook.
+    /// Environment variables to set while preparing and running the hook.
     pub env: Option<FxHashMap<String, String>>,
     /// This hook will run even if there are no matching files.
     /// Default is false.
@@ -683,6 +683,15 @@ impl TryFrom<RemoteHook> for ManifestHook {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(transparent)]
+#[cfg_attr(
+    feature = "schemars",
+    derive(schemars::JsonSchema),
+    schemars(title = ".pre-commit-hooks.yaml"),
+    schemars(description = "The hook manifest for prek, a git hook manager written in Rust."),
+    schemars(extend(
+        "$id" = "https://raw.githubusercontent.com/j178/prek/master/prek-hooks.schema.json"
+    )),
+)]
 pub(crate) struct Manifest {
     pub hooks: Vec<ManifestHook>,
 }

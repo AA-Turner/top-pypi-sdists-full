@@ -1,9 +1,3 @@
-/*
- * Problem data normalization (equilibration) routines.
- * Applied before solving to improve numerical conditioning; undone
- * after solving to return the solution in the original scale.
- */
-
 #ifndef NORMALIZE_H_GUARD
 #define NORMALIZE_H_GUARD
 
@@ -17,6 +11,8 @@ extern "C" {
 void SCS(normalize_b_c)(ScsScaling *scal, scs_float *b, scs_float *c);
 void SCS(normalize_sol)(ScsScaling *scal, ScsSolution *sol);
 void SCS(un_normalize_sol)(ScsScaling *scal, ScsSolution *sol);
+void SCS(un_normalize_primal)(ScsScaling *scal, scs_float *r);
+void SCS(un_normalize_dual)(ScsScaling *scal, scs_float *r);
 
 #ifdef __cplusplus
 }

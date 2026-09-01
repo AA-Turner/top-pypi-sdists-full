@@ -6,31 +6,21 @@ be EMPTY -- doubled commas keep their structural position), structure,
 COMMA_STRUCTURE ambiguities for unrecognized extra segments.
 Reads: Lexicon suffix vocabulary and Policy, both through
 _vocab.is_wholly_suffix -- the suffix-comma decision is definitionally
-vocabulary-dependent (recorded plan deviation #3), and the predicate
+vocabulary-dependent (decisions.md#C1), and the predicate
 owns the rest (Policy.lenient_comma_suffixes picks the lenient or
 strict token test; Policy.extra_suffix_delimiters gives v1
 suffix_delimiter parity, a delimiter-core token being transparent).
 
-Decision (v1 parity): >=1 comma and the SECOND segment entirely
-suffix AND >1 word before the first comma -> SUFFIX_COMMA; otherwise
-FAMILY_COMMA ("Family, Given ..."). Only the second segment decides
-(v1 parser.py:1318) -- segments beyond it are consumed as suffixes
-either way, and a NON-EMPTY one that is not entirely suffix is
-flagged COMMA_STRUCTURE rather than vetoing the structure (an empty
-one is consumed silently, as v1 consumed it, so "John Smith, MD,, Jr."
-reports nothing where "John Smith, MD, Bart" does; they are still
-best-effort consumed as suffixes by assign, since parse must stay
-total over str input and never raise on content). "Entirely suffix"
-is is_wholly_suffix's question, so the token test inside it is
-lenient by default and strict under
-Policy(lenient_comma_suffixes=False).
+Implements rules C1 and C2 of docs/design/rules.md, cited at the
+decision site below; history in decisions.md#C1.
 """
 from __future__ import annotations
 
-import bisect
 import dataclasses
 
-from nameparser._pipeline._state import ParseState, PendingAmbiguity, Structure
+from nameparser._pipeline._state import (
+    ParseState, PendingAmbiguity, Structure, comma_bucket,
+)
 from nameparser._pipeline._vocab import is_wholly_suffix
 from nameparser._types import AmbiguityKind
 
@@ -48,11 +38,12 @@ def segment(state: ParseState) -> ParseState:
                                    structure=Structure.NO_COMMA)
     buckets: list[list[int]] = [[] for _ in range(len(state.comma_offsets) + 1)]
     for i in main:
-        # comma_offsets is sorted and no offset ever equals a token
-        # start, so bisect_left counts the commas before this token
-        start = state.tokens[i].span.start
-        bucket = bisect.bisect_left(state.comma_offsets, start)
-        buckets[bucket].append(i)
+        # _state.comma_bucket, not a local bisect: classify asks the
+        # same question of the same offsets to keep a marker run inside
+        # one segment, and the two must be one expression rather than
+        # two that agree
+        buckets[comma_bucket(state.tokens[i].span.start,
+                             state.comma_offsets)].append(i)
     groups = [tuple(b) for b in buckets]
     # v1 strips exactly ONE trailing comma as cosmetic (parser.py's
     # collapse_whitespace); every other empty bucket is STRUCTURAL and
@@ -70,10 +61,16 @@ def segment(state: ParseState) -> ParseState:
         return is_wholly_suffix([state.tokens[i].text for i in seg],
                                 state.lexicon, state.policy)
 
-    # v1 parity: only parts[1] decides the suffix-comma structure
-    # (parser.py:1318); parts[2:] are consumed as suffixes
-    # unconditionally either way, so a non-suffix tail segment gets the
-    # COMMA_STRUCTURE flag, not a structure veto
+    # rules.md#C1: "the name reads as trailing suffixes when the part
+    # after the first comma is entirely suffix words and more than one
+    # word precedes the comma; otherwise it reads as the listing form"
+    # (v1 parity: only parts[1] decides, parser.py:1318; history:
+    # decisions.md#C1)
+    # rules.md#C2: "a non-empty extra part that is not entirely suffix
+    # words is flagged as a structural ambiguity rather than rejected"
+    # -- parts[2:] are consumed as suffixes unconditionally either
+    # way, so a non-suffix tail segment gets the COMMA_STRUCTURE
+    # flag, not a structure veto
     structure = (Structure.SUFFIX_COMMA
                  if suffixy(groups[1]) and len(groups[0]) > 1
                  else Structure.FAMILY_COMMA)

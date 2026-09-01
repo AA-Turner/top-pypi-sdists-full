@@ -9,6 +9,7 @@ from pathlib import Path
 from collections import namedtuple
 import win32com.client
 from win32com.shell import shell, shellcon
+import platformdirs
 
 from .utils import get_pyexe, get_homedir
 
@@ -40,17 +41,18 @@ echo # %*
 """.format(conda_env)
 
 
-def get_desktop():
+def get_desktop(public=False):
     '''Return user Desktop folder'''
-    return shell.SHGetFolderPath(0, shellcon.CSIDL_DESKTOP, None, 0)
+    return Path(get_homedir(public=public), 'Desktop').resolve().as_posix()
 
-def get_startmenu():
-    '''Return user Start Menu Programs folder
-    note that we return CSIDL_PROGRAMS not CSIDL_COMMON_PROGRAMS
-    '''
-    return shell.SHGetFolderPath(0, shellcon.CSIDL_PROGRAMS, None, 0)
+def get_startmenu(public=False):
+    '''Return user Start Menu Programs folder'''
+    if public:
+        return platformdirs.site_applications_path().resolve().as_posix()
+    else:
+        return platformdirs.user_applications_path().resolve().as_posix()
 
-def get_folders():
+def get_folders(public=False):
     """get user-specific folders
 
     Returns:
@@ -65,11 +67,13 @@ def get_folders():
     ...       folders.home, folders.desktop, folders.startmenu)
     """
     UserFolders = namedtuple("UserFolders", ("home", "desktop", "startmenu"))
-    return UserFolders(get_homedir(), get_desktop(), get_startmenu())
+    return UserFolders(get_homedir(public=public),
+                       get_desktop(public=public),
+                       get_startmenu(public=public))
 
 
 def make_shortcut(script, name=None, working_dir=None, description=None, icon=None,
-                  folder=None, terminal=True, desktop=True,
+                  folder=None, terminal=True, public=False, desktop=True,
                   startmenu=True, executable=None, noexe=False):
     """create shortcut
 
@@ -82,6 +86,7 @@ def make_shortcut(script, name=None, working_dir=None, description=None, icon=No
     icon        (str, None) path to icon file [python icon]
     folder      (str, None) subfolder of Desktop for shortcut [None] (See Note 1)
     terminal    (bool) whether to run in a Terminal [True]
+    public      (bool) whether to use public folders [False]
     desktop     (bool) whether to add shortcut to Desktop [True]
     startmenu   (bool) whether to add shortcut to Start Menu [True] (See Note 2)
     executable  (str, None) name of executable to use [this Python] (see Note 3)
@@ -94,7 +99,7 @@ def make_shortcut(script, name=None, working_dir=None, description=None, icon=No
     3. executable defaults to the Python executable used to make shortcut.
     """
     from .shortcut import shortcut
-    userfolders = get_folders()
+    userfolders = get_folders(public=public)
 
     scut = shortcut(script, userfolders, name=name, description=description,
                     working_dir=working_dir, folder=folder, icon=icon)

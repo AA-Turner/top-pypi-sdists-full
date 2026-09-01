@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-embeddings-huggingface
-Version: 0.7.0
+Version: 0.8.0
 Summary: llama-index embeddings huggingface integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

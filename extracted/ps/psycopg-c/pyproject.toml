@@ -5,7 +5,7 @@ requires = [
     #   `[tool.setuptools.ext-modules]` in `pyproject.toml` is still
     #   *experimental* and likely to change in future releases
     #
-    "setuptools == 80.3.1",
+    "setuptools == 83.0.0",
     "wheel >= 0.37",
     "tomli >= 2.0.1; python_version < '3.11'",
 ]
@@ -24,7 +24,7 @@ cython-requires = ["Cython >= 3.1.1"]
 [project]
 name = "psycopg-c"
 description = "PostgreSQL database adapter for Python -- C optimisation distribution"
-version = "3.3.4"
+version = "3.3.5"
 license = "LGPL-3.0-only"
 license-files = ["LICENSE.txt"]
 classifiers = [

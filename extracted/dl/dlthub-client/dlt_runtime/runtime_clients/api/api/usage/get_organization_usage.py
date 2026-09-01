@@ -125,11 +125,11 @@ def sync_detailed(
 
     Get usage (run statistics) for an organization as time-bucketed breakdowns.
 
-    Aggregates run metrics across all workspaces in the organization via a JOIN.
+    Aggregates run metrics across all workspaces in the organization.
     Usage is always reckoned in UTC: `start`/`end` are naive datetimes interpreted as UTC, and
     bucket timestamps in the response are UTC.
 
-    Requires READ permission on the organization.
+    Requires MANAGE_ORG permission (owner role) on the organization.
 
     Args:
         organization_id (UUID):
@@ -182,11 +182,11 @@ def sync(
 
     Get usage (run statistics) for an organization as time-bucketed breakdowns.
 
-    Aggregates run metrics across all workspaces in the organization via a JOIN.
+    Aggregates run metrics across all workspaces in the organization.
     Usage is always reckoned in UTC: `start`/`end` are naive datetimes interpreted as UTC, and
     bucket timestamps in the response are UTC.
 
-    Requires READ permission on the organization.
+    Requires MANAGE_ORG permission (owner role) on the organization.
 
     Args:
         organization_id (UUID):
@@ -233,11 +233,11 @@ async def asyncio_detailed(
 
     Get usage (run statistics) for an organization as time-bucketed breakdowns.
 
-    Aggregates run metrics across all workspaces in the organization via a JOIN.
+    Aggregates run metrics across all workspaces in the organization.
     Usage is always reckoned in UTC: `start`/`end` are naive datetimes interpreted as UTC, and
     bucket timestamps in the response are UTC.
 
-    Requires READ permission on the organization.
+    Requires MANAGE_ORG permission (owner role) on the organization.
 
     Args:
         organization_id (UUID):
@@ -288,11 +288,11 @@ async def asyncio(
 
     Get usage (run statistics) for an organization as time-bucketed breakdowns.
 
-    Aggregates run metrics across all workspaces in the organization via a JOIN.
+    Aggregates run metrics across all workspaces in the organization.
     Usage is always reckoned in UTC: `start`/`end` are naive datetimes interpreted as UTC, and
     bucket timestamps in the response are UTC.
 
-    Requires READ permission on the organization.
+    Requires MANAGE_ORG permission (owner role) on the organization.
 
     Args:
         organization_id (UUID):

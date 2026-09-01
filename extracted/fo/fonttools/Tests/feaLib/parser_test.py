@@ -31,9 +31,7 @@ def mapping(s):
     return dict(zip(b, c))
 
 
-GLYPHNAMES = (
-    (
-        """
+GLYPHNAMES = ("""
     .notdef space A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
     A.sc B.sc C.sc D.sc E.sc F.sc G.sc H.sc I.sc J.sc K.sc L.sc M.sc
     N.sc O.sc P.sc Q.sc R.sc S.sc T.sc U.sc V.sc W.sc X.sc Y.sc Z.sc
@@ -51,11 +49,7 @@ GLYPHNAMES = (
     cid00111 cid00222
     comma endash emdash figuredash damma hamza
     c_d d.alt n.end s.end f_f
-"""
-    ).split()
-    + ["foo.%d" % i for i in range(1, 200)]
-    + ["G" * 600]
-)
+""").split() + ["foo.%d" % i for i in range(1, 200)] + ["G" * 600]
 
 
 class ParserTest(unittest.TestCase):
@@ -91,12 +85,10 @@ class ParserTest(unittest.TestCase):
             )
 
     def test_comments(self):
-        doc = self.parse(
-            """ # Initial
+        doc = self.parse(""" # Initial
                 feature test {
                     sub A by B; # simple
-                } test;"""
-        )
+                } test;""")
         c1 = doc.statements[0]
         c2 = doc.statements[1].statements[1]
         self.assertEqual(type(c1), ast.Comment)
@@ -107,11 +99,9 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(doc.statements[1].name, "test")
 
     def test_only_comments(self):
-        doc = self.parse(
-            """\
+        doc = self.parse("""\
             # Initial
-        """
-        )
+        """)
         c1 = doc.statements[0]
         self.assertEqual(type(c1), ast.Comment)
         self.assertEqual(c1.text, "# Initial")
@@ -1336,6 +1326,25 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(name.string, "Jovica Veljović")
         self.assertEqual(name.asFea(), r'nameid 9 1 0 18 "Jovica Veljovi\e6";')
 
+    def test_nameid_mac_japanese(self):
+        # Literal text and \XX escapes are combined into a single byte
+        # sequence before decoding, so multibyte Shift-JIS chars work even
+        # when one of the constituent bytes is a printable ASCII char (#1196).
+        # Here \95F is the Shift-JIS byte pair 0x95 0x46 = 彦.
+        doc = self.parse(
+            r'table name { nameid 9 1 1 11 "Kozuka \8f\ac\92\cb\8f\b9\95F"; } name;'
+        )
+        name = doc.statements[0].statements[0]
+        self.assertEqual(name.nameID, 9)
+        self.assertEqual(name.platformID, 1)
+        self.assertEqual(name.platEncID, 1)
+        self.assertEqual(name.langID, 11)
+        self.assertEqual(name.string, "Kozuka 小塚昌彦")
+        self.assertEqual(
+            name.asFea(),
+            r'nameid 9 1 1 11 "Kozuka \8f\ac\92\cb\8f\b9\95F";',
+        )
+
     def test_nameid_unsupported_platform(self):
         self.assertRaisesRegex(
             FeatureLibError,
@@ -2124,6 +2133,24 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(len(caplog.records), 1)
         caplog.assertRegex(
             'Ambiguous "ignore sub", there should be least one marked glyph'
+        )
+
+    def test_variable_scalar_default(self):
+        doc = self.parse(
+            "feature test {valueRecordDef <0 (100 wght=200:-100 wght=900:-150 wdth=150,wght=900:-120) 0 0> foo;} test;"
+        )
+        value = doc.statements[0].statements[0].value
+        self.assertEqual(
+            value.asFea(),
+            "<0 (100 wght=200:-100 wght=900:-150 wdth=150,wght=900:-120) 0 0>",
+        )
+
+    def test_variable_scalar_duplicate_bare_value(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "Duplicate value for the default location",
+            self.parse,
+            "feature test {pos a (10 20 wght=900:30);} test",
         )
 
     def parse(self, text, glyphNames=GLYPHNAMES, followIncludes=True):

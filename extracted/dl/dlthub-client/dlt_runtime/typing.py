@@ -163,6 +163,7 @@ TriggerStatus = Literal[
     "skipped_trial_expired",
     "skipped_minutes_limit",
     "skipped_org_concurrency_limit",
+    "skipped_workspace_archived",
 ]
 
 

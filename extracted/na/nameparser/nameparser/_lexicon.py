@@ -55,7 +55,7 @@ _VOCAB_FIELDS = (
 #:   nothing needs the acronym half: the shipped tails are CJK
 #:   honorifics, which are words.
 #:   The same relation is asserted a second time in config/suffixes.py,
-#:   over the raw GLUED_HONORIFICS/SUFFIX_NOT_ACRONYMS constants at
+#:   over the raw GLUED_HONORIFICS/SUFFIX_WORDS constants at
 #:   import. The two are not redundant in the way they look: that one
 #:   is an `assert`, stripped under `python -O`, while the check here
 #:   raises unconditionally -- so under -O this is what still holds the
@@ -73,6 +73,25 @@ _SUBSET_FIELDS = (
     ("honorific_tails", "suffix_words",
      "an orphan splits the name and leaves the tail inside it"),
 )
+
+
+#: The fields whose entries may be PHRASES: stored space-joined and
+#: folded per word (_title_key), and exempt from the dead-entry warning
+#: below. Every other field is matched one word at a time, where a
+#: multi-word entry can never match.
+#:
+#: The two are not the same mechanism, and the difference is why the
+#: exemption is a list rather than a rule. A given_name_titles run is
+#: identified per word FIRST -- 'lt' and 'col' are each title
+#: vocabulary -- and only then joined and looked up. A maiden marker
+#: phrase has no such per-word foothold: 'z' and 'domu' are not markers
+#: individually, and adding them separately (which this warning used to
+#: advise) reads 'Maria Kowalska z domu Nowak' as maiden 'domu Nowak'
+#: and strips 'Anna z Nowak' of its family name. So markers are matched
+#: by a genuine multi-token lookahead instead --
+#: _pipeline._vocab.maiden_marker_run, longest first -- and only the
+#: STORAGE rule is shared with titles.
+_PHRASE_FIELDS = ("given_name_titles", "maiden_markers")
 
 
 def _normalize(word: str) -> str:
@@ -110,8 +129,9 @@ def _title_key(words: Iterable[str]) -> str:
     A multi-word title is matched as one key ('lt col'), so the fold has
     to run per word and rejoin -- _normalize on the whole phrase would
     leave interior periods. Defined once because it is built at match
-    time (post_rules) and at translation time (the v1 facade's
-    first_name_titles), and a divergence between the two fails silently:
+    time (post_rules for H1, group for the P5 licence -- which must
+    agree, see #369) and at translation time (the v1 facade's
+    first_name_titles), and a divergence between them fails silently:
     the entry simply stops matching.
 
     Words that fold away are DROPPED, not joined as empty. Keeping the
@@ -191,13 +211,14 @@ def _normset(
             raise TypeError(
                 f"Lexicon.{field_name} entries must be strings, got {w!r}"
             )
-        # given_name_titles is the one field whose entries are matched as
-        # a multi-word run, so it folds per word: stored as the same key
-        # post_rules builds, or 'lt. col' would be kept verbatim and
-        # never match anything (a silent no-op on the config surface).
-        # Every other field holds single words, where the two folds
-        # agree.
-        n = _title_key(w.split()) if field_name == "given_name_titles" \
+        # A phrase field's entries are matched as a multi-word run, so
+        # they fold per word: stored as the same key the match site
+        # builds, or 'lt. col' (and 'z. domu') would be kept verbatim
+        # and never match anything -- a silent no-op on the config
+        # surface. Every other field holds single words, where the two
+        # folds agree. See _PHRASE_FIELDS for how the two differ once
+        # stored.
+        n = _title_key(w.split()) if field_name in _PHRASE_FIELDS \
             else _normalize(w)
         # "." or "" is a data bug (stray split artifact, empty CSV
         # cell); dropping it silently would also let a data-module typo
@@ -207,7 +228,7 @@ def _normset(
                 f"Lexicon.{field_name} entry {w!r} normalizes to empty "
                 f"(lowercase + strip periods/whitespace leaves nothing)"
             )
-        # Every field but given_name_titles is matched one word at a
+        # Every field outside _PHRASE_FIELDS is matched one word at a
         # time, so a multi-word entry can never match -- the library
         # itself shipped eight such dead entries for years (repaired
         # 2026-07-26). Warn, never raise: an inert entry produces
@@ -217,8 +238,10 @@ def _normset(
         # new instance's __post_init__; remove() stores nothing, so
         # warning there would name entries the caller is trying to get
         # RID of, with "split it" advice that makes no sense for a
-        # no-op.
-        if (warn and field_name != "given_name_titles"
+        # no-op. Both invariants are indifferent to WHICH fields are
+        # exempt: the exemption only decides whether a warning exists to
+        # be emitted once or suppressed.
+        if (warn and field_name not in _PHRASE_FIELDS
                 # interior whitespace test; split() covers all Unicode
                 # whitespace
                 and n != "".join(n.split())):
@@ -303,8 +326,12 @@ class Lexicon:
     Entries are normalized at construction -- lowercased, edge periods
     stripped -- so matching is case-insensitive. Vocabulary entries are
     single words -- a multi-word entry warns at construction and can
-    never match (``given_name_titles``, matched as a space-joined run,
-    is the one exception). Field docs below show examples, not full
+    never match. Two fields are exempt, and they differ in HOW they
+    match: ``given_name_titles`` is looked up as the space-joined run
+    of words the parse has ALREADY read as titles, while
+    ``maiden_markers`` is matched by lookahead, longest first, over
+    words that need not be markers on their own (``"z domu"``).
+    Field docs below show examples, not full
     contents; inspect any field's shipped vocabulary directly, e.g.
     ``Lexicon.default().conjunctions``."""
 
@@ -313,7 +340,7 @@ class Lexicon:
     titles: frozenset[str] = frozenset()
     #: Titles whose single following name reads as a GIVEN name
     #: ("sheikh", "sister", ...) rather than a family name. Full
-    #: default list: :data:`~nameparser.config.titles.FIRST_NAME_TITLES`.
+    #: default list: :data:`~nameparser.config.titles.GIVEN_NAME_TITLES`.
     given_name_titles: frozenset[str] = frozenset()
     #: Post-nominal acronym suffixes, matched with or without periods
     #: ("phd" matches "PhD" and "Ph.D."). Full default list:
@@ -321,7 +348,7 @@ class Lexicon:
     suffix_acronyms: frozenset[str] = frozenset()
     #: Post-nominal word suffixes ("jr", "esquire", "iii", ...). Full
     #: default list:
-    #: :data:`~nameparser.config.suffixes.SUFFIX_NOT_ACRONYMS`.
+    #: :data:`~nameparser.config.suffixes.SUFFIX_WORDS`.
     suffix_words: frozenset[str] = frozenset()
     #: Subset of suffix_acronyms counted as suffixes only when written
     #: WITH periods -- their bare forms are common surnames ("ma",
@@ -330,14 +357,32 @@ class Lexicon:
     suffix_acronyms_ambiguous: frozenset[str] = frozenset()
     #: Family-name particles that chain onto the following piece
     #: ("van", "de", "bin", ...). Full default list:
-    #: :data:`~nameparser.config.prefixes.PREFIXES`.
+    #: :data:`~nameparser.config.particles.PARTICLES`.
     particles: frozenset[str] = frozenset()
-    #: Subset of particles that can also BE a given name: a leading
-    #: one reads as given and records a particle-or-given ambiguity
-    #: ("Van Johnson", but also "Van Buren"). No constant of its own
-    #: -- the default derives
+    #: Subset of particles that can also BE a given name ("Van
+    #: Johnson", but also "Van Buren"). Membership decides nothing
+    #: about chaining: the prefix chain skips the name's first piece
+    #: and never consults this set, so it leaves a leading particle a
+    #: piece of its own whether listed or not -- "de Mesnil" groups
+    #: into two pieces exactly as "van Gogh" does, and since #367 the
+    #: NAME in "Dr. de Mesnil" and "Dr. Van Johnson" groups into those
+    #: same two pieces behind the title piece, a title not being
+    #: part of the name it precedes. What membership
+    #: decides is what becomes of that piece afterwards. Under ANY
+    #: ``name_order`` a member records a particle-or-given ambiguity
+    #: and a non-member records none, and a non-member is additionally
+    #: folded back into the family name once roles exist WHERE IT OPENS
+    #: THE NAME, so the whole name is the surname ("de Mesnil" -- a bare "de", with nothing to
+    #: fold into, is left alone). That fold is order-independent too
+    #: (#359) -- not because the word could not be a given name, which
+    #: it can where position forces it (``parse("de")`` reports given
+    #: "de"), but because a particle OPENING the name has the rest of
+    #: the name to join forward to, and that evidence is positional
+    #: rather than vocabulary, so no declared order contradicts it. Which field a MEMBER's piece
+    #: lands in is ``name_order``'s question, not this set's.
+    #: No constant of its own -- the default derives
     #: as particles minus
-    #: :data:`~nameparser.config.prefixes.NON_FIRST_NAME_PREFIXES`
+    #: :data:`~nameparser.config.particles.NON_GIVEN_NAME_PARTICLES`
     #: (which marks the opposite, never-given subset).
     particles_ambiguous: frozenset[str] = frozenset()
     #: Words or characters that join surrounding pieces into one
@@ -347,10 +392,15 @@ class Lexicon:
     #: Given-name prefixes that bind to the following word to form one
     #: given name ("abdul" -> "Abdul Salam"); never standalone names.
     #: Full default list:
-    #: :data:`~nameparser.config.bound_first_names.BOUND_FIRST_NAMES`.
+    #: :data:`~nameparser.config.bound_given_names.BOUND_GIVEN_NAMES`.
     bound_given_names: frozenset[str] = frozenset()
     #: Marker words introducing a birth surname, routed to the maiden
-    #: field ("née", "geb.", "roz.", ...). Full default list:
+    #: field ("née", "geb.", "rozená", ...). An entry may be a PHRASE
+    #: ("z domu"): entries are matched by lookahead, longest first, so
+    #: a phrase wins where it matches and a word entry that starts one
+    #: still matches on its own everywhere else. A phrase matches only
+    #: where its words stand together -- a bracketed clause or a comma
+    #: between them ends the run. Full default list:
     #: :data:`~nameparser.config.maiden_markers.MAIDEN_MARKERS`.
     maiden_markers: frozenset[str] = frozenset()
     #: Family names for the unspaced-name segmentation stage (#271),
@@ -419,8 +469,8 @@ class Lexicon:
         # the expensive one -- three working configurations broken
         # across two attempts. Do not add a third.
         #
-        # The v2 form of prefixes.py's NON_FIRST_NAME_PREFIXES-disjoint-
-        # from-BOUND_FIRST_NAMES assertion. That module guards its own
+        # The v2 form of particles.py's NON_GIVEN_NAME_PARTICLES-disjoint-
+        # from-BOUND_GIVEN_NAMES assertion. That module guards its own
         # data at import; this guards vocabulary a caller supplies.
         contradictory = (
             self.bound_given_names & self.particles) - self.particles_ambiguous
@@ -614,39 +664,43 @@ class Lexicon:
 @functools.cache
 def _default_lexicon() -> Lexicon:
     # v1 data modules are the single source of vocabulary through 2.x.
-    from nameparser.config.bound_first_names import BOUND_FIRST_NAMES
+    from nameparser.config.bound_given_names import BOUND_GIVEN_NAMES
     from nameparser.config.capitalization import CAPITALIZATION_EXCEPTIONS
     from nameparser.config.conjunctions import CONJUNCTIONS
     from nameparser.config.maiden_markers import MAIDEN_MARKERS
-    from nameparser.config.prefixes import NON_FIRST_NAME_PREFIXES, PREFIXES
+    from nameparser.config.particles import NON_GIVEN_NAME_PARTICLES, PARTICLES
     from nameparser.config.suffixes import (
         GLUED_HONORIFICS, SUFFIX_ACRONYMS, SUFFIX_ACRONYMS_AMBIGUOUS,
-        SUFFIX_NOT_ACRONYMS,
+        SUFFIX_WORDS,
     )
     from nameparser.config.surnames import KOREAN_SURNAMES
-    from nameparser.config.titles import FIRST_NAME_TITLES, TITLES
+    from nameparser.config.titles import GIVEN_NAME_TITLES, TITLES
 
-    # v1 data modules export plain `set[str]`; wrap each at this call site
-    # so the strictly-typed frozenset[str] fields never see a bare set.
+    # every vocabulary constant is a frozenset since #293, so each one
+    # feeds its strictly-typed frozenset[str] field as it stands -- and
+    # this cache reading them ONCE is the reason they are frozen. A
+    # mutated module set always reached a freshly built Constants, and
+    # reached this Lexicon only when the edit landed before the first
+    # call; after it, the cache was already built and the same edit was
+    # invisible here. Which of the two a program got was not something
+    # the code doing the mutating could see.
     # keep in sync with _config_shim.Constants._snapshot() (pinned by the
     # default-Constants equality test in tests/v2/test_config_shim.py)
     return Lexicon(
-        titles=frozenset(TITLES),
-        given_name_titles=frozenset(FIRST_NAME_TITLES),
-        suffix_acronyms=frozenset(SUFFIX_ACRONYMS),
-        suffix_words=frozenset(SUFFIX_NOT_ACRONYMS),
-        suffix_acronyms_ambiguous=frozenset(SUFFIX_ACRONYMS_AMBIGUOUS),
-        particles=frozenset(PREFIXES),
+        titles=TITLES,
+        given_name_titles=GIVEN_NAME_TITLES,
+        suffix_acronyms=SUFFIX_ACRONYMS,
+        suffix_words=SUFFIX_WORDS,
+        suffix_acronyms_ambiguous=SUFFIX_ACRONYMS_AMBIGUOUS,
+        particles=PARTICLES,
         # FLIPPED from v1: v1 marks the never-given subset; v2 marks the
         # may-be-given subset (migration: complement translation).
-        particles_ambiguous=frozenset(PREFIXES - NON_FIRST_NAME_PREFIXES),
-        conjunctions=frozenset(CONJUNCTIONS),
-        bound_given_names=frozenset(BOUND_FIRST_NAMES),
-        maiden_markers=frozenset(MAIDEN_MARKERS),
-        # surnames.py is born frozen (#293) -- no call-site wrap needed,
-        # unlike the v1 modules above (their wraps drop when #293 lands)
+        particles_ambiguous=PARTICLES - NON_GIVEN_NAME_PARTICLES,
+        conjunctions=CONJUNCTIONS,
+        bound_given_names=BOUND_GIVEN_NAMES,
+        maiden_markers=MAIDEN_MARKERS,
         surnames=KOREAN_SURNAMES,
-        honorific_tails=frozenset(GLUED_HONORIFICS),
+        honorific_tails=GLUED_HONORIFICS,
         # pass canonical pair-tuples so this strictly-typed call site never
         # feeds a Mapping to the tuple-annotated field; __post_init__
         # still tolerates a Mapping at runtime for interactive use

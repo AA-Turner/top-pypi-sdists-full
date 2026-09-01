@@ -1,15 +1,18 @@
-import json
+from __future__ import annotations
+
 import os
 import shlex
-from typing import Any, Dict, List, Union
+from typing import Any
 
-NotebookDict = Dict[str, Any]
+from valohai.internals import json_utils
+
+NotebookDict = dict[str, Any]
 
 # TODO: This file is a copy-pasta from https://github.com/valohai/jupyhai
 # TODO: DRY between libs
 
 
-def parse_ipynb(content_or_str: Union[str, NotebookDict]) -> NotebookDict:
+def parse_ipynb(content_or_str: str | NotebookDict) -> NotebookDict:
     """
     "Smartly" parse content that contains a notebook.
     * If a string, it's first JSON deserialized.
@@ -19,7 +22,7 @@ def parse_ipynb(content_or_str: Union[str, NotebookDict]) -> NotebookDict:
     :return: Notebook data.
     """
     if isinstance(content_or_str, str):
-        content = json.loads(content_or_str)
+        content = json_utils.loads(content_or_str)
     else:
         content = content_or_str
     if not isinstance(content, dict):
@@ -50,11 +53,11 @@ def get_notebook_source_code(contents: NotebookDict) -> str:
     return "\n".join(source)
 
 
-def get_notebook_command(notebook_relative_path: str) -> List[str]:
-    notebook_dir, notebook_name = os.path.split(notebook_relative_path)
+def get_notebook_command(notebook_relative_path: str) -> list[str]:
+    _notebook_dir, notebook_name = os.path.split(notebook_relative_path)
     papermill_command = " ".join(
         [
-            "papermill -k python3 -f /valohai/config/parameters.yaml",
+            "papermill -k python3 -f /valohai/config/parameters.json",
             shlex.quote(
                 f"/valohai/repository/{notebook_relative_path.replace(os.sep, '/')}"
             ),

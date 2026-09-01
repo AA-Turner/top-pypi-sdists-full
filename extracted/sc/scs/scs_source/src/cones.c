@@ -1,20 +1,8 @@
-/*
- * Cone projection implementation.
- *
- * Handles projection onto the dual cone for all supported cone types:
- * zero/free, non-negative, box, second-order, semidefinite, complex
- * semidefinite, exponential, power, and (optionally) spectral cones.
- * Uses Moreau decomposition: proj_K*(x) = x + proj_K(-x).
- */
-
 #include "cones.h"
 #include "linalg.h"
 #include "scs.h"
 #include "scs_blas.h" /* contains BLAS(X) macros and type info */
 #include "util.h"
-
-#include <stdio.h>
-#include <string.h>
 
 /*
  * Cross-platform Complex Type Handling
@@ -117,7 +105,9 @@ scs_int SCS(proj_sum_largest_evals)(scs_float *tX, scs_int n, scs_int k,
 /* Forward declare exponential cone projection (exp_cone.c) */
 scs_float SCS(proj_pd_exp_cone)(scs_float *v0, scs_int primal);
 
-/* ======================== Memory Management ======================== */
+/*
+ * Memory Management
+ */
 
 void SCS(free_cone)(ScsCone *k) {
   if (k) {
@@ -151,31 +141,13 @@ void SCS(free_cone)(ScsCone *k) {
   }
 }
 
-scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
-  memset(dest, 0, sizeof(*dest));
-  dest->z = src->z;
-  dest->l = src->l;
-  dest->bsize = src->bsize;
-  dest->qsize = src->qsize;
-  dest->ssize = src->ssize;
-  dest->cssize = src->cssize;
-  dest->ep = src->ep;
-  dest->ed = src->ed;
-  dest->psize = src->psize;
-#ifdef USE_SPECTRAL_CONES
-  dest->dsize = src->dsize;
-  dest->nucsize = src->nucsize;
-  dest->ell1_size = src->ell1_size;
-  dest->sl_size = src->sl_size;
-#endif
+void SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
+  memcpy(dest, src, sizeof(ScsCone));
 
   /* Box cone */
   if (src->bsize > 1) {
     dest->bu = (scs_float *)scs_calloc(src->bsize - 1, sizeof(scs_float));
     dest->bl = (scs_float *)scs_calloc(src->bsize - 1, sizeof(scs_float));
-    if (!dest->bu || !dest->bl) {
-      return 0;
-    }
     memcpy(dest->bu, src->bu, (src->bsize - 1) * sizeof(scs_float));
     memcpy(dest->bl, src->bl, (src->bsize - 1) * sizeof(scs_float));
   } else {
@@ -186,9 +158,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   /* SOC */
   if (src->qsize > 0) {
     dest->q = (scs_int *)scs_calloc(src->qsize, sizeof(scs_int));
-    if (!dest->q) {
-      return 0;
-    }
     memcpy(dest->q, src->q, src->qsize * sizeof(scs_int));
   } else {
     dest->q = SCS_NULL;
@@ -197,9 +166,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   /* PSD */
   if (src->ssize > 0) {
     dest->s = (scs_int *)scs_calloc(src->ssize, sizeof(scs_int));
-    if (!dest->s) {
-      return 0;
-    }
     memcpy(dest->s, src->s, src->ssize * sizeof(scs_int));
   } else {
     dest->s = SCS_NULL;
@@ -208,9 +174,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   /* Complex PSD */
   if (src->cssize > 0) {
     dest->cs = (scs_int *)scs_calloc(src->cssize, sizeof(scs_int));
-    if (!dest->cs) {
-      return 0;
-    }
     memcpy(dest->cs, src->cs, src->cssize * sizeof(scs_int));
   } else {
     dest->cs = SCS_NULL;
@@ -219,9 +182,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   /* Power */
   if (src->psize > 0) {
     dest->p = (scs_float *)scs_calloc(src->psize, sizeof(scs_float));
-    if (!dest->p) {
-      return 0;
-    }
     memcpy(dest->p, src->p, src->psize * sizeof(scs_float));
   } else {
     dest->p = SCS_NULL;
@@ -231,9 +191,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   /* Logdet */
   if (src->dsize > 0) {
     dest->d = (scs_int *)scs_calloc(src->dsize, sizeof(scs_int));
-    if (!dest->d) {
-      return 0;
-    }
     memcpy(dest->d, src->d, src->dsize * sizeof(scs_int));
   } else {
     dest->d = SCS_NULL;
@@ -243,9 +200,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   if (src->nucsize > 0) {
     dest->nuc_m = (scs_int *)scs_calloc(src->nucsize, sizeof(scs_int));
     dest->nuc_n = (scs_int *)scs_calloc(src->nucsize, sizeof(scs_int));
-    if (!dest->nuc_m || !dest->nuc_n) {
-      return 0;
-    }
     memcpy(dest->nuc_m, src->nuc_m, src->nucsize * sizeof(scs_int));
     memcpy(dest->nuc_n, src->nuc_n, src->nucsize * sizeof(scs_int));
   } else {
@@ -256,9 +210,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   /* Ell1 */
   if (src->ell1_size > 0) {
     dest->ell1 = (scs_int *)scs_calloc(src->ell1_size, sizeof(scs_int));
-    if (!dest->ell1) {
-      return 0;
-    }
     memcpy(dest->ell1, src->ell1, src->ell1_size * sizeof(scs_int));
   } else {
     dest->ell1 = SCS_NULL;
@@ -268,9 +219,6 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
   if (src->sl_size > 0) {
     dest->sl_n = (scs_int *)scs_calloc(src->sl_size, sizeof(scs_int));
     dest->sl_k = (scs_int *)scs_calloc(src->sl_size, sizeof(scs_int));
-    if (!dest->sl_n || !dest->sl_k) {
-      return 0;
-    }
     memcpy(dest->sl_n, src->sl_n, src->sl_size * sizeof(scs_int));
     memcpy(dest->sl_k, src->sl_k, src->sl_size * sizeof(scs_int));
   } else {
@@ -278,7 +226,248 @@ scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src) {
     dest->sl_k = SCS_NULL;
   }
 #endif
-  return 1;
+}
+
+/*
+ * Helper Functions
+ */
+
+static inline scs_int get_sd_cone_size(scs_int s) {
+  return (s * (s + 1)) / 2;
+}
+static inline scs_int get_csd_cone_size(scs_int cs) {
+  return cs * cs;
+}
+
+void SCS(set_r_y)(const ScsConeWork *c, scs_float scale, scs_float *r_y) {
+  scs_int i;
+  /* z cone */
+  for (i = 0; i < c->k->z; ++i) {
+    /* set rho_y small for z, similar to rho_x term, since z corresponds to
+     * dual free cone, this effectively decreases penalty on those entries
+     * and lets them be determined almost entirely by the linear system solve
+     */
+    r_y[i] = 1.0 / (1000. * scale);
+  }
+  /* Remaining cones */
+  for (i = c->k->z; i < c->m; ++i) {
+    r_y[i] = 1.0 / scale;
+  }
+}
+
+/* The function f aggregates the entries within each cone */
+void SCS(enforce_cone_boundaries)(const ScsConeWork *c, scs_float *vec,
+                                  scs_float (*f)(const scs_float *, scs_int)) {
+  scs_int i, j, delta;
+  scs_int count = c->cone_boundaries[0];
+  scs_float wrk;
+  for (i = 1; i < c->cone_boundaries_len; ++i) {
+    delta = c->cone_boundaries[i];
+    wrk = f(&(vec[count]), delta);
+    for (j = count; j < count + delta; ++j) {
+      vec[j] = wrk;
+    }
+    count += delta;
+  }
+}
+
+/*
+ * Boundaries will contain array of indices of rows of A corresponding to
+ * cone boundaries, boundaries[0] is starting index for cones of size strictly
+ * larger than 1, boundaries malloc-ed here so should be freed.
+ */
+void set_cone_boundaries(const ScsCone *k, ScsConeWork *c) {
+  scs_int i, count = 0;
+#ifdef USE_SPECTRAL_CONES
+  scs_int total_cones = k->qsize + k->ssize + k->cssize + k->ed + k->ep +
+                        k->psize + k->dsize + k->nucsize + k->ell1_size +
+                        k->sl_size;
+#else
+  scs_int total_cones =
+      k->qsize + k->ssize + k->cssize + k->ed + k->ep + k->psize;
+#endif
+  scs_int *b = (scs_int *)scs_calloc(total_cones + 1, sizeof(scs_int));
+
+  /* Cones that can be scaled independently */
+  b[count++] = k->z + k->l + k->bsize;
+  for (i = 0; i < k->qsize; ++i)
+    b[count++] = k->q[i];
+  for (i = 0; i < k->ssize; ++i)
+    b[count++] = get_sd_cone_size(k->s[i]);
+  for (i = 0; i < k->cssize; ++i)
+    b[count++] = get_csd_cone_size(k->cs[i]);
+  for (i = 0; i < k->ep + k->ed; ++i)
+    b[count++] = 3;
+  for (i = 0; i < k->psize; ++i)
+    b[count++] = 3;
+
+#ifdef USE_SPECTRAL_CONES
+  for (i = 0; i < k->dsize; ++i)
+    b[count++] = get_sd_cone_size(k->d[i]) + 2;
+  for (i = 0; i < k->nucsize; ++i)
+    b[count++] = k->nuc_m[i] * k->nuc_n[i] + 1;
+  for (i = 0; i < k->ell1_size; ++i)
+    b[count++] = k->ell1[i] + 1;
+  for (i = 0; i < k->sl_size; ++i)
+    b[count++] = get_sd_cone_size(k->sl_n[i]) + 1;
+#endif
+
+  c->cone_boundaries = b;
+  c->cone_boundaries_len = total_cones + 1;
+}
+
+static scs_int get_full_cone_dims(const ScsCone *k) {
+  scs_int i, dims = k->z + k->l + k->bsize;
+  for (i = 0; i < k->qsize; ++i)
+    dims += k->q[i];
+  for (i = 0; i < k->ssize; ++i)
+    dims += get_sd_cone_size(k->s[i]);
+  for (i = 0; i < k->cssize; ++i)
+    dims += get_csd_cone_size(k->cs[i]);
+  dims += 3 * (k->ed + k->ep + k->psize);
+#ifdef USE_SPECTRAL_CONES
+  for (i = 0; i < k->dsize; ++i)
+    dims += get_sd_cone_size(k->d[i]) + 2;
+  for (i = 0; i < k->nucsize; ++i)
+    dims += k->nuc_m[i] * k->nuc_n[i] + 1;
+  for (i = 0; i < k->ell1_size; ++i)
+    dims += k->ell1[i] + 1;
+  for (i = 0; i < k->sl_size; ++i)
+    dims += get_sd_cone_size(k->sl_n[i]) + 1;
+#endif
+  return dims;
+}
+
+scs_int SCS(validate_cones)(const ScsData *d, const ScsCone *k) {
+  scs_int i;
+  if (get_full_cone_dims(k) != d->m) {
+    scs_printf("Error: Cone dims %li != rows in A %li\n",
+               (long)get_full_cone_dims(k), (long)d->m);
+    return -1;
+  }
+  if (k->z && k->z < 0) {
+    scs_printf("free cone dimension error\n");
+    return -1;
+  }
+  if (k->l && k->l < 0) {
+    scs_printf("lp cone dimension error\n");
+    return -1;
+  }
+  if (k->bsize) {
+    if (k->bsize < 0) {
+      scs_printf("box cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->bsize - 1; ++i) {
+      if (k->bl[i] > k->bu[i]) {
+        scs_printf("infeasible: box lower bound larger than upper bound\n");
+        return -1;
+      }
+    }
+  }
+  if (k->qsize && k->q) {
+    if (k->qsize < 0) {
+      scs_printf("soc cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->qsize; ++i) {
+      if (k->q[i] < 0) {
+        scs_printf("soc cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+  if (k->ssize && k->s) {
+    if (k->ssize < 0) {
+      scs_printf("sd cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->ssize; ++i) {
+      if (k->s[i] < 0) {
+        scs_printf("sd cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+  if (k->cssize && k->cs) {
+    if (k->cssize < 0) {
+      scs_printf("complex psd cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->cssize; ++i) {
+      if (k->cs[i] < 0) {
+        scs_printf("complex psd cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+  if (k->ed && k->ed < 0) {
+    scs_printf("ep cone dimension error\n");
+    return -1;
+  }
+  if (k->ep && k->ep < 0) {
+    scs_printf("ed cone dimension error\n");
+    return -1;
+  }
+  if (k->psize && k->p) {
+    if (k->psize < 0) {
+      scs_printf("power cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->psize; ++i) {
+      if (k->p[i] < -1 || k->p[i] > 1) {
+        scs_printf("power cone error, values must be in [-1,1]\n");
+        return -1;
+      }
+    }
+  }
+#ifdef USE_SPECTRAL_CONES
+  if (k->dsize && k->d) {
+    if (k->dsize < 0) {
+      scs_printf("logdet cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->dsize; ++i) {
+      if (k->d[i] < 1) {
+        scs_printf("logdet cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+  if (k->nucsize && k->nuc_m && k->nuc_n) {
+    if (k->nucsize < 0) {
+      scs_printf("nuclear cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->nucsize; ++i) {
+      if (k->nuc_m[i] < 1 || k->nuc_n[i] < 1 || k->nuc_n[i] > k->nuc_m[i]) {
+        scs_printf("nuclear norm cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+  if (k->ell1_size && k->ell1) {
+    if (k->ell1_size < 0) {
+      scs_printf("ell1 cone dimension error\n");
+      return -1;
+    }
+    for (i = 0; i < k->ell1_size; ++i) {
+      if (k->ell1[i] < 1) {
+        scs_printf("ell1 cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+  if (k->sl_size && k->sl_n && k->sl_k) {
+    for (i = 0; i < k->sl_size; ++i) {
+      if ((k->sl_k[i] >= k->sl_n[i]) || k->sl_k[i] <= 0) {
+        scs_printf("sum-of-largest-eigenvalues cone dimension error\n");
+        return -1;
+      }
+    }
+  }
+#endif
+  return 0;
 }
 
 void SCS(finish_cone)(ScsConeWork *c) {
@@ -307,12 +496,6 @@ void SCS(finish_cone)(ScsConeWork *c) {
 #endif
   if (c->cone_boundaries)
     scs_free(c->cone_boundaries);
-  if (c->cone_boundaries_psd_n)
-    scs_free(c->cone_boundaries_psd_n);
-  if (c->psd_gamma)
-    scs_free(c->psd_gamma);
-  if (c->r_box_inv)
-    scs_free(c->r_box_inv);
   if (c->s)
     scs_free(c->s);
 
@@ -341,523 +524,89 @@ void SCS(finish_cone)(ScsConeWork *c) {
   scs_free(c);
 }
 
-/* ========================= Cone Utilities ============================ */
-
-static inline scs_int get_sd_cone_size(scs_int s) {
-  return (s * (s + 1)) / 2;
-}
-static inline scs_int get_csd_cone_size(scs_int cs) {
-  return cs * cs;
-}
-
-void SCS(set_r_y)(const ScsConeWork *c, scs_float scale, scs_float *r_y) {
-  scs_int i;
-  /* z cone */
-  for (i = 0; i < c->k->z; ++i) {
-    /* set rho_y small for z, similar to rho_x term, since z corresponds to
-     * dual free cone, this effectively decreases penalty on those entries
-     * and lets them be determined almost entirely by the linear system solve
-     */
-    r_y[i] = 1.0 / (1000. * scale);
-  }
-  /* Remaining cones */
-  for (i = c->k->z; i < c->m; ++i) {
-    r_y[i] = 1.0 / scale;
-  }
-}
-
-/* svec packed index of entry (i, j), i >= j, in an n x n lower
- * triangle stored column-major. */
-static scs_int svec_idx(scs_int i, scs_int j, scs_int n) {
-  return j * n - (j * (j - 1)) / 2 + (i - j);
-}
-
-/* Fit the rank-one form w_ij = delta_i * delta_j to a positive profile
- * on one PSD block (svec packed, length n(n+1)/2) by least squares in
- * log space, and overwrite the block with the fitted values. This is
- * the richest svec-diagonal metric that maps the PSD cone to itself
- * (the diagonal congruence X -> diag(delta) X diag(delta)), so unlike
- * generic cones the block need not collapse to a single scalar.
- *
- * Normal equations: minimizing sum_{i<=j} (l_i + l_j - y_ij)^2 gives
- * A'A = (n+2) I + 11', inverted in closed form by Sherman-Morrison.
- * The fitted delta_i are clamped so every product w_ij stays within
- * [DIAG_SCALE_MULT_MIN, DIAG_SCALE_MULT_MAX], preserving rank-one
- * structure (clamping products directly would break it). */
-static void fit_psd_block_weights(scs_float *vec, scs_int n) {
-  scs_int i, j;
-  scs_float alpha = (scs_float)(n + 2);
-  scs_float rhs_sum = 0., corr, li;
-  scs_float lo = SQRTF(DIAG_SCALE_MULT_MIN), hi = SQRTF(DIAG_SCALE_MULT_MAX);
-  scs_float *ell = (scs_float *)scs_calloc(n, sizeof(scs_float));
-  if (!ell) {
-    return; /* leave profile as-is; caller falls back to scalar */
-  }
-  /* Floor entries relative to the block max: (near-)zero rows carry no
-   * information about the block's scale structure (e.g. unconstrained
-   * off-diagonal svec rows are exactly zero in the equilibration
-   * profile) and an absolute floor lets them dominate the fit. */
-  {
-    scs_float vmax = 0., vfloor;
-    scs_int sz = (n * (n + 1)) / 2;
-    for (i = 0; i < sz; ++i) {
-      vmax = MAX(vmax, vec[i]);
-    }
-    vfloor = MAX(1e-3 * vmax, 1e-12);
-    for (i = 0; i < sz; ++i) {
-      vec[i] = MAX(vec[i], vfloor);
-    }
-  }
-
-  /* rhs_k = 2 y_kk + sum_{j != k} y_kj */
-  for (j = 0; j < n; ++j) {
-    for (i = j; i < n; ++i) {
-      scs_float y = log(vec[svec_idx(i, j, n)]);
-      if (i == j) {
-        ell[i] += 2. * y;
-      } else {
-        ell[i] += y;
-        ell[j] += y;
-      }
-    }
-  }
-  for (i = 0; i < n; ++i) {
-    rhs_sum += ell[i];
-  }
-  /* (alpha I + 11')^{-1} rhs = rhs/alpha - 1 (1'rhs) / (alpha(alpha+n)) */
-  corr = rhs_sum / (alpha * (alpha + (scs_float)n));
-  for (i = 0; i < n; ++i) {
-    li = exp(ell[i] / alpha - corr);
-    ell[i] = MIN(MAX(li, lo), hi);
-  }
-  for (j = 0; j < n; ++j) {
-    for (i = j; i < n; ++i) {
-      vec[svec_idx(i, j, n)] = ell[i] * ell[j];
-    }
-  }
-  scs_free(ell);
-}
-
-/* The function f aggregates the entries within each cone. With
- * psd_rank1 set, real PSD blocks instead get the rank-one (diagonal
- * congruence) fit, which is cone-invariant and strictly more
- * expressive than a single scalar. The fit is only safe for the
- * one-shot dynamic metric update: applied inside the iterated Ruiz
- * equilibration loop it compounds pass over pass instead of
- * contracting and destroys the scaling (mcp100 diverges), so the
- * equilibration call sites keep the scalar collapse. */
-void SCS(enforce_cone_boundaries)(const ScsConeWork *c, scs_float *vec,
-                                  scs_float (*f)(const scs_float *, scs_int),
-                                  scs_int psd_rank1) {
-  scs_int i, j, delta;
-  scs_int count = c->cone_boundaries[0];
-  scs_float wrk;
-  for (i = 1; i < c->cone_boundaries_len; ++i) {
-    delta = c->cone_boundaries[i];
-    if (psd_rank1 && c->cone_boundaries_psd_n &&
-        c->cone_boundaries_psd_n[i] > 1) {
-      fit_psd_block_weights(&(vec[count]), c->cone_boundaries_psd_n[i]);
-    } else {
-      wrk = f(&(vec[count]), delta);
-      for (j = count; j < count + delta; ++j) {
-        vec[j] = wrk;
-      }
-    }
-    count += delta;
-  }
-}
-
-/*
- * Boundaries will contain array of indices of rows of A corresponding to
- * cone boundaries, boundaries[0] is starting index for cones of size strictly
- * larger than 1, boundaries malloc-ed here so should be freed.
- */
-void set_cone_boundaries(const ScsCone *k, ScsConeWork *c) {
-  scs_int i, count = 0;
-#ifdef USE_SPECTRAL_CONES
-  scs_int total_cones = k->qsize + k->ssize + k->cssize + k->ed + k->ep +
-                        k->psize + k->dsize + k->nucsize + k->ell1_size +
-                        k->sl_size;
-#else
-  scs_int total_cones =
-      k->qsize + k->ssize + k->cssize + k->ed + k->ep + k->psize;
-#endif
-  scs_int *b = (scs_int *)scs_calloc(total_cones + 1, sizeof(scs_int));
-  scs_int *psd_n = (scs_int *)scs_calloc(total_cones + 1, sizeof(scs_int));
-
-  /* Cones that can be scaled independently */
-  b[count++] = k->z + k->l + k->bsize;
-  for (i = 0; i < k->qsize; ++i)
-    b[count++] = k->q[i];
-  for (i = 0; i < k->ssize; ++i) {
-    psd_n[count] = k->s[i];
-    b[count++] = get_sd_cone_size(k->s[i]);
-  }
-  for (i = 0; i < k->cssize; ++i)
-    b[count++] = get_csd_cone_size(k->cs[i]);
-  for (i = 0; i < k->ep + k->ed; ++i)
-    b[count++] = 3;
-  for (i = 0; i < k->psize; ++i)
-    b[count++] = 3;
-
-#ifdef USE_SPECTRAL_CONES
-  for (i = 0; i < k->dsize; ++i)
-    b[count++] = get_sd_cone_size(k->d[i]) + 2;
-  for (i = 0; i < k->nucsize; ++i)
-    b[count++] = k->nuc_m[i] * k->nuc_n[i] + 1;
-  for (i = 0; i < k->ell1_size; ++i)
-    b[count++] = k->ell1[i] + 1;
-  for (i = 0; i < k->sl_size; ++i)
-    b[count++] = get_sd_cone_size(k->sl_n[i]) + 1;
-#endif
-
-  c->cone_boundaries = b;
-  c->cone_boundaries_len = total_cones + 1;
-  c->cone_boundaries_psd_n = psd_n;
-}
-
-static scs_int get_full_cone_dims(const ScsCone *k) {
-  scs_int i, dims = k->z + k->l + k->bsize;
-  for (i = 0; i < k->qsize; ++i)
-    dims += k->q[i];
-  for (i = 0; i < k->ssize; ++i)
-    dims += get_sd_cone_size(k->s[i]);
-  for (i = 0; i < k->cssize; ++i)
-    dims += get_csd_cone_size(k->cs[i]);
-  dims += 3 * (k->ed + k->ep + k->psize);
-#ifdef USE_SPECTRAL_CONES
-  for (i = 0; i < k->dsize; ++i)
-    dims += get_sd_cone_size(k->d[i]) + 2;
-  for (i = 0; i < k->nucsize; ++i)
-    dims += k->nuc_m[i] * k->nuc_n[i] + 1;
-  for (i = 0; i < k->ell1_size; ++i)
-    dims += k->ell1[i] + 1;
-  for (i = 0; i < k->sl_size; ++i)
-    dims += get_sd_cone_size(k->sl_n[i]) + 1;
-#endif
-  return dims;
-}
-
-/* If buf is NULL, only accumulate the length that would be written.
- * Otherwise append chunk, including its trailing '\0', at the current offset.
- */
-static void append_to_header(char *buf, size_t *len, const char *chunk) {
-  size_t chunk_len = strlen(chunk);
-  if (buf) {
-    memcpy(buf + *len, chunk, chunk_len + 1);
-  }
-  *len += chunk_len;
-}
-
-/* Format the cone summary in one shared code path.
- *
- * When buf is NULL, this function performs a sizing pass only and updates
- * *len with the number of characters required for the final string.
- * When buf is non-NULL, it writes the same formatted output into buf and
- * advances *len as it appends each line.
- *
- * This supports a two-pass implementation in get_cone_header:
- * 1. call with buf == NULL to compute the exact allocation size
- * 2. allocate once
- * 3. call again with buf != NULL to render the final string
- */
-static void format_cone_header(const ScsCone *k, char *buf, size_t *len) {
-  char line[128];
+char *SCS(get_cone_header)(const ScsCone *k) {
+  char *tmp = (char *)scs_malloc(512);
   scs_int i, count;
-#ifdef USE_SPECTRAL_CONES
-  scs_int ell1_vars, log_vars, nuc_vars, sl_vars;
-#endif
 
-  append_to_header(buf, len, "cones: ");
-  if (k->z) {
-    sprintf(line, "\t  z: primal zero / dual free vars: %li\n", (long)k->z);
-    append_to_header(buf, len, line);
-  }
-  if (k->l) {
-    sprintf(line, "\t  l: linear vars: %li\n", (long)k->l);
-    append_to_header(buf, len, line);
-  }
-  if (k->bsize) {
-    sprintf(line, "\t  b: box cone vars: %li\n", (long)k->bsize);
-    append_to_header(buf, len, line);
-  }
+  sprintf(tmp, "cones: ");
+  if (k->z)
+    sprintf(tmp + strlen(tmp), "\t  z: primal zero / dual free vars: %li\n",
+            (long)k->z);
+  if (k->l)
+    sprintf(tmp + strlen(tmp), "\t  l: linear vars: %li\n", (long)k->l);
+  if (k->bsize)
+    sprintf(tmp + strlen(tmp), "\t  b: box cone vars: %li\n", (long)k->bsize);
+
   if (k->qsize) {
     count = 0;
     for (i = 0; i < k->qsize; ++i)
       count += k->q[i];
-    sprintf(line, "\t  q: soc vars: %li, qsize: %li\n", (long)count,
-            (long)k->qsize);
-    append_to_header(buf, len, line);
+    sprintf(tmp + strlen(tmp), "\t  q: soc vars: %li, qsize: %li\n",
+            (long)count, (long)k->qsize);
   }
   if (k->ssize) {
     count = 0;
     for (i = 0; i < k->ssize; ++i)
       count += get_sd_cone_size(k->s[i]);
-    sprintf(line, "\t  s: psd vars: %li, ssize: %li\n", (long)count,
-            (long)k->ssize);
-    append_to_header(buf, len, line);
+    sprintf(tmp + strlen(tmp), "\t  s: psd vars: %li, ssize: %li\n",
+            (long)count, (long)k->ssize);
   }
   if (k->cssize) {
     count = 0;
     for (i = 0; i < k->cssize; ++i)
       count += get_csd_cone_size(k->cs[i]);
-    sprintf(line, "\t  cs: complex psd vars: %li, cssize: %li\n", (long)count,
-            (long)k->cssize);
-    append_to_header(buf, len, line);
+    sprintf(tmp + strlen(tmp), "\t  cs: complex psd vars: %li, cssize: %li\n",
+            (long)count, (long)k->cssize);
   }
   if (k->ep || k->ed) {
-    sprintf(line, "\t  e: exp vars: %li, dual exp vars: %li\n",
+    sprintf(tmp + strlen(tmp), "\t  e: exp vars: %li, dual exp vars: %li\n",
             (long)(3 * k->ep), (long)(3 * k->ed));
-    append_to_header(buf, len, line);
   }
   if (k->psize) {
-    sprintf(line, "\t  p: primal + dual power vars: %li\n",
+    sprintf(tmp + strlen(tmp), "\t  p: primal + dual power vars: %li\n",
             (long)(3 * k->psize));
-    append_to_header(buf, len, line);
   }
 #ifdef USE_SPECTRAL_CONES
+  scs_int ell1_vars, log_vars, nuc_vars, sl_vars;
   log_vars = 0;
   if (k->dsize && k->d) {
     for (i = 0; i < k->dsize; i++) {
       log_vars += get_sd_cone_size(k->d[i]) + 2;
     }
-    sprintf(line, "\t  d: logdet vars: %li, dsize: %li\n", (long)log_vars,
-            (long)k->dsize);
-    append_to_header(buf, len, line);
+    sprintf(tmp + strlen(tmp), "\t  d: logdet vars: %li, dsize: %li\n",
+            (long)log_vars, (long)k->dsize);
   }
   nuc_vars = 0;
   if (k->nucsize && k->nuc_m && k->nuc_n) {
     for (i = 0; i < k->nucsize; i++) {
       nuc_vars += k->nuc_m[i] * k->nuc_n[i] + 1;
     }
-    sprintf(line, "\t  nuc: nuclear vars: %li, nucsize: %li\n",
+    sprintf(tmp + strlen(tmp), "\t  nuc: nuclear vars: %li, nucsize: %li\n",
             (long)nuc_vars, (long)k->nucsize);
-    append_to_header(buf, len, line);
   }
   ell1_vars = 0;
   if (k->ell1_size && k->ell1) {
     for (i = 0; i < k->ell1_size; ++i) {
-      ell1_vars += k->ell1[i] + 1;
+      ell1_vars += k->ell1[i];
     }
-    sprintf(line, "\t  ell1: ell1 vars: %li, ell1_size: %li\n",
+    sprintf(tmp + strlen(tmp), "\t  ell1: ell1 vars: %li, ell1_size: %li\n",
             (long)ell1_vars, (long)k->ell1_size);
-    append_to_header(buf, len, line);
   }
+
   sl_vars = 0;
   if (k->sl_size && k->sl_n) {
     for (i = 0; i < k->sl_size; ++i) {
       sl_vars += get_sd_cone_size(k->sl_n[i]) + 1;
     }
-    sprintf(line, "\t  sl: sl vars: %li, sl_size: %li\n", (long)sl_vars,
-            (long)k->sl_size);
-    append_to_header(buf, len, line);
+    sprintf(tmp + strlen(tmp), "\t  sl: sl vars: %li, sl_size: %li\n",
+            (long)sl_vars, (long)k->sl_size);
   }
 #endif
-}
-
-char *SCS(get_cone_header)(const ScsCone *k) {
-  char *tmp;
-  size_t len = 0;
-
-  format_cone_header(k, SCS_NULL, &len);
-
-  tmp = (char *)scs_malloc(len + 1);
-  if (!tmp) {
-    return SCS_NULL;
-  }
-
-  len = 0;
-  format_cone_header(k, tmp, &len);
   return tmp;
 }
 
-/* ========================== Validation =============================== */
-
-scs_int SCS(validate_cones)(const ScsData *d, const ScsCone *k) {
-  scs_int i;
-  scs_int cone_dims;
-  if (k->z < 0) {
-    scs_printf("free cone dimension error\n");
-    return -1;
-  }
-  if (k->l < 0) {
-    scs_printf("lp cone dimension error\n");
-    return -1;
-  }
-  if (k->bsize < 0) {
-    scs_printf("box cone dimension error\n");
-    return -1;
-  }
-  if (k->bsize > 1) {
-    if (!k->bl || !k->bu) {
-      scs_printf("box cone bounds missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->bsize - 1; ++i) {
-      if (isnan(k->bl[i]) || isnan(k->bu[i])) {
-        scs_printf("box cone bounds cannot be NaN\n");
-        return -1;
-      }
-      if (k->bl[i] == INFINITY || k->bu[i] == -INFINITY) {
-        scs_printf("box cone bounds use invalid infinity direction\n");
-        return -1;
-      }
-      if (k->bl[i] > k->bu[i]) {
-        scs_printf("infeasible: box lower bound larger than upper bound\n");
-        return -1;
-      }
-    }
-  }
-  if (k->qsize < 0) {
-    scs_printf("soc cone dimension error\n");
-    return -1;
-  }
-  if (k->qsize > 0) {
-    if (!k->q) {
-      scs_printf("soc cone array missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->qsize; ++i) {
-      if (k->q[i] < 0) {
-        scs_printf("soc cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-  if (k->ssize < 0) {
-    scs_printf("sd cone dimension error\n");
-    return -1;
-  }
-  if (k->ssize > 0) {
-    if (!k->s) {
-      scs_printf("sd cone array missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->ssize; ++i) {
-      if (k->s[i] < 0) {
-        scs_printf("sd cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-  if (k->cssize < 0) {
-    scs_printf("complex psd cone dimension error\n");
-    return -1;
-  }
-  if (k->cssize > 0) {
-    if (!k->cs) {
-      scs_printf("complex psd cone array missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->cssize; ++i) {
-      if (k->cs[i] < 0) {
-        scs_printf("complex psd cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-  if (k->ed < 0) {
-    scs_printf("ed cone dimension error\n");
-    return -1;
-  }
-  if (k->ep < 0) {
-    scs_printf("ep cone dimension error\n");
-    return -1;
-  }
-  if (k->psize < 0) {
-    scs_printf("power cone dimension error\n");
-    return -1;
-  }
-  if (k->psize > 0) {
-    if (!k->p) {
-      scs_printf("power cone array missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->psize; ++i) {
-      if (!isfinite(k->p[i]) || k->p[i] < -1 || k->p[i] > 1) {
-        scs_printf("power cone error, values must be finite and in [-1,1]\n");
-        return -1;
-      }
-    }
-  }
-#ifdef USE_SPECTRAL_CONES
-  if (k->dsize < 0) {
-    scs_printf("logdet cone dimension error\n");
-    return -1;
-  }
-  if (k->dsize > 0) {
-    if (!k->d) {
-      scs_printf("logdet cone array missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->dsize; ++i) {
-      if (k->d[i] < 1) {
-        scs_printf("logdet cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-  if (k->nucsize < 0) {
-    scs_printf("nuclear cone dimension error\n");
-    return -1;
-  }
-  if (k->nucsize > 0) {
-    if (!k->nuc_m || !k->nuc_n) {
-      scs_printf("nuclear cone arrays missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->nucsize; ++i) {
-      if (k->nuc_m[i] < 1 || k->nuc_n[i] < 1 || k->nuc_n[i] > k->nuc_m[i]) {
-        scs_printf("nuclear norm cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-  if (k->ell1_size < 0) {
-    scs_printf("ell1 cone dimension error\n");
-    return -1;
-  }
-  if (k->ell1_size > 0) {
-    if (!k->ell1) {
-      scs_printf("ell1 cone array missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->ell1_size; ++i) {
-      if (k->ell1[i] < 1) {
-        scs_printf("ell1 cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-  if (k->sl_size < 0) {
-    scs_printf("sum-of-largest-eigenvalues cone dimension error\n");
-    return -1;
-  }
-  if (k->sl_size > 0) {
-    if (!k->sl_n || !k->sl_k) {
-      scs_printf("sum-of-largest-eigenvalues cone arrays missing\n");
-      return -1;
-    }
-    for (i = 0; i < k->sl_size; ++i) {
-      if ((k->sl_k[i] >= k->sl_n[i]) || k->sl_k[i] <= 0) {
-        scs_printf("sum-of-largest-eigenvalues cone dimension error\n");
-        return -1;
-      }
-    }
-  }
-#endif
-  cone_dims = get_full_cone_dims(k);
-  if (cone_dims != d->m) {
-    scs_printf("Error: Cone dims %li != rows in A %li\n", (long)cone_dims,
-               (long)d->m);
-    return -1;
-  }
-  return 0;
-}
-
-/* ======================== Workspace Setup ============================= */
-
 /*
+ * Workspace Setup
  * Consolidated setup for Real PSD, Complex PSD, and Spectral cones.
  */
 static scs_int set_up_cone_work_spaces(ScsConeWork *c, const ScsCone *k) {
@@ -935,7 +684,6 @@ static scs_int set_up_cone_work_spaces(ScsConeWork *c, const ScsCone *k) {
    * 'e' stores eigenvalues, 'isuppz' supports them. Shared by Real/Complex.
    */
   c->e = (scs_float *)scs_calloc(n_max, sizeof(scs_float));
-  c->psd_gamma = (scs_float *)scs_calloc(n_max, sizeof(scs_float));
   c->isuppz = (blas_int *)scs_calloc(MAX(2, 2 * n_max), sizeof(blas_int));
   if (!c->e || !c->isuppz)
     return -1;
@@ -1085,23 +833,11 @@ static scs_int set_up_ell1_cone_work_space(ScsConeWork *c, const ScsCone *k) {
 }
 #endif
 
-/* ====================== Cone Projections ============================= */
-
 /*
  * Projection: Real Semi-Definite Cone
  */
-/* Project one svec-packed block onto the PSD cone. When rho (the
- * block's slice of the diagonal metric R) is non-uniform it must have
- * the rank-one structure w_ij = delta_i * delta_j (enforced by
- * fit_psd_block_weights). The projection under the induced R^{-1}
- * metric is then a diagonal congruence sandwich: with gamma_i =
- * w_ii^{-1/4}, project Gamma X Gamma and unscale. Positive homogeneity
- * of the cone makes any uniform factor in rho drop out, so the
- * historical scalar-per-block case reduces to the unscaled path. */
 static scs_int proj_semi_definite_cone(scs_float *X, const scs_int n,
-                                       ScsConeWork *c,
-                                       const scs_float *rho) {
-  scs_int scaled = 0;
+                                       ScsConeWork *c) {
   if (n == 0)
     return 0;
   if (n == 1) {
@@ -1118,31 +854,6 @@ static scs_int proj_semi_definite_cone(scs_float *X, const scs_int n,
   scs_float abstol = -1.0, d_f = 0.0, sq_eig;
   blas_int m = 0, d_i = 0;
   scs_int first_idx = -1;
-
-  /* Diagonal-congruence pre-scale (skip when the metric is uniform on
-   * this block so the historical path stays bit-identical). */
-  if (rho && c->psd_gamma) {
-    scs_float wmin = rho[0], wmax = rho[0];
-    for (i = 1; i < n; ++i) {
-      scs_float wii = rho[i * n - ((i - 1) * i) / 2];
-      wmin = MIN(wmin, wii);
-      wmax = MAX(wmax, wii);
-    }
-    if (wmax > wmin * (1. + 1e-12)) {
-      scs_int jj, ii;
-      scaled = 1;
-      for (i = 0; i < n; ++i) {
-        c->psd_gamma[i] = POWF(rho[i * n - ((i - 1) * i) / 2], -0.25);
-      }
-      for (jj = 0; jj < n; ++jj) {
-        scs_float gj = c->psd_gamma[jj];
-        scs_float *col = &(X[jj * n - ((jj - 1) * jj) / 2]);
-        for (ii = jj; ii < n; ++ii) {
-          col[ii - jj] *= c->psd_gamma[ii] * gj;
-        }
-      }
-    }
-  }
 
   /* Copy lower triangular part to full matrix buffer Xs */
   for (i = 0; i < n; ++i) {
@@ -1188,18 +899,6 @@ static scs_int proj_semi_definite_cone(scs_float *X, const scs_int n,
   for (i = 0; i < n; ++i) {
     memcpy(&(X[i * n - ((i - 1) * i) / 2]), &(c->Xs[i * (n + 1)]),
            (n - i) * sizeof(scs_float));
-  }
-
-  /* Undo the congruence pre-scale */
-  if (scaled) {
-    scs_int jj, ii;
-    for (jj = 0; jj < n; ++jj) {
-      scs_float gj = c->psd_gamma[jj];
-      scs_float *col = &(X[jj * n - ((jj - 1) * jj) / 2]);
-      for (ii = jj; ii < n; ++ii) {
-        col[ii - jj] /= c->psd_gamma[ii] * gj;
-      }
-    }
   }
   return 0;
 #else
@@ -1322,8 +1021,7 @@ static void normalize_box_cone(ScsCone *k, scs_float *D, scs_int bsize) {
 */
 static scs_float proj_box_cone(scs_float *tx, const scs_float *bl,
                                const scs_float *bu, scs_int bsize,
-                               scs_float t_wm, scs_float *r_box,
-                               scs_float *r_box_inv) {
+                               scs_float t_wm, scs_float *r_box) {
   scs_float *x = &(tx[1]);
   scs_float gt, ht, t = t_wm, t_prev, r;
   scs_float rho_t = 1.0;
@@ -1337,12 +1035,6 @@ static scs_float proj_box_cone(scs_float *tx, const scs_float *bl,
   if (r_box) {
     rho_t = 1.0 / r_box[0];
     rho = &(r_box[1]);
-    /* Precompute reciprocals once, used across all Newton iterations */
-    if (r_box_inv) {
-      for (j = 0; j < bsize - 1; j++) {
-        r_box_inv[j] = 1.0 / rho[j];
-      }
-    }
   }
 
   /* Newton's method for t */
@@ -1352,7 +1044,7 @@ static scs_float proj_box_cone(scs_float *tx, const scs_float *bl,
     ht = rho_t;
 
     for (j = 0; j < bsize - 1; j++) {
-      r = (rho && r_box_inv) ? r_box_inv[j] : 1.0;
+      r = rho ? 1.0 / rho[j] : 1.0;
       if (x[j] > t * bu[j]) {
         gt += r * (t * bu[j] - x[j]) * bu[j];
         ht += r * bu[j] * bu[j];
@@ -1389,7 +1081,6 @@ static scs_float proj_box_cone(scs_float *tx, const scs_float *bl,
  * Projection: Second Order Cone
  */
 static void proj_soc(scs_float *x, scs_int q) {
-  scs_float v1, s, alpha;
   if (q <= 0)
     return;
   if (q == 1) {
@@ -1397,17 +1088,9 @@ static void proj_soc(scs_float *x, scs_int q) {
     return;
   }
 
-  v1 = x[0];
-  /* Fast paths for the two most common small SOC sizes avoid BLAS call
-   * overhead (function pointer dispatch + Fortran ABI arguments). */
-  if (q == 2) {
-    s = ABS(x[1]);
-  } else if (q == 3) {
-    s = SQRTF(x[1] * x[1] + x[2] * x[2]);
-  } else {
-    s = SCS(norm_2)(&(x[1]), q - 1);
-  }
-  alpha = (s + v1) / 2.0;
+  scs_float v1 = x[0];
+  scs_float s = SCS(norm_2)(&(x[1]), q - 1);
+  scs_float alpha = (s + v1) / 2.0;
 
   if (s <= v1)
     return;       /* Inside cone */
@@ -1426,6 +1109,12 @@ static scs_float pow_calc_x(scs_float r, scs_float xh, scs_float rh,
                             scs_float a) {
   scs_float x = 0.5 * (xh + SQRTF(xh * xh + 4 * a * (rh - r) * r));
   return MAX(x, 1e-12);
+}
+
+static scs_float pow_calc_fp(scs_float x, scs_float y, scs_float dxdr,
+                             scs_float dydr, scs_float a) {
+  return POWF(x, a) * POWF(y, (1 - a)) * (a * dxdr / x + (1 - a) * dydr / y) -
+         1;
 }
 
 static void proj_power_cone(scs_float *v, scs_float a) {
@@ -1448,21 +1137,17 @@ static void proj_power_cone(scs_float *v, scs_float a) {
 
   r = rh / 2;
   for (i = 0; i < POW_CONE_MAX_ITERS; ++i) {
-    scs_float f, fp, dxdr, dydr, xa, y1a;
+    scs_float f, fp, dxdr, dydr;
     x = pow_calc_x(r, xh, rh, a);
     y = pow_calc_x(r, yh, rh, 1 - a);
 
-    /* Cache POWF(x,a) and POWF(y,1-a): both are needed for f and fp,
-     * so computing them once saves two POWF calls per Newton iteration. */
-    xa  = POWF(x, a);
-    y1a = POWF(y, (1 - a));
-    f = xa * y1a - r;
+    f = POWF(x, a) * POWF(y, (1 - a)) - r;
     if (ABS(f) < POW_CONE_TOL)
       break;
 
     dxdr = a * (rh - 2 * r) / (2 * x - xh);
     dydr = (1 - a) * (rh - 2 * r) / (2 * y - yh);
-    fp = xa * y1a * (a * dxdr / x + (1 - a) * dydr / y) - 1;
+    fp = pow_calc_fp(x, y, dxdr, dydr, a);
 
     r = MAX(r - f / fp, 0);
     r = MIN(r, rh);
@@ -1471,8 +1156,6 @@ static void proj_power_cone(scs_float *v, scs_float a) {
   v[1] = y;
   v[2] = (v[2] < 0) ? -r : r;
 }
-
-/* ================ Main Cone Projection Dispatch ====================== */
 
 /* Project onto the primal K cone in the paper */
 /* The r_y vector determines the INVERSE metric, ie, project under the
@@ -1504,8 +1187,7 @@ static scs_int proj_cone(scs_float *x, const ScsCone *k, ScsConeWork *c,
     if (r_y)
       r_box = &(r_y[count]);
     c->box_t_warm_start = proj_box_cone(&(x[count]), k->bl, k->bu, k->bsize,
-                                        c->box_t_warm_start, r_box,
-                                        c->r_box_inv);
+                                        c->box_t_warm_start, r_box);
     count += k->bsize;
   }
 
@@ -1523,8 +1205,7 @@ static scs_int proj_cone(scs_float *x, const ScsCone *k, ScsConeWork *c,
 #ifdef USE_SPECTRAL_CONES
       SPECTRAL_TIMING(SCS(tic)(&spec_mat_proj_timer);)
 #endif
-      status = proj_semi_definite_cone(&(x[count]), k->s[i], c,
-                                       r_y ? &(r_y[count]) : SCS_NULL);
+      status = proj_semi_definite_cone(&(x[count]), k->s[i], c);
 #ifdef USE_SPECTRAL_CONES
       SPECTRAL_TIMING(c->tot_time_mat_cone_proj +=
                       SCS(tocq)(&spec_mat_proj_timer);)
@@ -1635,7 +1316,9 @@ static scs_int proj_cone(scs_float *x, const ScsCone *k, ScsConeWork *c,
   return 0;
 }
 
-/* =========================== Public API ============================== */
+/*
+ * Public API
+ */
 
 ScsConeWork *SCS(init_cone)(ScsCone *k, scs_int m) {
   ScsConeWork *c = (ScsConeWork *)scs_calloc(1, sizeof(ScsConeWork));
@@ -1648,12 +1331,6 @@ ScsConeWork *SCS(init_cone)(ScsCone *k, scs_int m) {
 
   set_cone_boundaries(k, c);
   c->s = (scs_float *)scs_calloc(m, sizeof(scs_float));
-
-  /* Preallocate workspace for box cone reciprocal metric */
-  if (k->bsize > 1) {
-    c->r_box_inv =
-        (scs_float *)scs_calloc(k->bsize - 1, sizeof(scs_float));
-  }
 
   /* Set up workspaces if matrix cones are present */
   if ((k->ssize && k->s) || (k->cssize && k->cs)
@@ -1677,6 +1354,16 @@ ScsConeWork *SCS(init_cone)(ScsCone *k, scs_int m) {
 #endif
 
   return c;
+}
+
+void scale_box_cone(ScsCone *k, ScsConeWork *c, const ScsScaling *scal) {
+  if (k->bsize && k->bu && k->bl) {
+    c->box_t_warm_start = 1.;
+    if (scal) {
+      /* also does some sanitizing */
+      normalize_box_cone(k, &(scal->D[k->z + k->l]), k->bsize);
+    }
+  }
 }
 
 /* Outward facing cone projection routine, performs projection in-place.
@@ -1709,29 +1396,20 @@ scs_int SCS(proj_dual_cone)(scs_float *x, ScsConeWork *c,
   /* Copy s = x */
   memcpy(c->s, x, c->m * sizeof(scs_float));
 
-  /* x -> - Rx; hoist the r_y != NULL check outside the loop */
-  if (r_y) {
-    for (i = 0; i < c->m; ++i) {
-      x[i] *= -r_y[i];
-    }
-  } else {
-    for (i = 0; i < c->m; ++i) {
-      x[i] = -x[i];
-    }
+  /* x -> - Rx */
+  for (i = 0; i < c->m; ++i) {
+    x[i] *= r_y ? -r_y[i] : -1.0;
   }
 
   /* Project -x onto cone, x -> \Pi_{C^*}^{R^{-1}}(-x) under r_y metric */
   status = proj_cone(x, k, c, scal ? 1 : 0, r_y);
 
-  /* Return x + R^{-1} \Pi_{C^*}^{R^{-1}} ( -x ); hoist r_y check */
-  if (r_y) {
-    for (i = 0; i < c->m; ++i) {
+  /* Return x + R^{-1} \Pi_{C^*}^{R^{-1}} ( -x ) */
+  for (i = 0; i < c->m; ++i) {
+    if (r_y)
       x[i] = x[i] / r_y[i] + c->s[i];
-    }
-  } else {
-    for (i = 0; i < c->m; ++i) {
+    else
       x[i] += c->s[i];
-    }
   }
 
   return status;

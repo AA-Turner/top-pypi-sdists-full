@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghapi
-Version: 2.1.2
+Version: 2.1.3
 Summary: A python client for the GitHub API
 Author-email: Jeremy Howard <info@fast.ai>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastcore>=2.2.7
 Requires-Dist: fastspec>=0.2.1
+Requires-Dist: fasttransport>=0.0.2
 Requires-Dist: tomli; python_version < "3.11"
 Provides-Extra: dev
 Requires-Dist: fastgit; extra == "dev"

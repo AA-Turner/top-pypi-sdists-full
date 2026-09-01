@@ -29,7 +29,15 @@ import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterator,
+    Literal,
+    NamedTuple,
+    Optional,
+)
 
 import typer
 from click import ClickException
@@ -50,13 +58,9 @@ from snowflake.cli._plugins.apps.events import (
     parse_metric_records,
     resolve_time_window,
 )
-from snowflake.cli._plugins.apps.generate import (
-    _generate_app_yml,
-    _generate_snowflake_yml,
-)
+from snowflake.cli._plugins.apps.generate import _generate_app_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
-    DEFAULT_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SERVERLESS_COMPUTE_RESOURCE,
@@ -71,14 +75,19 @@ from snowflake.cli._plugins.apps.manager import (
     is_personal_database,
     perform_bundle,
 )
+from snowflake.cli._plugins.apps.upload_errors import (
+    UploadPhase,
+    classify_upload_error,
+)
 from snowflake.cli._plugins.connection.util import make_snowsight_url
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_default_connection_name,
     get_file_io_encoding,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
@@ -91,7 +100,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
-from snowflake.connector.errors import ProgrammingError
+from snowflake.connector.errors import OperationalError, ProgrammingError
 
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
@@ -99,6 +108,21 @@ if TYPE_CHECKING:
     )
 
 log = logging.getLogger(__name__)
+
+# Telemetry span naming convention for the ``snow app`` commands:
+#   * Every command entry point opens one root span ``snowflake_app.<command>``
+#     (e.g. ``snowflake_app.deploy``) that wraps the whole command — including
+#     target resolution — so total duration and command-level failures are
+#     always attributable. ``setup`` opens it inline (see below); the others use
+#     the ``@span`` decorator.
+#   * A step that only belongs to one command nests under it as
+#     ``snowflake_app.<command>.<step>`` (e.g. ``snowflake_app.setup.write_manifest``,
+#     ``snowflake_app.deploy.resolve_defaults``).
+#   * A pipeline phase shared by both deploy flows (``snowflake.yml`` and
+#     ``app.yml``) keeps its own ``snowflake_app.<phase>`` namespace
+#     (``bundle``, ``upload``, ``build``, ``deploy_service``,
+#     ``endpoint_provision``) so it reads the same regardless of which flow ran
+#     it; it still nests under the ``snowflake_app.deploy`` root at runtime.
 
 # Telemetry counter recording how many files were uploaded during the
 # upload phase of a deploy.
@@ -188,6 +212,15 @@ class _CodeStorage(NamedTuple):
     ``type`` selects between the ``"workspace"`` and ``"stage"`` flows.
     ``name`` plus the optional database/schema overrides identify the backing
     object; ``encryption_type`` applies only to the stage flow.
+
+    ``temporary`` marks a backend the CLI provisions for the deploy and owns
+    end to end: it is named ``<app>_CODE`` (an app-name prefix), created during
+    the upload phase, and dropped once the build has consumed it. It is set only
+    when neither ``code_stage`` nor ``code_workspace`` is configured, so an
+    explicitly configured stage/workspace is always persisted (never dropped).
+    Because the name is deterministic, a ``--build-only`` run that skips the
+    upload can still find and drop the temporary backend a prior
+    ``--upload-only`` created.
     """
 
     type: _CodeStorageType  # noqa: A003
@@ -195,6 +228,7 @@ class _CodeStorage(NamedTuple):
     database_override: Optional[str]
     schema_override: Optional[str]
     encryption_type: str
+    temporary: bool = False
 
 
 class _CodeStorageRef(NamedTuple):
@@ -219,7 +253,6 @@ def _resolve_code_storage(
     database: Optional[str],
     schema: Optional[str],
     app_name: str,
-    can_create_workspace: Optional[Callable[[str, str], bool]] = None,
 ) -> _CodeStorage:
     """Decide whether app code is uploaded to a workspace or a stage.
 
@@ -228,27 +261,25 @@ def _resolve_code_storage(
     workspace — regardless of what (if anything) was configured. This both
     honors explicit configuration for non-personal destinations and repairs
     projects that predate personal-database detection (a ``code_stage`` pointing
-    at a personal database, or no code-storage block at all) by transparently
-    routing them through the shared ``SNOWFLAKE_APPS`` workspace. Both the
-    ``snowflake.yml`` and ``app.yml`` flows share this decision so their
-    behavior stays aligned.
+    at a personal database) by transparently routing them through a workspace.
+    Both the ``snowflake.yml`` and ``app.yml`` flows share this decision so
+    their behavior stays aligned.
 
     Resolution order:
 
-    1. Explicit ``code_workspace`` → workspace, as configured.
-    2. Explicit ``code_stage`` → stage, as configured. A warning is emitted only
-       when the stage itself resolves into a personal database (stages are
-       generally unsupported there); a stage in a standard database is fine even
-       when the service is deployed to a personal database, since the two are
-       located independently.
-    3. Neither configured → workspace when the destination is a personal
-       database. For a regular database, when *can_create_workspace* is provided
-       it is probed and the shared ``SNOWFLAKE_APPS`` workspace is used when the
-       role can create one (matching ``snow app setup``); otherwise a stage
-       named ``<app>_CODE`` is used. ``app.yml`` (which no longer bakes the
-       backend into the manifest) passes this probe so the choice follows the
-       role's privileges at deploy time; callers that omit it keep the stage
-       default.
+    1. Explicit ``code_workspace`` → workspace, as configured and *persisted*.
+    2. Explicit ``code_stage`` → stage, as configured and *persisted*. A warning
+       is emitted only when the stage itself resolves into a personal database
+       (stages are generally unsupported there); a stage in a standard database
+       is fine even when the service is deployed to a personal database, since
+       the two are located independently.
+    3. Neither configured → a *temporary* backend the CLI owns end to end: a
+       ``<app>_CODE`` stage for a regular database, or a ``<app>_CODE``
+       workspace when the destination is a personal database (stages are
+       unsupported there). A temporary backend is created during the upload
+       phase and dropped once the build has consumed it (see
+       :func:`_upload_and_build_app`). To persist code storage across deploys,
+       configure ``code_stage`` / ``code_workspace`` explicitly.
     """
     destination_is_personal = is_personal_database(database)
 
@@ -283,26 +314,20 @@ def _resolve_code_storage(
             encryption_type=code_stage.encryption_type or "SNOWFLAKE_SSE",
         )
 
-    # Neither code_workspace nor code_stage configured: pick the backend that
-    # the destination supports.
-    #
-    # A personal database always uses the shared workspace (stages are
-    # unsupported there). For a regular database, probe the role's
-    # CREATE WORKSPACE privilege when a probe is supplied — preferring the
-    # shared workspace when the role can create one (mirroring ``snow app
-    # setup``) and falling back to a ``<app>_CODE`` stage otherwise. Without a
-    # probe the stage is the default.
-    use_workspace = destination_is_personal
-    if not use_workspace and can_create_workspace is not None and database and schema:
-        use_workspace = can_create_workspace(database, schema)
-
-    if use_workspace:
+    # Neither code_workspace nor code_stage configured: provision a temporary
+    # ``<app>_CODE`` backend the CLI owns for this deploy and drops after the
+    # build. A personal database has to use a workspace (stages are unsupported
+    # there); every other destination uses a stage, which is the lighter-weight
+    # default. The name is deterministic so a ``--build-only`` run can find (and
+    # drop) the backend a prior ``--upload-only`` created.
+    if destination_is_personal:
         return _CodeStorage(
             type="workspace",
-            name=DEFAULT_WORKSPACE_NAME,
+            name=f"{app_name}_CODE",
             database_override=None,
             schema_override=None,
             encryption_type="SNOWFLAKE_SSE",
+            temporary=True,
         )
     return _CodeStorage(
         type="stage",
@@ -310,6 +335,7 @@ def _resolve_code_storage(
         database_override=None,
         schema_override=None,
         encryption_type="SNOWFLAKE_SSE",
+        temporary=True,
     )
 
 
@@ -362,15 +388,13 @@ def _app_yml_code_storage(
     database: Optional[str],
     schema: Optional[str],
     app_name: str,
-    can_create_workspace: Optional[Callable[[str, str], bool]] = None,
 ) -> _CodeStorage:
     """Resolve the code-storage backend for an ``app.yml`` project.
 
     ``code_stage`` / ``code_workspace`` are overridable per target, so they are
-    taken from the resolved (merged) target. When neither is set, the backend is
-    chosen at deploy time; *can_create_workspace* lets the resolver probe the
-    role's CREATE WORKSPACE privilege for a regular database (see
-    :func:`_resolve_code_storage`).
+    taken from the resolved (merged) target. When neither is set the CLI
+    provisions a temporary ``<app>_CODE`` backend for the deploy and drops it
+    after the build (see :func:`_resolve_code_storage`).
     """
     return _resolve_code_storage(
         code_workspace=_app_yml_storage_ref(code_workspace),
@@ -378,7 +402,6 @@ def _app_yml_code_storage(
         database=database,
         schema=schema,
         app_name=app_name,
-        can_create_workspace=can_create_workspace,
     )
 
 
@@ -395,6 +418,57 @@ def _storage_fqn(storage: _CodeStorage, *, database: str, schema: str) -> FQN:
     )
 
 
+def _failing_upload_file(exc: BaseException) -> Optional[str]:
+    """Return the local file an upload error names, if it names one.
+
+    Files are uploaded concurrently, so the exception that surfaces is not tied
+    to any yielded result. A local filesystem error identifies its own file; a
+    connector error does not, and its message text has to speak for itself.
+    """
+    filename = getattr(exc, "filename", None)
+    return str(filename) if filename else None
+
+
+def _stream_uploads(
+    manager: SnowflakeAppManager,
+    uploads: Iterator[dict],
+    *,
+    phase: UploadPhase,
+    target: str,
+    metrics,
+    reraise: tuple[type[BaseException], ...] = (),
+) -> None:
+    """Report upload progress, and explain a failure in context.
+
+    ``OperationalError`` matters as much as ``ProgrammingError`` here: the
+    connector raises it for a failed file transfer, so an ``except
+    ProgrammingError`` alone lets those through as a raw traceback.
+
+    Exceptions listed in *reraise* are left untouched for a caller that can
+    recover from them; wrapping those would silently disable that recovery.
+    """
+    files_uploaded = 0
+    try:
+        for result in uploads:
+            files_uploaded += 1
+            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
+    except (ProgrammingError, OperationalError, OSError) as e:
+        if isinstance(e, reraise):
+            raise
+        raise classify_upload_error(
+            e,
+            phase=phase,
+            target=target,
+            role=manager.current_role(),
+            source_file=_failing_upload_file(e),
+            files_uploaded=files_uploaded,
+        ) from e
+    finally:
+        # Recorded on the failure path too, so telemetry shows how far the
+        # upload got before it broke.
+        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+
+
 def _upload_via_workspace(
     manager: SnowflakeAppManager,
     *,
@@ -406,13 +480,16 @@ def _upload_via_workspace(
 ) -> None:
     """Prepare and upload the workspace code-storage backend.
 
-    On a permission failure the behaviour depends on the destination: a
-    personal database cannot fall back to a stage, so an actionable
-    :class:`CliError` is raised; a regular database re-raises the raw
-    ``ProgrammingError`` so the caller can fall back to the stage flow.
+    On a failure the behaviour depends on the destination: a personal database
+    cannot fall back to a stage, so an actionable :class:`UploadError` is
+    raised; a regular database re-raises the raw ``ProgrammingError`` so the
+    caller can fall back to the stage flow.
     """
     workspace_source_uri = manager.workspace_subdirectory_uri(workspace_fqn, app_name)
     with metrics.span("snowflake_app.upload.prepare_workspace"):
+        # Tracked so the error names the statement that actually failed and
+        # the privilege that statement needs, rather than every privilege the
+        # phase might want.
         action = "create workspace"
         required_privilege = "CREATE WORKSPACE on the schema"
         try:
@@ -425,32 +502,175 @@ def _upload_via_workspace(
             )
             manager.clear_workspace_subdirectory(workspace_fqn, app_name)
         except ProgrammingError as e:
-            # Regular databases can fall back to a stage, so let the raw
-            # error propagate for the caller to handle. Personal databases
-            # have no such fallback (stages are unsupported), so surface an
-            # actionable privilege error instead.
+            # Regular databases can fall back to a stage, so let the raw error
+            # propagate for the caller to handle. Wrapping it here would
+            # silently disable that fallback. Personal databases have no such
+            # fallback (stages are unsupported), so surface an actionable
+            # error instead.
             if not is_personal_database(database):
                 raise
-            role = manager.current_role()
-            role_clause = f"role '{role}'" if role else "your role"
-            raise CliError(
-                f"Failed to {action} '{workspace_fqn.identifier}': {e}. "
-                f"Verify that {role_clause} has the required "
-                f"privileges (USAGE on the database and schema, "
-                f"and {required_privilege})."
+            raise classify_upload_error(
+                e,
+                phase=UploadPhase.PREPARE_WORKSPACE,
+                target=workspace_fqn.identifier,
+                action=action,
+                required_privilege=required_privilege,
+                role=manager.current_role(),
+                database=workspace_fqn.database,
+                schema=workspace_fqn.schema,
             ) from e
     with metrics.span("snowflake_app.upload.push_workspace_files"):
         cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
-        files_uploaded = 0
-        for result in manager.upload_to_workspace(
-            local_root=project_paths.bundle_root,
-            workspace_fqn=workspace_fqn,
-            target_subdirectory=app_name,
-            overwrite=True,
-        ):
-            files_uploaded += 1
-            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
-        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+        _stream_uploads(
+            manager,
+            manager.upload_to_workspace(
+                local_root=project_paths.bundle_root,
+                workspace_fqn=workspace_fqn,
+                target_subdirectory=app_name,
+                overwrite=True,
+            ),
+            phase=UploadPhase.PUSH_WORKSPACE_FILES,
+            target=workspace_source_uri,
+            metrics=metrics,
+            # A regular database can still fall back to a stage, so a SQL
+            # error has to stay raw for the caller to catch. Anything else it
+            # cannot recover from, so those are wrapped.
+            reraise=() if is_personal_database(database) else (ProgrammingError,),
+        )
+
+
+def _create_stage_if_permitted(
+    manager: SnowflakeAppManager, stage_fqn: FQN, encryption: str
+) -> Optional[ProgrammingError]:
+    """Create *stage_fqn*, returning the refusal if the role is not allowed to.
+
+    ``CREATE STAGE IF NOT EXISTS`` is a no-op when the stage is already there,
+    but it still needs CREATE STAGE on the schema, so it doubles as a probe:
+    it answers "could this stage be created again?" before anything drops it.
+
+    Only an insufficient-privileges failure is returned, because that is the
+    one the caller has an answer for; anything else is a real error.
+    """
+    try:
+        manager.create_stage(stage_fqn, encryption)
+        return None
+    except ProgrammingError as e:
+        if getattr(e, "errno", None) != INSUFFICIENT_PRIVILEGES:
+            raise
+        return e
+
+
+def _drop_stage_for_recreate(manager: SnowflakeAppManager, stage_fqn: FQN) -> bool:
+    """Drop *stage_fqn* so it can be recreated empty; False if not permitted.
+
+    ``DROP STAGE`` is documented as requiring OWNERSHIP. Only an
+    insufficient-privileges failure is read as "not permitted", because that is
+    the one the caller has a fallback for; anything else is a real error and
+    propagates.
+    """
+    try:
+        manager.drop_stage_if_exists(stage_fqn)
+        return True
+    except ProgrammingError as e:
+        if getattr(e, "errno", None) != INSUFFICIENT_PRIVILEGES:
+            raise
+        log.debug(
+            "Not permitted to drop stage %s; clearing its contents instead.",
+            stage_fqn.identifier,
+            exc_info=True,
+        )
+        return False
+
+
+def _warn_stage_cleared_not_recreated(stage_fqn: FQN, reason: str) -> None:
+    """Say that the stage was emptied in place, and what that costs."""
+    cli_console.warning(
+        f"Clearing stage @{sanitize_for_terminal(stage_fqn.identifier)} "
+        f"instead of recreating it, because {reason}. Files deleted from the "
+        "project since the last deploy may survive on the stage. Grant the "
+        "deploying role OWNERSHIP on the stage and CREATE STAGE on the schema "
+        "to have it recreated cleanly."
+    )
+
+
+def _empty_stage_for_upload(
+    manager: SnowflakeAppManager, stage_fqn: FQN, encryption: str
+) -> bool:
+    """Present an empty stage for the upload, and say whether it was created.
+
+    The upload has to start from an empty stage so files left over from an
+    earlier deploy never leak into the build. Dropping and recreating is the
+    only way to guarantee that, but it needs OWNERSHIP on the stage and CREATE
+    STAGE on the schema, and a deploying role often holds neither — such a role
+    could never redeploy at all.
+
+    So the approach follows what the role can do: drop and recreate when it can
+    do both, and otherwise clear the stage with ``REMOVE``, which needs only
+    WRITE. The weaker guarantee ``REMOVE`` gives is bounded, because every
+    ``PUT`` uses ``overwrite=true``: a file still in the project is always
+    replaced by its current version, and only a file deleted from the project
+    since the last deploy can survive. That path warns.
+
+    The order matters. ``CREATE STAGE IF NOT EXISTS`` runs first because it is
+    the one statement that is safe to attempt either way — a no-op when the
+    stage exists — so it reports whether the role could recreate the stage
+    while the stage is still there to fall back on. Dropping first would leave
+    a role that can drop but not create with no stage at all and no way to get
+    one back.
+
+    Each statement needs a different privilege, so the action and the privilege
+    are tracked as the block progresses and a failure names only the one that
+    actually applied.
+    """
+    action = "look up stage"
+    required_privilege = "USAGE on the schema"
+    try:
+        stage_existed = manager.stage_exists(stage_fqn)
+        cli_console.step(
+            f"Recreating stage @{stage_fqn}"
+            if stage_existed
+            else f"Creating stage @{stage_fqn}"
+        )
+
+        action = "create stage"
+        required_privilege = "CREATE STAGE on the schema"
+        cannot_create = _create_stage_if_permitted(manager, stage_fqn, encryption)
+        if not stage_existed:
+            if cannot_create:
+                raise cannot_create
+            return True
+
+        if cannot_create is None:
+            action = "drop stage"
+            required_privilege = "OWNERSHIP on the stage"
+            if _drop_stage_for_recreate(manager, stage_fqn):
+                action = "create stage"
+                required_privilege = "CREATE STAGE on the schema"
+                manager.create_stage(stage_fqn, encryption)
+                return True
+
+        _warn_stage_cleared_not_recreated(
+            stage_fqn,
+            "the deploying role cannot create it again"
+            if cannot_create
+            else "the deploying role cannot drop it",
+        )
+        action = "clear stage"
+        required_privilege = "WRITE on the stage"
+        manager.remove_stage_contents(stage_fqn)
+        return False
+    except ProgrammingError as e:
+        raise classify_upload_error(
+            e,
+            phase=UploadPhase.PREPARE_STAGE,
+            target=stage_fqn.identifier,
+            action=action,
+            required_privilege=required_privilege,
+            role=manager.current_role(),
+            database=stage_fqn.database,
+            schema=stage_fqn.schema,
+            encryption_type=encryption,
+        ) from e
 
 
 def _upload_via_stage(
@@ -460,43 +680,30 @@ def _upload_via_stage(
     encryption: str,
     project_paths,
     metrics,
-) -> None:
-    """Prepare and upload the stage code-storage backend."""
+) -> bool:
+    """Prepare and upload the stage code-storage backend.
+
+    Returns whether this invocation created the stage, so the caller knows
+    whether it may drop it once the build has consumed it.
+    """
     with metrics.span("snowflake_app.upload.prepare_stage"):
-        # Start the upload from an empty stage so files left over from a prior
-        # deploy never leak into the build. Clearing with REMOVE can leave stale
-        # chunks behind, so drop and recreate instead — but drop only when the
-        # stage already exists. A first deploy has nothing to drop, and issuing
-        # DROP STAGE there would demand OWNERSHIP the deploying role need not
-        # hold, so skipping it lets a role with only CREATE STAGE deploy.
-        try:
-            if manager.stage_exists(stage_fqn):
-                cli_console.step(f"Recreating stage @{stage_fqn}")
-                manager.drop_stage_if_exists(stage_fqn)
-            else:
-                cli_console.step(f"Creating stage @{stage_fqn}")
-            manager.create_stage(stage_fqn, encryption)
-        except ProgrammingError as e:
-            role = manager.current_role()
-            role_clause = f"role '{role}'" if role else "your role"
-            raise CliError(
-                f"Failed to recreate stage '{stage_fqn.identifier}': {e}. "
-                f"Verify that {role_clause} has the required "
-                f"privileges (USAGE on the database and schema, "
-                f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
-            ) from e
+        stage_created = _empty_stage_for_upload(manager, stage_fqn, encryption)
 
     with metrics.span("snowflake_app.upload.push_stage_files"):
         cli_console.step(f"Uploading bundled files to @{stage_fqn}")
-        files_uploaded = 0
-        for result in manager.upload_to_stage(
-            local_root=project_paths.bundle_root,
-            stage_fqn=stage_fqn,
-            overwrite=True,
-        ):
-            files_uploaded += 1
-            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
-        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+        _stream_uploads(
+            manager,
+            manager.upload_to_stage(
+                local_root=project_paths.bundle_root,
+                stage_fqn=stage_fqn,
+                overwrite=True,
+            ),
+            phase=UploadPhase.PUSH_STAGE_FILES,
+            target=f"@{stage_fqn.identifier}",
+            metrics=metrics,
+        )
+
+    return stage_created
 
 
 def _upload_app_code(
@@ -517,21 +724,22 @@ def _upload_app_code(
     stage_created)``; ``storage_fqn`` may change when a regular-database
     workspace upload fails and the flow falls back to a ``<app>_CODE`` stage,
     and ``stage_created`` records whether this invocation created a stage (so
-    the caller can drop it once the build has consumed it).
+    the caller can drop it once the build has consumed it). A stage that was
+    cleared rather than recreated — because the role does not own it — is not
+    reported as created, since dropping it would fail for the same reason.
     """
     use_workspace = storage.type == "workspace"
     encryption_type = storage.encryption_type
     stage_created = False
     with metrics.span("snowflake_app.upload"):
         if not use_workspace:
-            _upload_via_stage(
+            stage_created = _upload_via_stage(
                 manager,
                 stage_fqn=storage_fqn,
                 encryption=encryption_type,
                 project_paths=project_paths,
                 metrics=metrics,
             )
-            stage_created = True
         elif is_personal_database(database):
             # Personal databases must use a workspace; there is no stage to fall
             # back to, so workspace failures surface as an actionable privilege
@@ -570,14 +778,13 @@ def _upload_app_code(
                     schema=schema,
                     name=f"{app_name}_CODE",
                 )
-                _upload_via_stage(
+                stage_created = _upload_via_stage(
                     manager,
                     stage_fqn=storage_fqn,
                     encryption="SNOWFLAKE_SSE",
                     project_paths=project_paths,
                     metrics=metrics,
                 )
-                stage_created = True
     return use_workspace, storage_fqn, stage_created
 
 
@@ -610,6 +817,36 @@ def _drop_stage_after_build(
             )
 
 
+def _drop_workspace_after_build(
+    manager: SnowflakeAppManager, storage_fqn: FQN, metrics
+) -> None:
+    """Drop a temporary code workspace once the build has consumed it.
+
+    Best-effort cleanup: the build has already succeeded, so a drop failure
+    only leaves a harmless workspace behind and must not fail the deploy —
+    record it on the span for observability, warn, and continue.
+    """
+    with metrics.span("snowflake_app.build.drop_workspace") as drop_span:
+        cli_console.step(
+            f"Dropping workspace {storage_fqn} now that the build is complete"
+        )
+        try:
+            manager.drop_workspace_if_exists(storage_fqn)
+        except Exception as e:
+            log.debug(
+                "Failed to drop workspace %s after build",
+                storage_fqn.identifier,
+                exc_info=True,
+            )
+            drop_span.finish(error=e)
+            cli_console.warning(
+                f"Could not drop workspace "
+                f"'{sanitize_for_terminal(storage_fqn.identifier)}' after the "
+                f"build completed: {e}. The build succeeded; you can remove the "
+                "workspace manually if desired."
+            )
+
+
 def _teardown_app_code(
     manager: SnowflakeAppManager,
     *,
@@ -621,16 +858,23 @@ def _teardown_app_code(
     """Clean up an app's code storage during teardown.
 
     Mirrors the deploy-time backend selection so a personal-database app is
-    torn down via its workspace rather than a (never-created) stage. The
-    workspace may be shared across apps, so only this app's subdirectory is
-    cleared; a stage is dropped outright.
+    torn down via its workspace rather than a (never-created) stage. A
+    temporary backend (one the CLI provisioned itself) is dropped outright — a
+    workspace as well as a stage — since the CLI owns it end to end. An
+    explicitly configured workspace may be shared across apps, so only this
+    app's subdirectory is cleared; a stage is dropped outright.
     """
     if storage.type == "workspace":
-        cli_console.step(
-            f"Clearing workspace files for {app_name} in {storage_fqn.identifier}"
-        )
-        with metrics.span("snowflake_app.teardown.clear_workspace"):
-            manager.clear_workspace_subdirectory(storage_fqn, app_name)
+        if storage.temporary:
+            cli_console.step(f"Dropping workspace {storage_fqn.identifier}")
+            with metrics.span("snowflake_app.teardown.drop_workspace"):
+                manager.drop_workspace_if_exists(storage_fqn)
+        else:
+            cli_console.step(
+                f"Clearing workspace files for {app_name} in {storage_fqn.identifier}"
+            )
+            with metrics.span("snowflake_app.teardown.clear_workspace"):
+                manager.clear_workspace_subdirectory(storage_fqn, app_name)
     else:
         cli_console.step(f"Dropping stage {storage_fqn.identifier}")
         with metrics.span("snowflake_app.teardown.drop_stage"):
@@ -650,6 +894,7 @@ def _upload_and_build_app(
     artifact_repo_schema: Optional[str],
     artifact_repo_name: str,
     build_eai: Optional[str],
+    build_job_location: Optional[str],
     bundle: Callable[[], Any],
     run_upload: bool,
     run_build: bool,
@@ -667,9 +912,11 @@ def _upload_and_build_app(
 
     ``app_id`` is the code/package identifier used for the workspace
     subdirectory, the stage name, and the build's ``app_id`` (the entity's app
-    name or the ``app.yml`` package name). ``extra_build_kwargs`` carries flow-
-    specific build arguments (the entity flow forwards ``compute_pool``,
-    ``runtime_image`` and ``project_type``).
+    name or the ``app.yml`` package name). ``build_job_location`` is the
+    optional ``<database>.<schema>`` the builder runs the build job in (only the
+    ``app.yml`` flow sets it; ``None`` keeps the default PDB behaviour).
+    ``extra_build_kwargs`` carries flow-specific build arguments (the entity
+    flow forwards ``compute_pool``, ``runtime_image`` and ``project_type``).
 
     Returns a short-circuit :class:`CommandResult` for ``--upload-only`` /
     ``--build-only``, or ``None`` when the caller should proceed to its own
@@ -730,6 +977,7 @@ def _upload_and_build_app(
                     database=database,
                     schema=schema,
                     build_eai=build_eai,
+                    build_job_location=build_job_location,
                     **(extra_build_kwargs or {}),
                 )
                 if use_workspace:
@@ -768,12 +1016,24 @@ def _upload_and_build_app(
                     on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
 
-            # The stage only holds the uploaded source that the artifact-repo
+            # Code storage only holds the uploaded source that the artifact-repo
             # build consumes; once the build succeeds it is no longer needed.
-            # Drop it only when this invocation created it, so a pre-existing
-            # stage relied on by ``--build-only`` (which skips the upload phase)
-            # is left untouched.
-            if stage_created:
+            #
+            # A temporary backend (one the CLI provisioned because neither
+            # ``code_stage`` nor ``code_workspace`` was configured) is always
+            # dropped here, even on a ``--build-only`` run that skipped the
+            # upload: its ``<app>_CODE`` name is deterministic, so the build
+            # phase finds and drops whatever a prior ``--upload-only`` created.
+            # An explicitly configured stage is instead dropped only when this
+            # invocation created it, so a persisted stage relied on by
+            # ``--build-only`` is left untouched; a configured workspace is
+            # never dropped here.
+            if storage.temporary:
+                if use_workspace:
+                    _drop_workspace_after_build(manager, storage_fqn, metrics)
+                else:
+                    _drop_stage_after_build(manager, storage_fqn, metrics)
+            elif stage_created:
                 _drop_stage_after_build(manager, storage_fqn, metrics)
 
     if build_only:
@@ -791,19 +1051,14 @@ def snowflake_app_setup(
 ) -> CommandResult:
     """Initialize a Snowflake App Runtime project manifest.
 
-    Writes a ``snowflake.yml`` by default, or an ``app.yml`` (the v2 manifest
-    the ``snow app`` commands read instead of ``snowflake.yml``) when the
-    ``ENABLE_SAR_APP_YML_V2`` feature flag is on. Both manifests are generated
-    from the same resolved configuration and code-storage decision. See the
-    ``snow app setup`` command in
+    Writes an ``app.yml`` — the v2 manifest the ``snow app`` commands read
+    instead of ``snowflake.yml`` — so new projects are always initialized as v2.
+    An already-initialized project is left untouched: initialization is skipped
+    when either manifest is present. See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
     ctx = get_cli_context()
     metrics = ctx.metrics
-
-    app_yml = FeatureFlag.ENABLE_SAR_APP_YML_V2.is_enabled()
-    manifest_filename = APP_YML_FILENAME if app_yml else DEFINITION_FILENAME
-    generate_manifest = _generate_app_yml if app_yml else _generate_snowflake_yml
 
     def _run() -> CommandResult:
         with metrics.span("snowflake_app.setup"):
@@ -830,17 +1085,22 @@ def snowflake_app_setup(
                     f"Invalid app name '{resolved_app_name}'. "
                     "Only letters, digits, and underscores are allowed."
                 )
-            # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
+            # app.yml is a CLI-owned manifest that the ``snow app`` commands read
             # back with the same encoding policy (see _app_group_callback): an explicit
             # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
             # way keeps the round-trip consistent regardless of the host code page, even
             # when the generated content (e.g. a non-Latin app title) is non-ASCII.
             encoding = get_file_io_encoding() or "utf-8"
-            project_file = Path.cwd() / manifest_filename
-            if not dry_run and project_file.exists():
-                return MessageResult(
-                    f"{manifest_filename} already exists. Skipping initialization."
-                )
+            project_file = Path.cwd() / APP_YML_FILENAME
+            if not dry_run:
+                # A snowflake.yml project is already initialized, and an app.yml
+                # would silently take precedence over it at deploy time, so leave
+                # the project alone rather than migrating it behind the user's back.
+                for existing in (APP_YML_FILENAME, DEFINITION_FILENAME):
+                    if (Path.cwd() / existing).exists():
+                        return MessageResult(
+                            f"{existing} already exists. Skipping initialization."
+                        )
 
             connection_name = (
                 ctx.connection_context.connection_name or get_default_connection_name()
@@ -958,32 +1218,24 @@ def snowflake_app_setup(
 
             resolved_values = {k: v[0] for k, v in resolved.items()}
 
-            # ── Decide the code-storage backend ──────────────────────────────
-            # The workspace flow is the default for both personal and regular
-            # databases. Personal databases (``USER$<user>``) do not support
-            # stages, so they always use a workspace. For a regular database the
-            # role's ``CREATE WORKSPACE`` privilege is probed up front and the
-            # backend falls back to a stage only when the role provably cannot
-            # create one — persisting the decision in ``snowflake.yml`` so every
-            # later ``snow app deploy`` follows the same path without having to
-            # rediscover it. An inconclusive probe keeps the workspace default;
-            # deploy still falls back to a stage at runtime if the workspace
-            # turns out to be unusable.
+            # ── Report the code-storage backend ──────────────────────────────
+            # ``app.yml`` no longer bakes the backend into the manifest:
+            # ``code_stage`` / ``code_workspace`` are omitted and the backend is
+            # provisioned *temporarily* at deploy time — a ``<app>_CODE`` stage
+            # for a regular database, or a ``<app>_CODE`` workspace when the
+            # destination is a personal database (stages are unsupported there).
+            # It is created for the deploy and dropped once the build consumes
+            # it. Configure ``code_stage`` / ``code_workspace`` in ``app.yml`` to
+            # persist code storage across deploys instead. Nothing is probed or
+            # persisted here; the value below is informational only.
             destination_db = resolved_values["database"]
-            destination_schema = resolved_values["schema"]
-            if is_personal_database(destination_db):
-                use_workspace = True
-            else:
-                with metrics.span("snowflake_app.setup.check_workspace_privileges"):
-                    use_workspace = manager.role_can_create_workspace(
-                        destination_db, destination_schema
-                    )
-            code_storage = "workspace" if use_workspace else "stage"
+            use_workspace = is_personal_database(destination_db)
+            code_storage = "temporary workspace" if use_workspace else "temporary stage"
 
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
-                        generate_manifest(
+                        _generate_app_yml(
                             resolved_app_name,
                             resolved_values,
                             use_workspace=use_workspace,
@@ -1005,7 +1257,7 @@ def snowflake_app_setup(
                 cli_console.step("Dry run — resolved configuration:")
             else:
                 cli_console.step(
-                    f"Initialized Snowflake App Runtime project in {manifest_filename}."
+                    f"Initialized Snowflake App Runtime project in {APP_YML_FILENAME}."
                 )
             for key, (value, source) in resolved.items():
                 # Skip optional fields that could not be resolved (e.g. ``build_eai``
@@ -1031,6 +1283,7 @@ def snowflake_app_setup(
 
 
 @_utf8_output
+@span("snowflake_app.bundle")
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
     """Bundle a Snowflake App Runtime project's source artifacts.
 
@@ -1061,6 +1314,7 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
 
 
 @_utf8_output
+@span("snowflake_app.validate")
 def snowflake_app_validate(
     entity_id: Optional[str], target: Optional[str] = None
 ) -> CommandResult:
@@ -1218,6 +1472,7 @@ def _wait_for_service_endpoint(
 
 
 @_utf8_output
+@span("snowflake_app.open")
 def snowflake_app_open(
     entity_id: Optional[str],
     print_only: bool,
@@ -1255,6 +1510,7 @@ def snowflake_app_open(
 
 
 @_utf8_output
+@span("snowflake_app.events")
 def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
@@ -1440,9 +1696,9 @@ def _ensure_cng_url_cert_ready(
     happen inside ``CREATE APPLICATION SERVICE`` — so this probes for it up front
     (never polling) via a client-side TLS probe.
 
-    The caller gates this on the app being CNG, which is an ``app.yml`` v2-only
-    feature (``compute_resource`` is only resolved on that path), so no flag is
-    re-checked here.
+    The caller gates this on the app being CNG, which also implies the feature
+    flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
+    is not re-checked here.
 
     ``required`` says whether a missing certificate is fatal for the current
     phase: only the deploy phase creates the service, so only it passes
@@ -1509,13 +1765,13 @@ def _warn_if_cng_url_cert_missing(manager: SnowflakeAppManager, url: str) -> Non
     probes the resolved *url*'s host directly (the exact certificate the browser
     would see). Unlike the deploy pre-check — which knows the app is CNG from its
     resolved ``compute_resource`` — ``open`` does not resolve the entity, so it
-    gates on the ``app.yml`` v2 feature flag (the only path that can deploy a CNG
-    app) and leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN``
-    for non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
+    gates on the CNG feature flag (no CNG app can exist while it is off) and
+    leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN`` for
+    non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
     app's TLS state is never misattributed to a per-account cert. Any probe error
     is swallowed so ``open`` never breaks on this advisory.
     """
-    if not FeatureFlag.ENABLE_SAR_APP_YML_V2.is_enabled():
+    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
         return
     try:
         status = manager.per_account_cert_status_for_url(url)
@@ -1700,16 +1956,14 @@ def _resolve_app_yml_target(
 
     # Backend chosen the same way as the snowflake.yml flow (see
     # _resolve_code_storage); code storage comes from the merged target. With
-    # neither backend configured, probe the role's CREATE WORKSPACE privilege so
-    # a regular database prefers the shared workspace when the role can create
-    # one (matching ``snow app setup``), falling back to a stage otherwise.
+    # neither backend configured the CLI provisions a temporary ``<app>_CODE``
+    # backend for the deploy and drops it after the build.
     storage = _app_yml_code_storage(
         code_stage=tgt.code_stage,
         code_workspace=tgt.code_workspace,
         database=database,
         schema=schema,
         app_name=service_name,
-        can_create_workspace=manager.role_can_create_workspace,
     )
     storage_fqn = _storage_fqn(storage, database=database, schema=schema)
 
@@ -2050,9 +2304,11 @@ def _deploy_from_app_yml(
         )
 
     # ``compute_resource`` selects the CNG (serverless) or SPCS backend and is
-    # write-once. CNG is an ``app.yml`` v2-only feature, so it is honoured here
-    # unconditionally; when unset the server defaults the backend.
-    compute_resource: Optional[str] = tgt.compute_resource
+    # write-once. CNG is not ready yet, so it is only honoured while the feature
+    # flag is on; when off it is ignored and the server defaults the backend.
+    compute_resource: Optional[str] = None
+    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+        compute_resource = tgt.compute_resource
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
@@ -2090,6 +2346,7 @@ def _deploy_from_app_yml(
         artifact_repo_schema=ar_schema,
         artifact_repo_name=ar_name,
         build_eai=tgt.build_eai,
+        build_job_location=tgt.build_job_location,
         bundle=lambda: perform_bundle(
             dep.package_name,
             SimpleNamespace(artifacts=tgt.bundle_artifacts),
@@ -2104,13 +2361,16 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` is a CNG-only field, so it is only emitted on the CNG
-    # (serverless) path.
+    # ``url_prefix`` and ``health_check`` are CNG-only fields, so they are only
+    # emitted on the CNG (serverless) path, which already requires the feature
+    # flag (compute_resource stays None while it is off).
+    is_cng = _is_cng_compute_resource(compute_resource)
     specification = manager.build_service_specification(
         tgt,
         database=database,
         schema=schema,
-        include_url_prefix=_is_cng_compute_resource(compute_resource),
+        include_url_prefix=is_cng,
+        include_health_check=is_cng,
     )
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step(f"Applying application service {service_fqn.identifier}...")
@@ -2139,6 +2399,7 @@ def _deploy_from_app_yml(
 
 
 @_utf8_output
+@span("snowflake_app.deploy")
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -2266,6 +2527,9 @@ def snowflake_app_deploy(
         artifact_repo_schema=ar_schema,
         artifact_repo_name=ar_name,
         build_eai=build_eai,
+        # ``build_job_location`` is an app.yml v2-only field; the snowflake.yml
+        # entity flow leaves it unset so the builder uses the default (PDB).
+        build_job_location=None,
         bundle=lambda: perform_bundle(resolved_entity_id, entity),
         run_upload=run_upload,
         run_build=run_build,
@@ -2413,6 +2677,7 @@ def snowflake_app_deploy(
 
 
 @_utf8_output
+@span("snowflake_app.teardown")
 def snowflake_app_teardown(
     entity_id: Optional[str],
     force: bool,

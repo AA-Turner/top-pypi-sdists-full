@@ -24,6 +24,7 @@ Usage::
         ListRecommendersPaginator,
         ListRuleBasedMatchesPaginator,
         ListSegmentDefinitionsPaginator,
+        ListSegmentSubscriptionEventsPaginator,
         ListUploadJobsPaginator,
     )
 
@@ -42,6 +43,7 @@ Usage::
     list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
     list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
     list_segment_definitions_paginator: ListSegmentDefinitionsPaginator = client.get_paginator("list_segment_definitions")
+    list_segment_subscription_events_paginator: ListSegmentSubscriptionEventsPaginator = client.get_paginator("list_segment_subscription_events")
     list_upload_jobs_paginator: ListUploadJobsPaginator = client.get_paginator("list_upload_jobs")
     ```
 """
@@ -60,6 +62,7 @@ from .paginator import (
     ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
+    ListSegmentSubscriptionEventsPaginator,
     ListUploadJobsPaginator,
 )
 
@@ -80,5 +83,6 @@ __all__ = (
     "ListRecommendersPaginator",
     "ListRuleBasedMatchesPaginator",
     "ListSegmentDefinitionsPaginator",
+    "ListSegmentSubscriptionEventsPaginator",
     "ListUploadJobsPaginator",
 )

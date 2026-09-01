@@ -186,7 +186,7 @@ class TitleTestCase(HumanNameTestBase):
         self.m(hn.middle, "A.", hn)
         self.m(hn.suffix, "V, Jr.", hn)
 
-    # 'ben' is removed from PREFIXES in v0.2.5
+    # 'ben' was removed from the particle set (then PREFIXES) in v0.2.5
     # this test could re-enable this test if we decide to support 'ben' as a prefix
     @pytest.mark.xfail
     def test_ben_as_conjunction(self) -> None:
@@ -372,7 +372,8 @@ class TitleTestCase(HumanNameTestBase):
     def test_leading_period_abbreviation_with_nickname(self) -> None:
         hn = HumanName("Xyz. (Bud) Smith")
         self.m(hn.title, "Xyz.", hn)
-        self.m(hn.first, "Smith", hn)
+        self.m(hn.first, "", hn)
+        self.m(hn.last, "Smith", hn)
         self.m(hn.nickname, "Bud", hn)
 
     def test_charge_daffaires_chains_as_title(self) -> None:

@@ -32,7 +32,8 @@ class CompliancePolicyCheckJobSpec(BaseModel):
     check_range_start_timestamp: datetime = Field(description="Start of the window the compliance check evaluates.")
     check_range_end_timestamp: datetime = Field(description="End of the window the compliance check evaluates.")
     policy_assignment_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["job_type", "scope_model_id", "check_range_start_timestamp", "check_range_end_timestamp", "policy_assignment_id"]
+    errored_alert_rule_ids: Optional[List[StrictStr]] = Field(default=None, description="Ids of alert rules the preceding alert check could not evaluate.")
+    __properties: ClassVar[List[str]] = ["job_type", "scope_model_id", "check_range_start_timestamp", "check_range_end_timestamp", "policy_assignment_id", "errored_alert_rule_ids"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -104,7 +105,8 @@ class CompliancePolicyCheckJobSpec(BaseModel):
             "scope_model_id": obj.get("scope_model_id"),
             "check_range_start_timestamp": obj.get("check_range_start_timestamp"),
             "check_range_end_timestamp": obj.get("check_range_end_timestamp"),
-            "policy_assignment_id": obj.get("policy_assignment_id")
+            "policy_assignment_id": obj.get("policy_assignment_id"),
+            "errored_alert_rule_ids": obj.get("errored_alert_rule_ids")
         })
         return _obj
 

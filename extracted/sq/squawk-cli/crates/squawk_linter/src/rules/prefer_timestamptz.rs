@@ -15,7 +15,6 @@ pub fn is_not_allowed_timestamp(ty: &ast::Type) -> bool {
                 false
             }
         }
-        ast::Type::PercentType(_) => false,
         ast::Type::PathType(path_type) => {
             let Some(ty_name) = path_type
                 .path_ref()
@@ -27,25 +26,21 @@ pub fn is_not_allowed_timestamp(ty: &ast::Type) -> bool {
             // if we don't have any args, then it's the same as `text`
             ty_name == "varchar" && path_type.arg_list().is_some()
         }
-        ast::Type::CharType(_) => false,
-        ast::Type::BitType(_) => false,
+        ast::Type::VarcharType(_) | ast::Type::CharacterType(_) => false,
+        ast::Type::BitType(_) | ast::Type::BitVaryingType(_) => false,
         ast::Type::DoubleType(_) => false,
-        ast::Type::TimeType(time_type) => {
-            if time_type.timestamp_token().is_some()
-                && !matches!(time_type.timezone(), Some(ast::Timezone::WithTimezone(_)))
-            {
-                return true;
-            }
-            false
-        }
+        ast::Type::TimeType(_) => false,
+        ast::Type::TimestampType(timestamp_type) => !matches!(
+            timestamp_type.timezone(),
+            Some(ast::Timezone::WithTimezone(_))
+        ),
         ast::Type::IntervalType(_) => false,
-        ast::Type::ExprType(_) => false,
     }
 }
 
 fn fix_timestamp(ty: &ast::Type) -> Option<Fix> {
     match ty {
-        ast::Type::TimeType(_) => {
+        ast::Type::TimestampType(_) => {
             let range = ty.syntax().text_range();
             let edit = Edit::replace(range, "timestamptz");
             Some(Fix::new("Replace with `timestamptz`", vec![edit]))

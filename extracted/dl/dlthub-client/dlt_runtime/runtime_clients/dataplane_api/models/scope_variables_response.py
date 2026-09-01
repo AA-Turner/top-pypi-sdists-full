@@ -7,7 +7,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.public_variable import PublicVariable
+    from ..models.plain_public_variable import PlainPublicVariable
+    from ..models.secret_public_variable import SecretPublicVariable
 
 
 T = TypeVar("T", bound="ScopeVariablesResponse")
@@ -18,20 +19,27 @@ class ScopeVariablesResponse:
     """
     Attributes:
         profile (None | str): Profile owning this scope; `null` is the workspace-wide scope
-        variables (list[PublicVariable]): Variables in this scope, secrets redacted
+        variables (list[PlainPublicVariable | SecretPublicVariable]): Variables in this scope, secrets redacted
     """
 
     profile: None | str
-    variables: list[PublicVariable]
+    variables: list[PlainPublicVariable | SecretPublicVariable]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.plain_public_variable import PlainPublicVariable
+
         profile: None | str
         profile = self.profile
 
         variables = []
         for variables_item_data in self.variables:
-            variables_item = variables_item_data.to_dict()
+            variables_item: dict[str, Any]
+            if isinstance(variables_item_data, PlainPublicVariable):
+                variables_item = variables_item_data.to_dict()
+            else:
+                variables_item = variables_item_data.to_dict()
+
             variables.append(variables_item)
 
         field_dict: dict[str, Any] = {}
@@ -47,7 +55,8 @@ class ScopeVariablesResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.public_variable import PublicVariable
+        from ..models.plain_public_variable import PlainPublicVariable
+        from ..models.secret_public_variable import SecretPublicVariable
 
         d = dict(src_dict)
 
@@ -61,7 +70,25 @@ class ScopeVariablesResponse:
         variables = []
         _variables = d.pop("variables")
         for variables_item_data in _variables:
-            variables_item = PublicVariable.from_dict(variables_item_data)
+
+            def _parse_variables_item(
+                data: object,
+            ) -> PlainPublicVariable | SecretPublicVariable:
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    variables_item_type_0 = PlainPublicVariable.from_dict(data)
+
+                    return variables_item_type_0
+                except (TypeError, ValueError, AttributeError, KeyError):
+                    pass
+                if not isinstance(data, dict):
+                    raise TypeError()
+                variables_item_type_1 = SecretPublicVariable.from_dict(data)
+
+                return variables_item_type_1
+
+            variables_item = _parse_variables_item(variables_item_data)
 
             variables.append(variables_item)
 

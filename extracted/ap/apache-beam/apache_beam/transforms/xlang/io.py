@@ -100,6 +100,48 @@ class GenerateSequence(ExternalTransform):
         start=start, end=end, rate=rate, expansion_service=expansion_service)
 
 
+class MongodbRead(ExternalTransform):
+
+  identifier = "beam:schematransform:org.apache.beam:mongodb_read:v1"
+
+  def __init__(
+      self,
+      collection,
+      database,
+      schema,
+      uri,
+      error_handling=None,
+      filter=None,
+      expansion_service=None):
+    """
+    :param collection: (str)
+      The MongoDB collection to read from. 
+    :param database: (str)
+      The MongoDB database to read from. 
+    :param schema: (str)
+      The schema in which the data is encoded, defined with JSON-schema syntax
+      (https://json-schema.org/). 
+    :param uri: (str)
+      The connection URI for the MongoDB server. 
+    :param error_handling: (Row(output=<class 'str'>))
+      This option specifies whether and where to output rows that failed to be
+      read. 
+    :param filter: (str)
+      An optional BSON filter to apply to the read. This should be a valid
+      JSON string. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:expansion-service:shadowJar")
+    super().__init__(
+        collection=collection,
+        database=database,
+        schema=schema,
+        uri=uri,
+        error_handling=error_handling,
+        filter=filter,
+        expansion_service=expansion_service)
+
+
 class MongodbWrite(ExternalTransform):
 
   identifier = "beam:schematransform:org.apache.beam:mongodb_write:v1"
@@ -216,6 +258,116 @@ class TfrecordWrite(ExternalTransform):
         max_num_writers_per_bundle=max_num_writers_per_bundle,
         no_spilling=no_spilling,
         shard_template=shard_template,
+        expansion_service=expansion_service)
+
+
+class ReadFromJms(ExternalTransform):
+  """
+  Reads messages from a JMS broker and outputs each message as a single
+  `payload` (string) field.
+  
+  By default the read is unbounded (streaming): it keeps consuming messages from
+  the specified queue or topic until the pipeline is stopped. Setting
+  `maxNumRecords` and/or `maxReadTimeSeconds` bounds the read, producing a
+  bounded (batch) PCollection.
+  """
+  identifier = "beam:schematransform:org.apache.beam:jms_read:v1"
+
+  def __init__(
+      self,
+      connection_configuration,
+      acknowledge_mode=None,
+      close_timeout_seconds=None,
+      individual_acknowledge_mode_code=None,
+      max_num_records=None,
+      max_read_time_seconds=None,
+      queue=None,
+      topic=None,
+      expansion_service=None):
+    """
+    :param connection_configuration: (Row(connection_factory_class_name=typing.Optional[str], password=typing.Optional[str], server_uri=<class 'str'>, username=typing.Optional[str]))
+      Configuration options to set up the JMS connection.
+      Note: if connection factory class name is set, spin up a persistent
+      expansion service with the provider client JAR on the classpath:
+      java -cp <expansion-service-jar>:<provider-client-jar>
+      org.apache.beam.sdk.expansion.service.ExpansionService <port>
+      and pass expansion_service='localhost:<port>' to the transform.
+      Currently, only ActiveMQ (org.apache.activemq.ActiveMQConnectionFactory)
+      is embedded into the expansion service 
+    :param acknowledge_mode: (str)
+      The JMS acknowledge mode: CLIENT_ACKNOWLEDGE, CLIENT_ACKNOWLEDGE_UNSAFE,
+      or INDIVIDUAL_ACKNOWLEDGE. 
+    :param close_timeout_seconds: (int64)
+      Close timeout for the JMS connection in seconds. 
+    :param individual_acknowledge_mode_code: (int32)
+      The proprietary integer code for individual message acknowledgment when
+      using INDIVIDUAL_ACKNOWLEDGE. 
+    :param max_num_records: (int64)
+      The max number of records to receive. Setting this will result in a
+      bounded PCollection. 
+    :param max_read_time_seconds: (int64)
+      The maximum time for this source to read messages. Setting this will
+      result in a bounded PCollection. 
+    :param queue: (str)
+      The JMS queue to read from. Exclusively one of queue or topic must be
+      specified. 
+    :param topic: (str)
+      The JMS topic to read from. Exclusively one of queue or topic must be
+      specified. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:messaging-expansion-service:shadowJar")
+    super().__init__(
+        connection_configuration=connection_configuration,
+        acknowledge_mode=acknowledge_mode,
+        close_timeout_seconds=close_timeout_seconds,
+        individual_acknowledge_mode_code=individual_acknowledge_mode_code,
+        max_num_records=max_num_records,
+        max_read_time_seconds=max_read_time_seconds,
+        queue=queue,
+        topic=topic,
+        expansion_service=expansion_service)
+
+
+class WriteToJms(ExternalTransform):
+  """
+  Publishes messages to a JMS broker. Expects an input PCollection of rows with
+  a `payload` (string) or `bytes` field, each of which is published as one JMS
+  TextMessage.
+  
+  Works with both bounded (batch) and unbounded (streaming) input PCollections.
+  """
+  identifier = "beam:schematransform:org.apache.beam:jms_write:v1"
+
+  def __init__(
+      self,
+      connection_configuration,
+      queue=None,
+      topic=None,
+      expansion_service=None):
+    """
+    :param connection_configuration: (Row(connection_factory_class_name=typing.Optional[str], password=typing.Optional[str], server_uri=<class 'str'>, username=typing.Optional[str]))
+      Configuration options to set up the JMS connection.
+      Note: if connection factory class name is set, spin up a persistent
+      expansion service with the provider client JAR on the classpath:
+      java -cp <expansion-service-jar>:<provider-client-jar>
+      org.apache.beam.sdk.expansion.service.ExpansionService <port>
+      and pass expansion_service='localhost:<port>' to the transform.
+      Currently, only ActiveMQ (org.apache.activemq.ActiveMQConnectionFactory)
+      is embedded into the expansion service 
+    :param queue: (str)
+      The JMS queue to write to. Exclusively one of queue or topic must be
+      specified. 
+    :param topic: (str)
+      The JMS topic to write to. Exclusively one of queue or topic must be
+      specified. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:messaging-expansion-service:shadowJar")
+    super().__init__(
+        connection_configuration=connection_configuration,
+        queue=queue,
+        topic=topic,
         expansion_service=expansion_service)
 
 

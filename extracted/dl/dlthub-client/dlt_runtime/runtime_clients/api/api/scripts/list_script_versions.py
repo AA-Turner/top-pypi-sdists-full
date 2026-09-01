@@ -125,8 +125,9 @@ def sync_detailed(
     Args:
         workspace_id (UUID):
         script_id_or_ref (str):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -176,8 +177,9 @@ def sync(
     Args:
         workspace_id (UUID):
         script_id_or_ref (str):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -221,8 +223,9 @@ async def asyncio_detailed(
     Args:
         workspace_id (UUID):
         script_id_or_ref (str):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -270,8 +273,9 @@ async def asyncio(
     Args:
         workspace_id (UUID):
         script_id_or_ref (str):
-        limit (int | Unset): Maximum number of items to return. Default: 100.
-        offset (int | Unset): Number of items to skip. Default: 0.
+        limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
+        offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
+            to 10001, so narrow with filters instead of paging deeper. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::marker::PhantomData;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::sync::critical_section::with_critical_section;
@@ -20,33 +22,33 @@ use pyo3::types::{IntoPyDict, PyByteArray, PyBytes, PyDict, PyList, PyTuple};
 use pyo3::{intern, IntoPyObjectExt};
 
 use super::super::Structure;
+use super::extension::PackStreamV1Ext;
 use super::{
     BYTES_16, BYTES_32, BYTES_8, FALSE, FLOAT_64, INT_16, INT_32, INT_64, INT_8, LIST_16, LIST_32,
     LIST_8, MAP_16, MAP_32, MAP_8, NULL, STRING_16, STRING_32, STRING_8, TINY_LIST, TINY_MAP,
     TINY_STRING, TINY_STRUCT, TRUE,
 };
 
-#[pyfunction]
-#[pyo3(signature = (bytes, idx, hydration_hooks=None))]
-pub(super) fn unpack(
+pub(crate) fn unpack<E: PackStreamV1Ext>(
     bytes: Bound<PyByteArray>,
     idx: usize,
     hydration_hooks: Option<Bound<PyDict>>,
 ) -> PyResult<(Py<PyAny>, usize)> {
     let py = bytes.py();
-    let mut decoder = PackStreamDecoder::new(py, bytes, idx, hydration_hooks);
+    let mut decoder = PackStreamDecoder::<E>::new(py, bytes, idx, hydration_hooks);
     let result = decoder.read()?;
     Ok((result, decoder.index))
 }
 
-struct PackStreamDecoder<'a> {
+pub(crate) struct PackStreamDecoder<'a, E: PackStreamV1Ext> {
+    ext: PhantomData<E>,
     py: Python<'a>,
     bytes: Bound<'a, PyByteArray>,
     index: usize,
     hydration_hooks: Option<Bound<'a, PyDict>>,
 }
 
-impl<'a> PackStreamDecoder<'a> {
+impl<'a, E: PackStreamV1Ext> PackStreamDecoder<'a, E> {
     fn new(
         py: Python<'a>,
         bytes: Bound<'a, PyByteArray>,
@@ -54,6 +56,7 @@ impl<'a> PackStreamDecoder<'a> {
         hydration_hooks: Option<Bound<'a, PyDict>>,
     ) -> Self {
         Self {
+            ext: PhantomData,
             py,
             bytes,
             index: idx,
@@ -71,6 +74,7 @@ impl<'a> PackStreamDecoder<'a> {
 
         Ok(match marker {
             // tiny int
+            #[expect(clippy::cast_possible_wrap, reason = "wrapping is what we want")]
             _ if marker as i8 >= -16 => (marker as i8).into_py_any(self.py)?,
             NULL => self.py.None(),
             FLOAT_64 => self.read_f64()?.into_py_any(self.py)?,
@@ -82,15 +86,15 @@ impl<'a> PackStreamDecoder<'a> {
             INT_64 => self.read_i64()?.into_py_any(self.py)?,
             BYTES_8 => {
                 let len = self.read_u8()?;
-                self.read_bytes(len)?
+                self.read_bytes(len)
             }
             BYTES_16 => {
                 let len = self.read_u16()?;
-                self.read_bytes(len)?
+                self.read_bytes(len)
             }
             BYTES_32 => {
                 let len = self.read_u32()?;
-                self.read_bytes(len)?
+                self.read_bytes(len)
             }
             _ if high_nibble == TINY_STRING => self.read_string((marker & 0x0F).into())?,
             STRING_8 => {
@@ -133,10 +137,13 @@ impl<'a> PackStreamDecoder<'a> {
             }
             _ if high_nibble == TINY_STRUCT => self.read_struct((marker & 0x0F).into())?,
             _ => {
-                // raise ValueError("Unknown PackStream marker %02X" % marker)
-                return Err(PyErr::new::<PyValueError, _>(format!(
-                    "Unknown PackStream marker {marker:02X}",
-                )));
+                let Some(value) = E::unpack_ext(marker, self)? else {
+                    // raise ValueError("Unknown PackStream marker %02X" % marker)
+                    return Err(PyErr::new::<PyValueError, _>(format!(
+                        "Unknown PackStream marker {marker:02X}",
+                    )));
+                };
+                value
             }
         })
     }
@@ -188,9 +195,9 @@ impl<'a> PackStreamDecoder<'a> {
         Ok(key_value_pairs.into_py_dict(self.py)?.into())
     }
 
-    fn read_bytes(&mut self, length: usize) -> PyResult<Py<PyAny>> {
+    fn read_bytes(&mut self, length: usize) -> Py<PyAny> {
         if length == 0 {
-            return Ok(PyBytes::new(self.py, &[]).into_any().unbind());
+            return PyBytes::new(self.py, &[]).into_any().unbind();
         }
         let data = with_critical_section(&self.bytes, || {
             // Safety:
@@ -205,14 +212,14 @@ impl<'a> PackStreamDecoder<'a> {
             }
         });
         self.index += length;
-        Ok(PyBytes::new(self.py, &data).into_any().unbind())
+        PyBytes::new(self.py, &data).into_any().unbind()
     }
 
     fn read_struct(&mut self, length: usize) -> PyResult<Py<PyAny>> {
         let tag = self.read_byte()?;
         let mut fields = Vec::with_capacity(length);
         for _ in 0..length {
-            fields.push(self.read()?)
+            fields.push(self.read()?);
         }
         let mut bolt_struct = Structure { tag, fields }
             .into_pyobject(self.py)?
@@ -262,7 +269,7 @@ impl<'a> PackStreamDecoder<'a> {
         Ok(byte)
     }
 
-    fn read_n_bytes<const N: usize>(&mut self) -> PyResult<[u8; N]> {
+    pub(crate) fn read_n_bytes<const N: usize>(&mut self) -> PyResult<[u8; N]> {
         let to = self.index + N;
         with_critical_section(&self.bytes, || {
             // Safety:
@@ -319,5 +326,10 @@ impl<'a> PackStreamDecoder<'a> {
 
     fn read_f64(&mut self) -> PyResult<f64> {
         self.read_n_bytes().map(f64::from_be_bytes)
+    }
+
+    #[inline]
+    pub(crate) fn py(&self) -> Python<'a> {
+        self.py
     }
 }

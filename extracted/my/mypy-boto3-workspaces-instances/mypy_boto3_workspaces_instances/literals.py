@@ -42,6 +42,7 @@ __all__ = (
     "ListRegionsPaginatorName",
     "ListWorkspaceInstancesPaginatorName",
     "MarketTypeEnumType",
+    "NestedVirtualizationEnumType",
     "PaginatorName",
     "PlatformTypeEnumType",
     "ProvisionStateEnumType",
@@ -74,6 +75,7 @@ ListInstanceTypesPaginatorName = Literal["list_instance_types"]
 ListRegionsPaginatorName = Literal["list_regions"]
 ListWorkspaceInstancesPaginatorName = Literal["list_workspace_instances"]
 MarketTypeEnumType = Literal["capacity-block", "spot"]
+NestedVirtualizationEnumType = Literal["disabled", "enabled"]
 PlatformTypeEnumType = Literal[
     "Linux/UNIX",
     "Red Hat BYOL Linux",
@@ -99,8 +101,11 @@ WorkspacesInstancesServiceName = Literal["workspaces-instances"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -275,6 +280,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -405,6 +411,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

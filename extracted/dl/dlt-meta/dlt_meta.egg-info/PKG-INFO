@@ -1,0 +1,70 @@
+Metadata-Version: 2.4
+Name: dlt-meta
+Version: 0.1.0
+Summary: DLT-META Framework (Compatibility wrapper - please migrate to databricks-labs-sdp-meta)
+Home-page: https://github.com/databrickslabs/sdp-meta
+Author: Ravi Gawai
+Author-email: databrickslabs@databricks.com
+License: Databricks License
+Project-URL: Documentation, https://databrickslabs.github.io/sdp-meta/
+Project-URL: Source, https://github.com/databrickslabs/sdp-meta
+Project-URL: Migration Guide, https://databrickslabs.github.io/sdp-meta/docs/operations/migration
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 7 - Inactive
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.8, <3.13
+Description-Content-Type: text/markdown
+Requires-Dist: databricks-labs-sdp-meta<0.2.0,>=0.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+
+# DLT-META Compatibility Package
+
+**DEPRECATED**: This package is a compatibility wrapper for
+[databricks-labs-sdp-meta](https://pypi.org/project/databricks-labs-sdp-meta/)
+(DLT-META is now SDP-META). Installing it pulls in the new package and keeps
+existing `dlt_meta` / `src.*` imports working unchanged.
+
+## Migration
+
+Replace:
+```bash
+pip install dlt-meta
+```
+
+With:
+```bash
+pip install databricks-labs-sdp-meta
+```
+
+And migrate imports when convenient:
+```python
+# old (still works via this wrapper)
+from src.dataflow_pipeline import DataflowPipeline
+# new
+from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline
+```
+
+All functionality is identical. This wrapper is maintained for backwards
+compatibility; new features land only in `databricks-labs-sdp-meta`.
+
+Docs: https://databrickslabs.github.io/sdp-meta/ ·
+Source: https://github.com/databrickslabs/sdp-meta
+    

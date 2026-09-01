@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: libigl
-Version: 2.6.2
+Version: 2.6.3
 Summary: libigl: A simple C++ geometry processing library
 Author-Email: Alec Jacobson <alecjacobson@gmail.com>
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
@@ -48,7 +48,7 @@ libigl_version = importlib.metadata.version('libigl')
 The version of libigl is defined in the [pyproject.toml](./pyproject.toml) file.
 
 
-## Compiling and modifying the bindiings
+## Compiling and modifying the bindings
 
 According to the [scikit-build-core documentation](https://scikit-build-core.readthedocs.io/en/latest/configuration.html#editable-installs), the way to make an editable (incremental) build is to:
 
@@ -81,6 +81,20 @@ test in `tests/test_all.py` to ensure the binding can at least be called as
 expected.
 
 
+### Packaging a wheel from an existing build
+
+If you already have a compiled build directory, you can package it into a
+`.whl` without recompiling and install that wheel into other virtual
+environments on the same machine:
+
+```
+python -m pip wheel --no-build-isolation --no-deps -Cbuild-dir=build -w wheelhouse .
+pip install wheelhouse/libigl-*.whl
+```
+
+The `--no-deps` flag skips bundling numpy/scipy (the target environment must
+have them already). No compiler or CMake is required in the target environment.
+
 ## Testing cibuildwheel locally
 
 Install whichever version of Python from the [official website](https://www.python.org/downloads/) and then run:
@@ -101,7 +115,9 @@ A successful [.github/workflows/wheels.yml](.github/workflows/wheels.yml) run wi
 
 Then these can be uploaded to pypi using:
 
-    python -m twine upload --repository testpypi wheelhouse/*/*.whl wheelhouse/*/*.tar.gz
+    for f in wheelhouse/*/*.whl wheelhouse/*/*.tar.gz; do
+        python3 -m twine upload --repository pypi "$f" || echo "Skipping failed upload: $f"
+    done
 
 ## Acknowledgements
 

@@ -1,5 +1,4 @@
 use assert_fs::assert::PathAssert;
-use assert_fs::fixture::{FileWriteStr, PathChild};
 use prek_consts::{PRE_COMMIT_CONFIG_YAML, PRE_COMMIT_CONFIG_YML, PREK_TOML};
 
 use crate::common::{TestEnv, cmd_snapshot};
@@ -57,13 +56,8 @@ repos:
 "#;
 
 #[test]
-fn yaml_to_toml_writes_default_output() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
-
-    context
-        .work_dir()
-        .child("config.yaml")
-        .write_str(YAML_CONFIG)?;
+fn yaml_to_toml_writes_default_output() {
+    let context = TestEnv::new().with_file("config.yaml", YAML_CONFIG);
 
     cmd_snapshot!(context,
         context
@@ -148,19 +142,13 @@ fn yaml_to_toml_writes_default_output() -> anyhow::Result<()> {
       }
     ]
     "#);
-
-    Ok(())
 }
 
 #[test]
-fn yaml_to_toml_force_overwrite() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
-
-    context
-        .work_dir()
-        .child("config.yaml")
-        .write_str(YAML_CONFIG)?;
-    context.work_dir().child(PREK_TOML).write_str("existing")?;
+fn yaml_to_toml_force_overwrite() {
+    let context = TestEnv::new()
+        .with_file("config.yaml", YAML_CONFIG)
+        .with_file(PREK_TOML, "existing");
 
     cmd_snapshot!(context,
         context
@@ -189,18 +177,11 @@ fn yaml_to_toml_force_overwrite() -> anyhow::Result<()> {
     ----- stderr -----
     "
     );
-
-    Ok(())
 }
 
 #[test]
-fn yaml_to_toml_rejects_invalid_config() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
-
-    context
-        .work_dir()
-        .child("config.yaml")
-        .write_str("repos: 123")?;
+fn yaml_to_toml_rejects_invalid_config() {
+    let context = TestEnv::new().with_file("config.yaml", "repos: 123");
 
     cmd_snapshot!(context,
       context
@@ -220,18 +201,11 @@ fn yaml_to_toml_rejects_invalid_config() -> anyhow::Result<()> {
       |        ^ expected sequence start
     "#
     );
-
-    Ok(())
 }
 
 #[test]
-fn yaml_to_toml_same_output() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
-
-    context
-        .work_dir()
-        .child("config.yaml")
-        .write_str(YAML_CONFIG)?;
+fn yaml_to_toml_same_output() {
+    let context = TestEnv::new().with_file("config.yaml", YAML_CONFIG);
 
     cmd_snapshot!(context,
         context
@@ -247,22 +221,12 @@ fn yaml_to_toml_same_output() -> anyhow::Result<()> {
     "
     );
 
-    context
-        .work_dir()
-        .child(PREK_TOML)
-        .assert(predicates::path::missing());
-
-    Ok(())
+    context.child(PREK_TOML).assert(predicates::path::missing());
 }
 
 #[test]
-fn yaml_to_toml_discovers_pre_commit_config_yaml() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
-
-    context
-        .work_dir()
-        .child(PRE_COMMIT_CONFIG_YAML)
-        .write_str(YAML_CONFIG)?;
+fn yaml_to_toml_discovers_pre_commit_config_yaml() {
+    let context = TestEnv::new().with_file(PRE_COMMIT_CONFIG_YAML, YAML_CONFIG);
 
     cmd_snapshot!(context,
         context.command().args(["util", "yaml-to-toml"]),
@@ -276,22 +240,12 @@ fn yaml_to_toml_discovers_pre_commit_config_yaml() -> anyhow::Result<()> {
     "
     );
 
-    context
-        .work_dir()
-        .child(PREK_TOML)
-        .assert(predicates::path::exists());
-
-    Ok(())
+    context.child(PREK_TOML).assert(predicates::path::exists());
 }
 
 #[test]
-fn yaml_to_toml_discovers_pre_commit_config_yml() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
-
-    context
-        .work_dir()
-        .child(PRE_COMMIT_CONFIG_YML)
-        .write_str(YAML_CONFIG)?;
+fn yaml_to_toml_discovers_pre_commit_config_yml() {
+    let context = TestEnv::new().with_file(PRE_COMMIT_CONFIG_YML, YAML_CONFIG);
 
     cmd_snapshot!(context,
         context.command().args(["util", "yaml-to-toml"]),
@@ -305,17 +259,12 @@ fn yaml_to_toml_discovers_pre_commit_config_yml() -> anyhow::Result<()> {
     "
     );
 
-    context
-        .work_dir()
-        .child(PREK_TOML)
-        .assert(predicates::path::exists());
-
-    Ok(())
+    context.child(PREK_TOML).assert(predicates::path::exists());
 }
 
 #[test]
-fn yaml_to_toml_prefers_yaml_over_yml() -> anyhow::Result<()> {
-    let context = TestEnv::new_without_git();
+fn yaml_to_toml_prefers_yaml_over_yml() {
+    let context = TestEnv::new();
 
     // Write different content to each file so we can verify which was used.
     let yaml_only = indoc::indoc! {r"
@@ -331,14 +280,9 @@ fn yaml_to_toml_prefers_yaml_over_yml() -> anyhow::Result<()> {
               - id: end-of-file-fixer
     "};
 
-    context
-        .work_dir()
-        .child(PRE_COMMIT_CONFIG_YAML)
-        .write_str(yaml_only)?;
-    context
-        .work_dir()
-        .child(PRE_COMMIT_CONFIG_YML)
-        .write_str(yml_only)?;
+    let context = context
+        .with_file(PRE_COMMIT_CONFIG_YAML, yaml_only)
+        .with_file(PRE_COMMIT_CONFIG_YML, yml_only);
 
     cmd_snapshot!(context,
         context.command().args(["util", "yaml-to-toml"]),
@@ -358,13 +302,11 @@ fn yaml_to_toml_prefers_yaml_over_yml() -> anyhow::Result<()> {
         output.contains("trailing-whitespace"),
         "Expected .yaml to be preferred over .yml"
     );
-
-    Ok(())
 }
 
 #[test]
 fn yaml_to_toml_error_when_no_config_found() {
-    let context = TestEnv::new_without_git();
+    let context = TestEnv::new();
 
     cmd_snapshot!(context,
         context.command().args(["util", "yaml-to-toml"]),

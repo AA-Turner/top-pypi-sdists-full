@@ -1,11 +1,6 @@
+from collections.abc import Callable, Iterable, Sequence
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterable,
-    Sequence,
-    Tuple,
-    Union,
 )
 
 from eth_typing import (
@@ -90,10 +85,6 @@ class RPC:
     eth_getTransactionByHash = RPCEndpoint("eth_getTransactionByHash")
     eth_getTransactionCount = RPCEndpoint("eth_getTransactionCount")
     eth_getTransactionReceipt = RPCEndpoint("eth_getTransactionReceipt")
-    eth_getUncleByBlockHashAndIndex = RPCEndpoint("eth_getUncleByBlockHashAndIndex")
-    eth_getUncleByBlockNumberAndIndex = RPCEndpoint("eth_getUncleByBlockNumberAndIndex")
-    eth_getUncleCountByBlockHash = RPCEndpoint("eth_getUncleCountByBlockHash")
-    eth_getUncleCountByBlockNumber = RPCEndpoint("eth_getUncleCountByBlockNumber")
     eth_getWork = RPCEndpoint("eth_getWork")
     eth_newBlockFilter = RPCEndpoint("eth_newBlockFilter")
     eth_newFilter = RPCEndpoint("eth_newFilter")
@@ -174,7 +165,7 @@ TRACE_FILTER_PARAM_ABIS = {
     "count": "int",
 }
 
-RPC_ABIS: Dict[str, Union[Sequence[Any], Dict[str, str]]] = {
+RPC_ABIS: dict[str, Sequence[Any] | dict[str, str]] = {
     # eth
     "eth_call": TRANSACTION_PARAMS_ABIS,
     "eth_createAccessList": TRANSACTION_PARAMS_ABIS,
@@ -192,7 +183,6 @@ RPC_ABIS: Dict[str, Union[Sequence[Any], Dict[str, str]]] = {
     "eth_getTransactionCount": ["address", None],
     "eth_getTransactionReceipt": ["bytes32"],
     "eth_getRawTransactionByBlockHashAndIndex": ["bytes32", "uint"],
-    "eth_getUncleCountByBlockHash": ["bytes32"],
     "eth_newFilter": FILTER_PARAMS_ABIS,
     "eth_sendRawTransaction": ["bytes"],
     "eth_sendTransaction": TRANSACTION_PARAMS_ABIS,
@@ -208,10 +198,10 @@ RPC_ABIS: Dict[str, Union[Sequence[Any], Dict[str, str]]] = {
 
 @curry
 def apply_abi_formatters_to_dict(
-    normalizers: Sequence[Callable[[TypeStr, Any], Tuple[TypeStr, Any]]],
-    abi_dict: Dict[str, Any],
-    data: Dict[Any, Any],
-) -> Dict[Any, Any]:
+    normalizers: Sequence[Callable[[TypeStr, Any], tuple[TypeStr, Any]]],
+    abi_dict: dict[str, Any],
+    data: dict[Any, Any],
+) -> dict[Any, Any]:
     fields = list(abi_dict.keys() & data.keys())
     formatted_values = map_abi_data(
         normalizers,
@@ -225,9 +215,9 @@ def apply_abi_formatters_to_dict(
 
 @to_dict
 def abi_request_formatters(
-    normalizers: Sequence[Callable[[TypeStr, Any], Tuple[TypeStr, Any]]],
-    abis: Dict[RPCEndpoint, Any],
-) -> Iterable[Tuple[RPCEndpoint, Callable[..., Any]]]:
+    normalizers: Sequence[Callable[[TypeStr, Any], tuple[TypeStr, Any]]],
+    abis: dict[RPCEndpoint, Any],
+) -> Iterable[tuple[RPCEndpoint, Callable[..., Any]]]:
     for method, abi_types in abis.items():
         if isinstance(abi_types, list):
             yield method, map_abi_data(normalizers, abi_types)

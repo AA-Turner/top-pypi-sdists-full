@@ -24,7 +24,7 @@ class PipelineRunSummaryResponse:
         finished_at (datetime.datetime | None | Unset): When the pipeline run finished
         started_at (datetime.datetime | None | Unset): When the pipeline run started
         status (None | str | Unset): Status of the pipeline run
-        total_rows (int | None | Unset): Total number of rows extracted by the pipeline
+        total_rows (int | None | Unset): Total number of rows loaded by the pipeline
         transaction_id (None | str | Unset): Transaction ID of the pipeline run
     """
 

@@ -1,6 +1,6 @@
 [project]
 name = "spaces"
-version = "0.51.2"
+version = "0.51.3"
 description = "Utilities for Hugging Face Spaces"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -52,7 +52,7 @@ test = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-v"
+addopts = "-v --durations=0 --durations-min=1"
 testpaths = ["tests"]
 env_files = ["tests/.env"]
 

@@ -74,6 +74,7 @@ from ._capabilities import (CAPABILITY_DATABASE,
                             XTGETTCAP_INIT_CAPABILITIES,
                             CAPABILITIES_HORIZONTAL_DISTANCE,
                             Decrqss,
+                            FontCoverage,
                             TermcapResponse,
                             TextSizingResult,
                             ITerm2Capabilities)
@@ -128,14 +129,29 @@ _RE_ITERM2_CAPABILITIES_RESPONSE = re.compile(
     r'\x1b\]1337;Capabilities=([^\x07\x1b]+)(?:\x07|\x1b\\)')
 _RE_KITTY_NOTIFICATIONS_RESPONSE = re.compile(
     r'\x1b\]99;([^\x07\x1b]*?)(?:\x07|\x1b\\)')
+# Mintty font glyph coverage: ESC ] 7771 ; ! ; cp1 ; ; cp3 ; ... BEL/ST, holding one
+# ';' prefixed field for each codepoint queried, empty where the font has no glyph.
+_RE_MINTTY_FONT_RESPONSE = re.compile(
+    r'\x1b\]7771;!([;0-9]*)(?:\x07|\x1b\\)')
+# Glyph Protocol codepoint query response: ESC _ 25a1 ; q ; cp=HEX ; status=VALUE ST
+_RE_GLYPH_PROTOCOL_Q_RESPONSE = re.compile(
+    r'\x1b_25a1;q;cp=([0-9a-fA-F]+);status=([^;\x1b\\]*)'
+    r'(?:;reason=([^;\x1b\\]*))?[^\x1b]*\x1b\\')
+# Glyph Protocol support probe response: ESC _ 25a1 ; s ; key=val... ST
+_RE_GLYPH_PROTOCOL_S_RESPONSE = re.compile(r'\x1b_25a1;s(;[^\x1b\\]*)\x1b\\')
 _RE_CPR_BOUNDARY = re.compile(r'\x1b\[[0-9]+;[0-9]+R')
 _RE_KITTY_CLIPBOARD = re.compile(r'\x1b\[\?5522;(\d+)\$y')
 _RE_KITTY_POINTER = re.compile(r'\x1b\]22;([^\x07\x1b]+)(?:\x07|\x1b\\)')
+_FONT_QUERY_CHUNK_SIZE = 256
+
 _RE_OSC52_RESPONSE = re.compile(r'\x1b\]52;[a-z]*;([^\x07\x1b]*)(?:\x07|\x1b\\)')
 # Color scheme (dark/light mode): CSI ? 997 ; Ps n
 _RE_COLOR_SCHEME_MODE_RESPONSE = re.compile(r'\x1b\[\?997;([12])n')
 # DECRQSS: DCS Ps $ r Pt ST (Ps=1 means valid)
 _RE_DECRQSS_RESPONSE = re.compile(r'\x1bP([01])\$r([^\x1b]*)\x1b\\')
+
+# Number of bytes read by a single system call of Terminal._read_available()
+_KEYBOARD_READ_SIZE = 4096
 
 
 class Terminal():  # pylint: disable=attribute-defined-outside-init
@@ -270,6 +286,9 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         self._init_descriptor = None
         self._is_a_tty = False
         self._keyboard_buf: 'collections.deque[str]' = collections.deque()
+        # Number of legacy mouse coordinate bytes still owed to a '\x1b[M' sequence that
+        # was received by a previous read, see :meth:`_decode_keyboard`.
+        self._mouse_latin1_pending = 0
         self._dec_mode_cache: Dict[int, int] = {}
         self.__init__streams()
         self.__init_set_styling(force_styling)
@@ -416,6 +435,14 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         self._color_scheme_supported: Optional[bool] = None
         # DECRQSS detection cache
         self._decrqss_supported: Optional[bool] = None
+        # Font glyph coverage: mintty OSC 7771 probe result
+        self._does_mintty_font_protocol: Optional[bool] = None
+        # Font glyph coverage: Glyph Protocol probe result, by advertised key=value
+        self._does_glyph_protocol: Optional[Dict[str, str]] = None
+        # Font glyph coverage: accumulated per-codepoint results, codepoint -> sources
+        self._font_coverage_cache: Dict[int, str] = {}
+        # Font glyph coverage: codepoints the terminal would not answer for, and why
+        self._font_coverage_unknown: Dict[int, str] = {}
 
     def __init_set_styling(self, force_styling: bool) -> None:
         self._does_styling = False
@@ -877,7 +904,7 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
                 ctx = self.cbreak()
                 ctx.__enter__()
 
-            self.stream.write(query_str + '\x1b[6n')
+            self.stream.write(query_str + (self.u7 or '\x1b[6n'))
             self.stream.flush()
 
             # Wait for CPR boundary -- this is always the last response
@@ -902,6 +929,49 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
                 ctx.__exit__(None, None, None)
 
         return feature_match
+
+    def _query_boundary_multiple(self, query_str: str,
+                                 feature_re: "re.Pattern[str]",
+                                 timeout: Optional[float],
+                                 requires_styling: bool = True
+                                 ) -> Optional[List[Match[str]]]:
+        """Like _query_with_boundary(), but for a query with many replies."""
+        # Returns every match of *feature_re* in the data read, an empty list when the
+        # CPR boundary arrived without any, or None when the stream is not a TTY, or
+        # *requires_styling* is unmet, or the CPR boundary itself never arrived.  Data
+        # that is not a match is pushed back for inkey().
+        if not self.is_a_tty:
+            return None
+        if requires_styling and not self.does_styling:
+            return None
+
+        ctx = None
+        try:
+            if self._line_buffered:
+                ctx = self.cbreak()
+                ctx.__enter__()
+
+            # note: a literal CPR, not self.u7, because this runs during
+            # Terminal.__init__, before any terminfo capability may be resolved.
+            self.stream.write(query_str + '\x1b[6n')
+            self.stream.flush()
+
+            cpr_match, data = _read_until(
+                self, _RE_CPR_BOUNDARY.pattern, timeout)
+
+            if cpr_match is None:
+                return None
+
+            data = data[:cpr_match.start()] + data[cpr_match.end():]
+            results = list(feature_re.finditer(data))
+
+            self.ungetch(feature_re.sub('', data))
+
+        finally:
+            if ctx is not None:
+                ctx.__exit__(None, None, None)
+
+        return results
 
     @contextlib.contextmanager
     def location(self, x: Optional[int] = None, y: Optional[int]
@@ -1188,9 +1258,8 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         if self._device_attributes_cache is not None and not force:
             return self._device_attributes_cache
 
-        query = '\x1b[c'
         match = self._query_with_boundary(
-            query,
+            self.u9 or '\x1b[c',
             (DeviceAttribute.RE_RESPONSE, DeviceAttribute.RE_RESPONSE_CTERM),
             timeout)
 
@@ -1214,9 +1283,9 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         ``TERM_PROGRAM_VERSION`` environment variables. Returns ``None``
         only if both methods fail.
 
-        **Successful responses are cached indefinitely** unless ``force=True`` is
-        specified. Unlike other query methods, there is no sticky failure mechanism -
-        each failed query can be retried.
+        **Only Successful responses are cached indefinitely** unless ``force=True`` is specified.
+        Unlike other query methods, there is no "sticky failure", failed queries are not cached and
+        are retried.
 
         .. note:: A ``timeout`` value should be set to avoid blocking when the
             terminal does not respond to XTVERSION queries, which may happen with
@@ -1775,36 +1844,21 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         if not caps:
             return None
 
-        ctx = None
-        try:
-            if self._line_buffered:
-                ctx = self.cbreak()
-                ctx.__enter__()
-            for capname in caps:
-                self.stream.write(
-                    f'\x1bP+q{TermcapResponse.hex_encode(capname)}\x1b\\')
-            self.stream.write('\x1b[6n')  # CPR fence
-            self.stream.flush()
-            match, data = _read_until(self, _RE_CPR_BOUNDARY.pattern, timeout)
-        finally:
-            if ctx is not None:
-                ctx.__exit__(None, None, None)
-
-        if match is None:
+        query_str = ''.join(
+            f'\x1bP+q{TermcapResponse.hex_encode(capname)}\x1b\\'
+            for capname in caps)
+        # pylint: disable=protected-access
+        if (matches := self._query_boundary_multiple(
+                query_str, TermcapResponse._RE_XTGETTCAP_RESPONSE, timeout,
+                requires_styling=False)) is None:
             return TermcapResponse()
 
-        # Strip the CPR itself from the response data
-        data = data[:match.start()] + data[match.end():]
-
         capabilities: Dict[str, str] = {}
-        if data:
-            capabilities.update(TermcapResponse.parse_capabilities(data))
-            # pylint: disable=protected-access
-            remaining = TermcapResponse._RE_XTGETTCAP_RESPONSE.sub('', data)
-            if remaining:
-                self.ungetch(remaining)
+        for match in matches:
+            if match.group(1) == '1':
+                name, value = TermcapResponse.from_match(match)
+                capabilities[name] = value
 
-        # Record None sentinel for any requested cap that wasn't answered.
         for capname in caps:
             if capname not in capabilities:
                 capabilities[capname] = None  # type: ignore[assignment]
@@ -1823,6 +1877,204 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         """
         result = self.get_xtgettcap(timeout=timeout, force=force)
         return result is not None
+
+    def get_font_coverage(self, text: str,
+                          timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
+                          force: bool = False) -> FontCoverage:
+        r"""
+        Query which codepoints of *text* the terminal font has a glyph for.
+
+        :arg str text: Text whose codepoints to query.  Each distinct codepoint is asked
+            about once, in batches, however long *text* is and however often it repeats.
+        :arg float timeout: Seconds to wait for each round-trip.  A long *text* takes
+            several, so this bounds a single exchange and not the call.
+        :arg bool force: Discard the cached protocol probe and every cached codepoint
+            result, and query the terminal again.
+        :rtype: FontCoverage
+        :returns: Per-codepoint coverage.  When *text* is empty, or when neither
+            protocol answers, an empty result whose :attr:`~.FontCoverage.supported`
+            is False, which is falsey.  A codepoint the terminal declined to answer
+            for is reported through :attr:`~.FontCoverage.unknown` and is not asked
+            about again until ``force``.
+
+        Two protocols are tried, mintty's *Font Glyph Coverage Enquiry* (``OSC 7771``)
+        first, then the *Glyph Protocol* ``'q'`` verb (``APC 25a1``) of rio.  The
+        protocol that answers is remembered, as is the result for every codepoint
+        queried, so repeated calls over overlapping text cost no further round-trips.
+
+            >>> coverage = term.get_font_coverage('─│')
+            >>> if not coverage:
+            ...     print('terminal cannot say')
+            ... elif not coverage.covers('─│'):
+            ...     print('falling back to ASCII box drawing')
+
+        .. warning:: This reports *coverage of codepoints by a font*, and nothing more.
+            Neither protocol can be asked about a grapheme cluster, and neither reports
+            on the shaping that turns codepoints into drawn glyphs: ligatures, mark
+            positioning, ``ZWJ`` joining, ``VS-15``/``VS-16`` presentation, contextual
+            forms, or fallback to another font.  A cluster whose codepoints are all
+            covered may still fail to draw, and one with uncovered codepoints may draw
+            perfectly.  The text presentation watch, ``'⌚︎'``, renders correctly
+            on terminals whose font has no glyph for ``U+FE0E``, as no font does.
+            Deciding what will render is a heuristic built on this answer, and blessed
+            does not make it for you: see :ref:`detect-tofus.py` for one such heuristic.
+
+        .. seealso::
+            https://github.com/mintty/mintty/wiki/CtrlSeqs#font-glyph-coverage-enquiry
+            and https://rapha.land/introducing-glyph-protocol-for-terminals/
+        """
+        if not self.is_a_tty or not self.does_styling or not text:
+            return FontCoverage()
+
+        if force:
+            self._does_mintty_font_protocol = None
+            self._does_glyph_protocol = None
+            self._font_coverage_cache = {}
+            self._font_coverage_unknown = {}
+
+        wanted = {ord(char) for char in text}
+        self._query_font_codepoints(wanted, timeout)
+
+        protocol = ('mintty' if self._does_mintty_font_protocol else
+                    'glyph' if self._does_glyph_protocol else None)
+        if protocol is None:
+            return FontCoverage()
+
+        return FontCoverage(
+            sources={codepoint: self._font_coverage_cache[codepoint]
+                     for codepoint in wanted
+                     if codepoint in self._font_coverage_cache},
+            unknown={codepoint: self._font_coverage_unknown[codepoint]
+                     for codepoint in wanted
+                     if codepoint in self._font_coverage_unknown},
+            protocol=protocol)
+
+    def _query_font_codepoints(self, wanted: Set[int],
+                               timeout: Optional[float]) -> None:
+        """
+        Resolve the coverage of *wanted* codepoints into the per-codepoint caches.
+
+        :arg set wanted: Codepoints, as integers, to test.
+        :arg float timeout: Seconds to wait for each round-trip.
+        """
+        cache = self._font_coverage_cache
+        unknown = self._font_coverage_unknown
+        pending = sorted(codepoint for codepoint in wanted
+                         if codepoint not in cache and codepoint not in unknown)
+
+        if pending and self._does_mintty_font_protocol is None:
+            # the first chunk doubles as the probe: only mintty answers OSC 7771 at all,
+            # so a reply is itself the proof of support, no extra round-trip needed.
+            chunk, pending = (pending[:_FONT_QUERY_CHUNK_SIZE],
+                              pending[_FONT_QUERY_CHUNK_SIZE:])
+            result = self._query_font_mintty_protocol(chunk, timeout)
+            self._does_mintty_font_protocol = result is not None
+            if result is None:
+                pending = chunk + pending
+            else:
+                cache.update(result)
+
+        if pending and not self._does_mintty_font_protocol:
+            if self._does_glyph_protocol is None:
+                self._does_glyph_protocol = self._probe_glyph_protocol(timeout)
+            if not self._does_glyph_protocol:
+                return
+
+        query = (self._query_font_mintty_protocol if self._does_mintty_font_protocol
+                 else self._query_font_glyph_protocol)
+        for idx in range(0, len(pending), _FONT_QUERY_CHUNK_SIZE):
+            chunk = pending[idx:idx + _FONT_QUERY_CHUNK_SIZE]
+            result = query(chunk, timeout)
+            # the terminal answered the probe but not (all of) this query: record the
+            # codepoints as unanswered rather than guessing at their coverage.  An
+            # error reply has already recorded its own, more specific reason.
+            answered = result or {}
+            cache.update(answered)
+            unknown.update((codepoint, 'no reply') for codepoint in chunk
+                           if codepoint not in answered and codepoint not in unknown)
+
+    def _probe_glyph_protocol(self, timeout: Optional[float]) -> Dict[str, str]:
+        """
+        Probe for Glyph Protocol support using the ``'s'`` verb.
+
+        :arg float timeout: Timeout in seconds.
+        :rtype: Dict[str, str]
+        :returns: Advertised key=value pairs, such as ``{'fmt': 'glyf,colrv0'}``, an empty dict when
+            the terminal does not support the protocol. A terminal that answers but advertises
+            nothing still yields a non-empty dict, so that the result is falsey *only* for
+            "unsupported".
+        """
+        if (match := self._query_with_boundary('\x1b_25a1;s\x1b\\',
+                                               _RE_GLYPH_PROTOCOL_S_RESPONSE,
+                                               timeout)) is None:
+            return {}
+        raw = match.group(1)  # ';fmt=glyf,colrv0,colrv1'
+        result: Dict[str, str] = {}
+        for item in raw.split(';'):
+            if '=' in item:
+                key, val = item.split('=', 1)
+                result[key] = val
+        # the 'q' verb is available to any terminal implementing the protocol, whatever
+        # registration formats it does or does not advertise for the 'r' verb.
+        return result or {'fmt': ''}
+
+    def _query_font_mintty_protocol(self, codepoints: List[int],
+                                    timeout: Optional[float]) -> Optional[Dict[int, str]]:
+        """
+        Query font coverage by mintty's ``OSC 7771`` Font Glyph Coverage Enquiry.
+
+        :arg list codepoints: Codepoints, as integers, to test.
+        :arg float timeout: Timeout in seconds.
+        :rtype: Optional[Dict[int, str]]
+        :returns: Each of *codepoints* mapped to its covering sources, empty when
+            uncovered.  This protocol names no sources, so ``'system'`` stands for the
+            font it answers about.  None when unanswered.
+        """
+        decimals = ';'.join(map(str, codepoints))
+        query = f'\x1b]7771;?;{decimals}\x07'
+        if (match := self._query_with_boundary(
+                query, _RE_MINTTY_FONT_RESPONSE, timeout)) is None:
+            return None
+        # the reply is positional: it repeats the query field for field, in the order
+        # asked, naming the codepoint where the font has a glyph for it and standing
+        # empty where it does not.  Only the separators mark the uncovered ones, so
+        # the fields must be read by position and not as the set of names in them.
+        fields = match.group(1).split(';')[1:]
+        return {codepoint: 'system' if field else ''
+                for codepoint, field in zip(codepoints, fields)}
+
+    def _query_font_glyph_protocol(self, codepoints: List[int],
+                                   timeout: Optional[float]) -> Optional[Dict[int, str]]:
+        """
+        Query font coverage by the Glyph Protocol ``'q'`` verb, ``APC 25a1``.
+
+        :arg list codepoints: Codepoints, as integers, to test.
+        :arg float timeout: Timeout in seconds.
+        :rtype: Optional[Dict[int, str]]
+        :returns: Each answered codepoint mapped to its covering sources, ``'system'``
+            and ``'glossary'`` so far, empty when uncovered.  A codepoint answered with
+            an error is absent, and is reported through
+            :attr:`~.FontCoverage.unknown` instead.  None when nothing was answered.
+        """
+        query = ''.join(f'\x1b_25a1;q;cp={cp:x}\x1b\\' for cp in codepoints)
+        if (matches := self._query_boundary_multiple(
+                query, _RE_GLYPH_PROTOCOL_Q_RESPONSE, timeout)) is None:
+            return None
+
+        answered: Dict[int, str] = {}
+        for match in matches:
+            codepoint, status, reason = (
+                int(match.group(1), 16), match.group(2), match.group(3))
+            if status.isdigit() and status != '0':
+                # An error reply says the terminal could not answer, which is not a
+                # statement about the font: leave it out of *answered* entirely, so
+                # that it is never mistaken for, or cached as, a missing glyph.
+                self._font_coverage_unknown[codepoint] = reason or f'status={status}'
+                continue
+            # 'status' names the sources that can render the codepoint, 'system' and
+            # 'glossary' so far, and is empty when none can.
+            answered[codepoint] = '' if status.isdigit() else status
+        return answered
 
     def does_kitty_graphics(self, timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
                             force: bool = False) -> bool:
@@ -3876,6 +4128,77 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         finally:
             self.stream.write(self.rmkx)
             self.stream.flush()
+
+    def _decode_bytes(self, data: bytes) -> str:
+        """Decode input bytes by the keyboard encoding, never raising."""
+        # Undecodable input is not worth interrupting a keyboard read for: a single byte
+        # of line noise would otherwise raise UnicodeDecodeError from any read that
+        # received it.  Decode such bytes as U+FFFD, and reset the incremental decoder,
+        # which may be left holding the bytes it could not decode.
+        try:
+            return self._keyboard_decoder.decode(data, final=False)
+        except UnicodeDecodeError:
+            self._keyboard_decoder.reset()
+            return data.decode(self._encoding, errors='replace')
+
+    def _decode_keyboard(self, data: bytes) -> str:
+        """Decode input bytes, decoding legacy mouse coordinates as latin-1."""
+        # The three bytes following legacy mouse sequence '\x1b[M' are 8-bit values,
+        # 32 + value, so any coordinate beyond 95 is a byte outside of ASCII, rarely
+        # valid in the keyboard encoding.  Decode just those as latin-1, a 1:1 mapping
+        # of byte to codepoint, and all surrounding input normally: a single read may
+        # contain both a mouse report and UTF-8 keystrokes.  A report divided across
+        # reads is continued by self._mouse_latin1_pending, the number of coordinate
+        # bytes still owed.
+        ucs = ''
+        pos = 0
+        while pos < len(data):
+            if self._mouse_latin1_pending:
+                n_bytes = min(self._mouse_latin1_pending, len(data) - pos)
+                ucs += data[pos:pos + n_bytes].decode('latin1')
+                self._mouse_latin1_pending -= n_bytes
+                pos += n_bytes
+                continue
+            idx = data.find(b'\x1b[M', pos)
+            if idx == -1:
+                break
+            ucs += self._decode_bytes(data[pos:idx + 3])
+            self._mouse_latin1_pending = 3
+            pos = idx + 3
+        return ucs + self._decode_bytes(data[pos:])
+
+    def _read_available(self) -> str:
+        """Read and decode all input immediately available, without blocking."""
+        # Unlike a loop of getch(), input is read in blocks, one system call for many
+        # bytes rather than one for each.  This supports keyboard._read_until(), where
+        # the reply to a terminal query may run to many kilobytes.  Legacy mouse
+        # sequences are decoded by _decode_keyboard(), wherever they occur in the input.
+        if self._keyboard_fd is None:
+            return ''
+        ucs = ''
+        # Any trailing bytes held back as a partial '\x1b[M' prefix: a mouse report may
+        # be divided by the block boundary, and the coordinate bytes that follow must
+        # still be decoded as latin-1.
+        carry = b''
+        while self.kbhit(timeout=0):
+            try:
+                data = os.read(self._keyboard_fd, _KEYBOARD_READ_SIZE)
+            except OSError:
+                break
+            if not data:
+                self._keyboard_eof = True
+                break
+            data = carry + data
+            carry = b''
+            if not self._mouse_latin1_pending:
+                for prefix in (b'\x1b[', b'\x1b'):
+                    if data.endswith(prefix):
+                        data, carry = data[:-len(prefix)], prefix
+                        break
+            ucs += self._decode_keyboard(data)
+        # no more input is immediately available, so anything held back is not the
+        # beginning of a mouse report after all, but input in its own right.
+        return ucs + self._decode_keyboard(carry)
 
     def flushinp(self, timeout: float = 0) -> str:
         r"""

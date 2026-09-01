@@ -32,6 +32,7 @@ from .literals import (
     AggTypeType,
     AnalysisErrorTypeType,
     AnalysisFilterAttributeType,
+    AppVisibilityType,
     ArcThicknessOptionsType,
     ArcThicknessType,
     AssetBundleExportFormatType,
@@ -226,6 +227,7 @@ from .literals import (
     RoleType,
     RowLevelPermissionFormatVersionType,
     RowLevelPermissionPolicyType,
+    SearchAppsFilterNameType,
     SearchFilterOperatorType,
     SectionPageBreakStatusType,
     SelectedTooltipTypeType,
@@ -363,6 +365,7 @@ __all__ = (
     "AnonymousUserGenerativeQnAEmbeddingConfigurationTypeDef",
     "AnonymousUserQSearchBarEmbeddingConfigurationTypeDef",
     "AnonymousUserSnapshotJobResultTypeDef",
+    "AppSummaryTypeDef",
     "AppendOperationOutputTypeDef",
     "AppendOperationTypeDef",
     "AppendedColumnTypeDef",
@@ -933,6 +936,8 @@ __all__ = (
     "DeleteAgentResponseTypeDef",
     "DeleteAnalysisRequestTypeDef",
     "DeleteAnalysisResponseTypeDef",
+    "DeleteAppRequestTypeDef",
+    "DeleteAppResponseTypeDef",
     "DeleteApprovalPolicyRequestTypeDef",
     "DeleteBrandAssignmentRequestTypeDef",
     "DeleteBrandAssignmentResponseTypeDef",
@@ -1026,6 +1031,10 @@ __all__ = (
     "DescribeAnalysisPermissionsResponseTypeDef",
     "DescribeAnalysisRequestTypeDef",
     "DescribeAnalysisResponseTypeDef",
+    "DescribeAppPermissionsRequestTypeDef",
+    "DescribeAppPermissionsResponseTypeDef",
+    "DescribeAppRequestTypeDef",
+    "DescribeAppResponseTypeDef",
     "DescribeApprovalPolicyRequestTypeDef",
     "DescribeApprovalPolicyResponseTypeDef",
     "DescribeAssetBundleExportJobRequestTypeDef",
@@ -1557,6 +1566,9 @@ __all__ = (
     "ListApprovalPoliciesRequestPaginateTypeDef",
     "ListApprovalPoliciesRequestTypeDef",
     "ListApprovalPoliciesResponseTypeDef",
+    "ListAppsRequestPaginateTypeDef",
+    "ListAppsRequestTypeDef",
+    "ListAppsResponseTypeDef",
     "ListAssetBundleExportJobsRequestPaginateTypeDef",
     "ListAssetBundleExportJobsRequestTypeDef",
     "ListAssetBundleExportJobsResponseTypeDef",
@@ -2009,6 +2021,10 @@ __all__ = (
     "SearchAnalysesRequestPaginateTypeDef",
     "SearchAnalysesRequestTypeDef",
     "SearchAnalysesResponseTypeDef",
+    "SearchAppsFilterTypeDef",
+    "SearchAppsRequestPaginateTypeDef",
+    "SearchAppsRequestTypeDef",
+    "SearchAppsResponseTypeDef",
     "SearchDashboardsRequestPaginateTypeDef",
     "SearchDashboardsRequestTypeDef",
     "SearchDashboardsResponseTypeDef",
@@ -2411,6 +2427,8 @@ __all__ = (
     "UpdateAnalysisPermissionsResponseTypeDef",
     "UpdateAnalysisRequestTypeDef",
     "UpdateAnalysisResponseTypeDef",
+    "UpdateAppPermissionsRequestTypeDef",
+    "UpdateAppPermissionsResponseTypeDef",
     "UpdateApplicationWithTokenExchangeGrantRequestTypeDef",
     "UpdateApplicationWithTokenExchangeGrantResponseTypeDef",
     "UpdateApprovalPolicyRequestTypeDef",
@@ -2817,6 +2835,15 @@ class AnonymousUserGenerativeQnAEmbeddingConfigurationTypeDef(TypedDict):
 
 class AnonymousUserQSearchBarEmbeddingConfigurationTypeDef(TypedDict):
     InitialTopicId: str
+
+
+class AppSummaryTypeDef(TypedDict):
+    AppId: NotRequired[str]
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    CreatedTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
+    Visibility: NotRequired[AppVisibilityType]
 
 
 class AppendedColumnTypeDef(TypedDict):
@@ -4494,6 +4521,11 @@ class DeleteAnalysisRequestTypeDef(TypedDict):
     ForceDeleteWithoutRecovery: NotRequired[bool]
 
 
+class DeleteAppRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AppId: str
+
+
 class DeleteApprovalPolicyRequestTypeDef(TypedDict):
     PolicyId: str
 
@@ -4747,6 +4779,16 @@ class DescribeAnalysisPermissionsRequestTypeDef(TypedDict):
 class DescribeAnalysisRequestTypeDef(TypedDict):
     AwsAccountId: str
     AnalysisId: str
+
+
+class DescribeAppPermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AppId: str
+
+
+class DescribeAppRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AppId: str
 
 
 class DescribeApprovalPolicyRequestTypeDef(TypedDict):
@@ -5712,6 +5754,12 @@ class ListApprovalPoliciesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class ListAppsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListAssetBundleExportJobsRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
@@ -6373,6 +6421,12 @@ class S3BucketConfigurationTypeDef(TypedDict):
 class TablePathElementTypeDef(TypedDict):
     Name: NotRequired[str]
     Id: NotRequired[str]
+
+
+class SearchAppsFilterTypeDef(TypedDict):
+    Name: SearchAppsFilterNameType
+    Operator: FilterOperatorType
+    Value: str
 
 
 class SearchFlowsFilterTypeDef(TypedDict):
@@ -7844,6 +7898,11 @@ class DeleteAnalysisResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteAppResponseTypeDef(TypedDict):
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteBrandAssignmentResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8121,6 +8180,12 @@ class DescribeAccountSubscriptionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeAppResponseTypeDef(TypedDict):
+    App: AppSummaryTypeDef
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeAutomationJobResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: datetime
@@ -8258,6 +8323,13 @@ class ListAnalysesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListAppsResponseTypeDef(TypedDict):
+    AppSummaryList: list[AppSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListAssetBundleExportJobsResponseTypeDef(TypedDict):
     AssetBundleExportJobSummaryList: list[AssetBundleExportJobSummaryTypeDef]
     RequestId: str
@@ -8338,6 +8410,13 @@ class SearchAgentsResponseTypeDef(TypedDict):
 class SearchAnalysesResponseTypeDef(TypedDict):
     AnalysisSummaryList: list[AnalysisSummaryTypeDef]
     Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class SearchAppsResponseTypeDef(TypedDict):
+    AppSummaryList: list[AppSummaryTypeDef]
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -9391,6 +9470,14 @@ class DescribeAnalysisPermissionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeAppPermissionsResponseTypeDef(TypedDict):
+    AppId: str
+    Arn: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeDataSetPermissionsResponseTypeDef(TypedDict):
     DataSetArn: str
     DataSetId: str
@@ -9512,6 +9599,15 @@ class UpdateAnalysisPermissionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateAppPermissionsResponseTypeDef(TypedDict):
+    Arn: str
+    AppId: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    Visibility: AppVisibilityType
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateFolderPermissionsResponseTypeDef(TypedDict):
     Status: int
     Arn: str
@@ -9599,6 +9695,11 @@ class ListAnalysesRequestPaginateTypeDef(TypedDict):
 
 
 class ListApprovalPoliciesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAppsRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -10685,6 +10786,19 @@ class SaaSTableTypeDef(TypedDict):
     DataSourceArn: str
     TablePath: Sequence[TablePathElementTypeDef]
     InputColumns: Sequence[InputColumnTypeDef]
+
+
+class SearchAppsRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[SearchAppsFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchAppsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[SearchAppsFilterTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class SearchFlowsInputPaginateTypeDef(TypedDict):
@@ -12067,6 +12181,14 @@ class UpdateAnalysisPermissionsRequestTypeDef(TypedDict):
     AnalysisId: str
     GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
     RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+
+
+class UpdateAppPermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AppId: str
+    GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    Visibility: NotRequired[AppVisibilityType]
 
 
 class UpdateDashboardPermissionsRequestTypeDef(TypedDict):

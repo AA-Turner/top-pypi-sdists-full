@@ -45,6 +45,11 @@ global___ApiServiceDescriptor = ApiServiceDescriptor
 
 @typing_extensions.final
 class AuthenticationSpec(google.protobuf.message.Message):
+    """Describes the authentication mechanism for connecting to a Beam API endpoint.
+    Uses a URN-based approach to allow different authentication methods (e.g. OAuth2,
+    bearer tokens) to be specified in an extensible manner.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     URN_FIELD_NUMBER: builtins.int

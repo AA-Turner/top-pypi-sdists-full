@@ -205,17 +205,11 @@ ScsMatrix *SCS(form_kkt)(const ScsMatrix *A, const ScsMatrix *P,
   }
 
   idx_mapping = (scs_int *)scs_calloc(count, sizeof(scs_int));
-  if (!idx_mapping) {
-    SCS(cs_spfree)(K);
-    return SCS_NULL;
-  }
   Kcsc = SCS(cs_compress)(K, count, idx_mapping);
-  SCS(cs_spfree)(K);
-  if (Kcsc) {
-    for (i = 0; i < m + n; i++) {
-      diag_r_idxs[i] = idx_mapping[diag_r_idxs[i]];
-    }
+  for (i = 0; i < m + n; i++) {
+    diag_r_idxs[i] = idx_mapping[diag_r_idxs[i]];
   }
+  SCS(cs_spfree)(K);
   scs_free(idx_mapping);
   return Kcsc;
 }

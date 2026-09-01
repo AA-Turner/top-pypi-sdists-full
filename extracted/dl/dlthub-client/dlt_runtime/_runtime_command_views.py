@@ -25,6 +25,7 @@ from dlt_runtime.runtime_clients.api.models import DataplaneInfo, RunStatus
 from dlt_runtime.runtime_clients.api.types import Unset
 from dlt_runtime.runtime_clients.dataplane_api.models import (
     ScopeVariablesResponse,
+    SecretPublicVariable,
     VariableChangeResult,
     VariableChangeResultStatus,
 )
@@ -1203,7 +1204,7 @@ def _print_trigger_skip(info: TriggerSkipInfo, *, terse: bool = False) -> None:
             fmt.echo(TRIGGER_CONCURRENCY_OPEN_LINE.format(url=web_url))
 
 
-# A redacted secret arrives as `null`, which must not read as an empty value.
+# A secret carries no value at all, which must not render as an empty one.
 _SECRET_PLACEHOLDER = "********"
 
 
@@ -1214,7 +1215,7 @@ def _variable_rows(scopes: list[ScopeVariablesResponse]) -> list[dict[str, Any]]
         for variable in scope.variables:
             row = _extract_keys(variable.to_dict(), VARIABLE_HEADERS)
             row["profile"] = scope.profile or ""
-            if row["value"] is None:
+            if isinstance(variable, SecretPublicVariable):
                 row["value"] = _SECRET_PLACEHOLDER
             rows.append(_humanize_row(row))
     return rows

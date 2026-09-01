@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: llama-index-embeddings-vertex
-Version: 0.5.0
+Version: 0.6.0
 Summary: llama-index embeddings vertex integration
 Author-email: Henry Jiang <h243jian@uwaterloo.ca>
 License-Expression: MIT

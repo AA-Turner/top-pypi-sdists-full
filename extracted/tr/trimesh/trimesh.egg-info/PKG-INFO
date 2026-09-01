@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trimesh
-Version: 5.0.0
+Version: 5.1.0
 Summary: Import, export, process, analyze and view triangular meshes.
 Author-email: Michael Dawson-Haggerty <mikedh@kerfed.com>
 License: The MIT License (MIT)
@@ -85,6 +85,7 @@ Requires-Dist: ipython; extra == "test-more"
 Requires-Dist: marimo; extra == "test-more"
 Requires-Dist: requests; extra == "test-more"
 Requires-Dist: aiohttp; extra == "test-more"
+Requires-Dist: DracoPy>=1.7.0; extra == "test-more"
 Provides-Extra: deprecated
 Provides-Extra: all
 Requires-Dist: trimesh[deprecated,easy,recommend,test,test_more]; extra == "all"

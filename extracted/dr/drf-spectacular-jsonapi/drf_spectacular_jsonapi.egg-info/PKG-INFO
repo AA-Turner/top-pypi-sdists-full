@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drf-spectacular-jsonapi
-Version: 0.6.0
+Version: 0.6.2
 Summary: open api 3 schema generator for drf-json-api package based on drf-spectacular package.
 Home-page: https://github.com/jokiefer/drf-spectecular-json-api
 Author: Jonas Kiefer

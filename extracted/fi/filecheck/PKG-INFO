@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: filecheck
-Version: 1.0.4
+Version: 1.0.5
 Summary: A Python-native clone of LLVMs FileCheck tool
 License: Apache-2.0
 License-File: LICENSE.txt

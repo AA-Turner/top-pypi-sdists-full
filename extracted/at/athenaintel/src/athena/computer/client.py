@@ -83,7 +83,7 @@ class ComputerClient:
         asset_id : str
 
         expires_in_minutes : typing.Optional[int]
-            How long the SSH access token should remain valid, in minutes (1–480)
+            How long the SSH access token should remain valid, in minutes (1–1440)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -225,7 +225,7 @@ class AsyncComputerClient:
         asset_id : str
 
         expires_in_minutes : typing.Optional[int]
-            How long the SSH access token should remain valid, in minutes (1–480)
+            How long the SSH access token should remain valid, in minutes (1–1440)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

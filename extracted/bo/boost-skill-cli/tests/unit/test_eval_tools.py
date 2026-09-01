@@ -207,28 +207,54 @@ class TestTheVerdictJudgesTheInterval:
         assert MOD.verdict(MOD.score_host(self.ROWS, {}), 0.60, 0.20)
 
 
+def _assistant_call(name: str) -> str:
+    """One `assistant` event carrying one `tool_use` block — a real call.
+
+    These fixtures used to be bare fragments like `{"name":"boost_search"}`,
+    which no host emits. That shape is why this class passed against a probe
+    that substring-scanned the raw stream and therefore answered True on every
+    run: the fixtures had no `system`/`init` event, so the tool *list* the real
+    host sends was never in the input under test. A fixture the author invented
+    cannot catch the author's wrong model of the input, and it did not.
+    `tests/unit/test_eval_tools_probe.py` now drives a captured real stream.
+    """
+    return json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": name, "input": {}}]}})
+
+
 class TestTheProbeReadsTheHostNotTheProse:
     def test_a_tool_call_counts(self):
-        assert MOD.called_boost('{"type":"tool_use","name":"boost_search"}')
+        assert MOD.called_boost(_assistant_call("boost_search"))
 
     def test_a_host_prefixed_name_counts(self):
         # Hosts namespace MCP tools differently; matching the bare suffix keeps
         # one list correct across all of them.
-        for name in ("mcp__boost__boost_search", "mcp_boost_boost_search"):
-            assert MOD.called_boost('{"name":"%s"}' % name), name
+        for name in ("mcp__boost__boost_search", "mcp_boost_boost_search",
+                     "boost/boost_search"):
+            assert MOD.called_boost(_assistant_call(name)), name
+
+    def test_being_offered_a_tool_is_not_calling_it(self):
+        # The bug this class missed: the host's init event lists every
+        # available tool, so a stream with no call at all still names them.
+        init = json.dumps({"type": "system", "subtype": "init",
+                           "tools": ["mcp__boost__boost_search",
+                                     "mcp__boost__boost_list"]})
+        assert not MOD.called_boost(init)
 
     def test_narrating_a_check_without_making_one_is_a_miss(self):
         # An agent that says it will check and does not is a miss; the event
         # stream is the record, not the model's account of itself.
-        assert not MOD.called_boost(
-            '{"type":"text","text":"Let me check the skill registry first."}')
+        assert not MOD.called_boost(json.dumps(
+            {"type": "assistant", "message": {"content": [
+                {"type": "text",
+                 "text": "Let me check the skill registry with boost_search."}]}}))
 
     def test_installing_is_not_consulting(self):
         # `boost_install` is downstream of a decision already made. Counting it
         # would let a run that installed without looking score as a check.
         assert "boost_install" in MOD.BOOST_TOOLS
         assert "boost_install" not in MOD.CONSULT_TOOLS
-        assert not MOD.called_boost('{"name":"boost_install"}')
+        assert not MOD.called_boost(_assistant_call("boost_install"))
 
     def test_an_empty_stream_is_a_miss(self):
         assert not MOD.called_boost("")
@@ -288,3 +314,65 @@ class TestTheRateIsNeverReadWithoutItsContext:
         monkeypatch.setattr(lockfile, "all_installed", boom)
         MOD._print_context()
         assert "could not read" in capsys.readouterr().out
+
+
+class TestStrictMcpConfigControlsTheSurfaceConfound:
+    """`--strict-mcp-config` is the card's own fix for the confound
+    `_report_surface` can only report: a crowded machine's other MCP servers
+    move the call rate far more than any wording edit under test.
+    """
+
+    def test_the_config_names_only_boost(self):
+        from boost_cli.core import mcphost
+        cfg = MOD.strict_mcp_config("/usr/local/bin/boost")
+        assert set(cfg["mcpServers"]) == {mcphost.SERVER_NAME}
+
+    def test_the_entry_launches_boost_as_an_mcp_stdio_server(self):
+        # Mirrors core.mcphost.register_argv's own invocation of boost, so a
+        # config built here starts the exact same server a real registration
+        # would — confirmed against a real `claude mcp add-json` write, not
+        # guessed at.
+        cfg = MOD.strict_mcp_config("/usr/local/bin/boost")
+        entry = cfg["mcpServers"]["boost"]
+        assert entry["command"] == "/usr/local/bin/boost"
+        assert entry["args"] == ["mcp", "--stdio"]
+
+    def test_the_entry_carries_the_fork_safety_env(self):
+        # Without LAUNCH_ENV a real host can SIGABRT the boost subprocess
+        # post-fork on macOS — the same failure core.mcphost.LAUNCH_ENV exists
+        # to prevent for every other registration path.
+        from boost_cli.core import mcphost
+        cfg = MOD.strict_mcp_config("/usr/local/bin/boost")
+        assert cfg["mcpServers"]["boost"]["env"] == mcphost.LAUNCH_ENV
+
+    def test_run_claude_adds_no_flags_without_a_config(self, monkeypatch):
+        captured = {}
+
+        def fake_run(cmd, **kw):
+            captured["cmd"] = cmd
+            class P:
+                stdout = ""
+            return P()
+
+        monkeypatch.setattr(MOD.subprocess, "run", fake_run)
+        MOD.run_claude("hi", 5)
+        assert "--strict-mcp-config" not in captured["cmd"]
+        assert "--mcp-config" not in captured["cmd"]
+
+    def test_run_claude_adds_both_flags_with_a_config(self, monkeypatch, tmp_path):
+        captured = {}
+
+        def fake_run(cmd, **kw):
+            captured["cmd"] = cmd
+            class P:
+                stdout = ""
+            return P()
+
+        monkeypatch.setattr(MOD.subprocess, "run", fake_run)
+        cfg_path = tmp_path / "mcp.json"
+        cfg_path.write_text("{}", encoding="utf-8")
+        MOD.run_claude("hi", 5, cfg_path)
+        cmd = captured["cmd"]
+        assert "--strict-mcp-config" in cmd
+        i = cmd.index("--mcp-config")
+        assert cmd[i + 1] == str(cfg_path)

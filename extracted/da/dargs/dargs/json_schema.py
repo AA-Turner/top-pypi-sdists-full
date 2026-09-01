@@ -119,13 +119,19 @@ def _convert_single_argument(argument: Argument) -> dict:
         if allof:
             data["allOf"] = allof
     else:
-        data["items"] = {
+        repeated_value = {
             "type": "object",
             "properties": properties,
             "required": required,
         }
         if allof:
-            data["items"]["allOf"] = allof
+            repeated_value["allOf"] = allof
+        # Repeated lists validate through ``items`` while repeated mappings
+        # validate every dynamically named entry through ``additionalProperties``.
+        if "array" in data["type"]:
+            data["items"] = repeated_value
+        if "object" in data["type"]:
+            data["additionalProperties"] = repeated_value
     return data
 
 
@@ -141,13 +147,20 @@ def _convert_types(T: type | Any | None) -> str:
     -------
     str
         The JSON schema type.
+
+    Raises
+    ------
+    ValueError
+        If the type cannot be converted to a JSON schema type
     """
     # string, number, integer, object, array, boolean, null
     if T is None or T is type(None):
         return "null"
     elif T is str:
         return "string"
-    elif T in (int, float):
+    elif T is int:
+        return "integer"
+    elif T is float:
         return "number"
     elif T is bool:
         return "boolean"

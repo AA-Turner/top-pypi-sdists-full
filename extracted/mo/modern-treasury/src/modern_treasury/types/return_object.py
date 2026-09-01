@@ -101,7 +101,6 @@ class ReferenceNumber(BaseModel):
         "cross_river_transaction_id",
         "currencycloud_conversion_id",
         "currencycloud_payment_id",
-        "dc_bank_transaction_id",
         "eft_trace_number",
         "evolve_core_batch",
         "evolve_core_file_key",
@@ -162,6 +161,7 @@ class ReferenceNumber(BaseModel):
         "western_alliance_payment_id",
         "western_alliance_transaction_id",
         "western_alliance_wire_confirmation_number",
+        "wise_transfer_id",
     ]
     """The type of the reference number. Referring to the vendor payment id."""
 

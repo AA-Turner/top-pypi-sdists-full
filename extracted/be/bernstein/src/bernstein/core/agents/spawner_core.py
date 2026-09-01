@@ -1251,6 +1251,25 @@ def _render_prompt_with_receipt(
     named_sections: list[tuple[str, str]] = [("role", role_prompt)]
     if specialist_block:
         named_sections.append(("specialists", specialist_block))
+    # Consensus relay section (issue #4678): inject prior cycle decisions for
+    # manager-role spawns only. read_file from the file store; omit the section
+    # entirely when the store is absent, empty, or chain verification fails.
+    if role == "manager":
+        try:
+            from bernstein.core.orchestration.consensus_relay import (
+                MANAGER_RELAY_SECTION,
+                spawn_section_for_workdir,
+            )
+
+            relay_block = spawn_section_for_workdir(workdir)
+            if relay_block:
+                named_sections.append((MANAGER_RELAY_SECTION, relay_block))
+        except Exception as exc:
+            # Never block a spawn because of relay problems - but a section
+            # that silently stops appearing is indistinguishable from a store
+            # that is simply empty, which is how this feature would die
+            # unnoticed.
+            logger.warning("Consensus relay section omitted from manager spawn: %s", exc)
     named_sections.append(("tasks", f"\n## Assigned tasks\n{task_block}"))
     # Artifact contract (#4539): surface the kind/path/criteria an
     # artifact-mode task is judged by. Empty for the git path, so a plain
@@ -1876,6 +1895,8 @@ class AgentSpawner:
         or resume (#4151).
         """
         try:
+            import hashlib
+
             from bernstein.core.communication.task_mailbox import (
                 TaskMailbox,
                 render_mailbox_section,
@@ -1891,14 +1912,6 @@ class AgentSpawner:
 
             pending = []
             for task in tasks:
-                # Compute cursor: highest seq already marked consumed for this task
-                # include_archived: the cursor reasons about linkage across the
-                # retention boundary, so it must see consumption records that
-                # routine `audit archive` has already compressed into
-                # archive/*.jsonl.gz. Without it the cursor silently falls back
-                # to -1 once a segment ages out and the whole backlog is
-                # re-rendered -- the same defect this fix closes, re-armed by
-                # maintenance rather than by a code change.
                 events = chain.query(
                     event_type="task.mailbox_consumed",
                     resource_id=task.id,
@@ -1907,8 +1920,9 @@ class AgentSpawner:
                 cursor = max((int(e.details.get("seq", -1)) for e in events), default=-1)
                 pending.extend(mailbox.pending(task.id, since_seq=cursor))
 
-            # Record consumption for each newly rendered message
             if pending:
+                assembled = render_mailbox_section(pending)
+                prompt_digest = hashlib.sha256(assembled.encode("utf-8")).hexdigest()
                 for msg in pending:
                     chain.log(
                         event_type="task.mailbox_consumed",
@@ -1920,10 +1934,13 @@ class AgentSpawner:
                             "entry_hash": msg.entry_hash,
                             "body_hash": msg.body_hash,
                             "kind": msg.kind,
+                            "prompt_digest": prompt_digest,
                         },
                     )
-
-            return render_mailbox_section(pending)
+                return assembled
+            else:
+                logger.info("No pending mailbox messages for tasks, rendering empty section.")
+                return ""
         except Exception as exc:
             logger.warning("Mailbox section rendering skipped: %s", type(exc).__name__)
             return ""
@@ -2024,6 +2041,14 @@ class AgentSpawner:
         """Wire in the orchestrator's :class:`QualityGatesConfig` (#4393)."""
         self._quality_gate_config = config
 
+    def set_run_id(self, run_id: str) -> None:
+        """Wire in the orchestrator's run id.
+
+        The merge path records a lineage row per landed path and keys those
+        rows by run, so without this the rows have no spine to join.
+        """
+        self._run_id = run_id
+
     def _merge_and_cleanup_worktree(
         self,
         session: AgentSession,
@@ -2045,6 +2070,7 @@ class AgentSpawner:
             merge_worktree_branch_fn=self._merge_worktree_branch,
             merge_queue=self._merge_queue,
             quality_gate_config=self._quality_gate_config,
+            run_id=getattr(self, "_run_id", ""),
         )
 
     def _touch_prespawn_heartbeat(self, session_id: str) -> None:
@@ -3361,6 +3387,49 @@ class AgentSpawner:
         )
         gate.admit(adapter_name)
 
+    def _resolve_tier_model(
+        self,
+        task: Task,
+        role_policy: dict[str, Any],
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        """Resolve the effective role model under an opt-in ``tier_models`` map.
+
+        When ``tier_models`` is absent, returns ``(role_policy.model, None)`` with
+        zero feature extraction — byte-identical to pre-#4854 dispatch. When
+        present, classifies the task and selects ``tier_models[tier]`` if mapped;
+        a classifier exception records the reserved ``error`` marker and falls
+        back to the unmapped ``model`` pin so a bug never reads as a cheap tier.
+        """
+        base_model_raw = role_policy.get("model")
+        base_model = base_model_raw.strip() or None if isinstance(base_model_raw, str) else None
+
+        tier_models = role_policy.get("tier_models")
+        if not isinstance(tier_models, dict) or not tier_models:
+            return base_model, None
+
+        from bernstein.core.routing.task_tier import (
+            TIER_ERROR,
+            classify_task,
+            error_decision,
+        )
+
+        try:
+            decision = classify_task(task)
+        except Exception as exc:
+            logger.warning(
+                "task-tier classification failed for task %s: %s; recording error marker",
+                getattr(task, "id", "?"),
+                type(exc).__name__,
+            )
+            decision = error_decision(reason=type(exc).__name__)
+
+        record = decision.to_record()
+        if decision.tier != TIER_ERROR:
+            mapped = tier_models.get(decision.tier)
+            if isinstance(mapped, str) and mapped.strip():
+                return mapped.strip(), record
+        return base_model, record
+
     def _record_adapter_capability_selection(self, adapter_name: str, tasks: list[Task]) -> None:
         """Anchor the capability profile the routed adapter presents (#2663).
 
@@ -3384,6 +3453,9 @@ class AgentSpawner:
         nothing. Recording failures other than the deliberate refusal are logged
         and swallowed: anchoring the selection must never break a spawn tick.
 
+        When a pending task-tier decision is present (#4854), it is recorded on
+        the same seam via :func:`route_and_record`.
+
         Args:
             adapter_name: The adapter the spawn resolved to.
             tasks: The task batch this spawn serves; their ``requires`` lists
@@ -3405,8 +3477,35 @@ class AgentSpawner:
         )
 
         profile = PROFILES.get(adapter_name)
+        tier_decision = getattr(self, "_pending_tier_decision", None)
+        self._pending_tier_decision = None
         if profile is None:
-            return  # untracked adapter: the generic fallback owns it, nothing to anchor
+            # Untracked adapter: still record an opt-in tier decision if present.
+            if tier_decision is not None:
+                try:
+                    from bernstein.core.security.audit_chain import (
+                        AuditChainStore,
+                        record_task_tier_decision,
+                    )
+
+                    chain = AuditChainStore(self._workdir / ".sdd" / "audit")
+                    record_task_tier_decision(
+                        chain=chain,
+                        run_id=tasks[0].id if tasks else "",
+                        task_id=tasks[0].id if tasks else "",
+                        tier=str(tier_decision.get("tier", "")),
+                        tier_policy_version=int(tier_decision.get("tier_policy_version", 0)),
+                        feature_digest=str(tier_decision.get("feature_digest", "")),
+                        features=dict(tier_decision.get("features") or {}),
+                        score=int(tier_decision.get("score", 0)),
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "task-tier recording failed for %s: %s",
+                        adapter_name,
+                        type(exc).__name__,
+                    )
+            return
 
         tokens = [tok for task in tasks for tok in getattr(task, "requires", ())]
         requirements = capability_requirements_from_tokens(tokens)
@@ -3415,7 +3514,14 @@ class AgentSpawner:
             from bernstein.core.security.audit_chain import AuditChainStore
 
             chain = AuditChainStore(self._workdir / ".sdd" / "audit")
-            route_and_record(requirements, profiles=[profile], audit_chain=chain, run_id=run_id)
+            route_and_record(
+                requirements,
+                profiles=[profile],
+                audit_chain=chain,
+                run_id=run_id,
+                tier_decision=tier_decision,
+                task_id=run_id,
+            )
         except CapabilityMismatchError:
             # AC2: the refusal receipt is already anchored inside route_and_record;
             # re-raise so routing refuses rather than falling back.
@@ -3868,8 +3974,12 @@ class AgentSpawner:
         task_model_is_tier_name = tasks[0].model in _CLAUDE_TIER_MODELS
         task_model_blocks_role_policy = bool(tasks[0].model) and (task_model_is_pinned or not task_model_is_tier_name)
 
-        if not task_model_blocks_role_policy and role_policy.get("model"):
-            if tasks[0].model and tasks[0].model != role_policy["model"]:
+        # Opt-in task-tier model map (#4854). Zero extraction when unset.
+        effective_role_model, tier_decision_record = self._resolve_tier_model(tasks[0], role_policy)
+        self._pending_tier_decision = tier_decision_record
+
+        if not task_model_blocks_role_policy and effective_role_model:
+            if tasks[0].model and tasks[0].model != effective_role_model:
                 logger.info(
                     "Retry model decision for task %s (role=%s, retry_count=%s): "
                     "keeping operator role_model_policy model=%r, ignoring "
@@ -3877,11 +3987,11 @@ class AgentSpawner:
                     tasks[0].id,
                     tasks[0].role,
                     getattr(tasks[0], "retry_count", None),
-                    role_policy["model"],
+                    effective_role_model,
                     tasks[0].model,
                 )
             model_config = ModelConfig(
-                model=role_policy["model"],
+                model=effective_role_model,
                 effort=role_policy.get("effort", base_config.effort),
                 max_tokens=base_config.max_tokens,
                 is_batch=base_config.is_batch,

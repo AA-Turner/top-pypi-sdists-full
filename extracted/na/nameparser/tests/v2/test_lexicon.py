@@ -7,7 +7,8 @@ import pytest
 
 from nameparser import Parser
 from nameparser._lexicon import (
-    Lexicon, _VOCAB_FIELDS, _default_lexicon, _normalize, _title_key,
+    Lexicon, _PHRASE_FIELDS, _VOCAB_FIELDS, _default_lexicon, _normalize,
+    _title_key,
 )
 from nameparser._policy import Script, _SCRIPT_RANGES
 
@@ -341,8 +342,8 @@ def test_subset_error_names_the_fix(
 
 
 def test_bound_given_name_that_is_a_particle_must_be_ambiguous() -> None:
-    # nameparser/config/prefixes.py asserts this on its own data:
-    # NON_FIRST_NAME_PREFIXES stays disjoint from BOUND_FIRST_NAMES. In
+    # nameparser/config/particles.py asserts this on its own data:
+    # NON_GIVEN_NAME_PARTICLES stays disjoint from BOUND_GIVEN_NAMES. In
     # 2.0's complement model that reads as bound_given_names & particles
     # <= particles_ambiguous. A particle declared never-to-start-a-given-
     # name cannot simultaneously bind one; without the check, one of the
@@ -471,7 +472,18 @@ def test_every_lexicon_entry_point_rejects_a_buffer_with_a_decode_hint(
         build(value)
 
 
-_PER_WORD_FIELDS = [f for f in _VOCAB_FIELDS if f != "given_name_titles"]
+# Derived from the exemption, not written out beside it: an exemption
+# that widens must take fields OUT of this list, where the parametrized
+# test below stops covering them and the count assertion notices.
+_PER_WORD_FIELDS = [f for f in _VOCAB_FIELDS if f not in _PHRASE_FIELDS]
+
+
+def test_only_the_phrase_fields_are_exempt_from_the_warning() -> None:
+    # The exemption is exactly the kind of edit that silently widens:
+    # one more field in _PHRASE_FIELDS costs nothing at construction and
+    # turns a dead entry back into a silent no-op. Two fields, named.
+    assert _PHRASE_FIELDS == ("given_name_titles", "maiden_markers")
+    assert len(_PER_WORD_FIELDS) == len(_VOCAB_FIELDS) - 2
 
 
 @pytest.mark.parametrize("field", _PER_WORD_FIELDS)
@@ -495,6 +507,26 @@ def test_multiword_given_name_title_does_not_warn() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         Lexicon.empty().add(given_name_titles=["lt col"])
+
+
+def test_multiword_maiden_marker_does_not_warn() -> None:
+    # The second exemption, and the one whose warning was wrong rather
+    # than merely unhelpful: markers are matched by lookahead, and
+    # "split it into separate entries" reads 'Maria Kowalska z domu
+    # Nowak' as maiden 'domu Nowak'.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        Lexicon.empty().add(maiden_markers=["z domu"])
+
+
+def test_phrase_fields_store_the_phrase_folded_per_word() -> None:
+    # The shared storage rule: space-joined, each word normalized on
+    # its own. Whole-phrase _normalize would keep 'z.' interior period
+    # and the entry would never match.
+    lex = Lexicon.empty().add(maiden_markers=["Z. Domu"],
+                              given_name_titles=["Lt. Col"])
+    assert lex.maiden_markers == frozenset({"z domu"})
+    assert lex.given_name_titles == frozenset({"lt col"})
 
 
 def test_multiword_capitalization_key_warns() -> None:

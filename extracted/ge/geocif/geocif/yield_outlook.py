@@ -4349,6 +4349,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     make_maps = parser.getboolean("ML", "make_maps", fallback=False)
     _MAKE_MAPS = make_maps
 
+    # [ML] annotate_regions_auto (default True): let viz.plot decide whether
+    # per-region NAME labels are legible before drawing them. It suppresses them
+    # when the map has too many polygons OR when most polygons are too small to
+    # hold their own name (Kenya admin_2: ~90 sub-counties, labels unreadable
+    # even though the count is under the cap). Set False to force labels on
+    # regardless of legibility.
+    plot.set_auto_label_fit(
+        parser.getboolean("ML", "annotate_regions_auto", fallback=True)
+    )
+
     # [ML] show_production_share (default True): process-wide toggle for whether
     # a region's production share is DISPLAYED on figures/tables/captions (the
     # "(X.Y%)" label suffix, "% of Production" column, etc.). Set False for

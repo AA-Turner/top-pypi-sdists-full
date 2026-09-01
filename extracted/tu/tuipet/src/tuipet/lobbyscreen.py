@@ -59,8 +59,8 @@ COLS = 40               # the LCD box width (the podium scene; pages use menu's 
 # the bout engine live in their own modules; the old names stay importable
 from .accountscreen import AccountPanel  # noqa: F401
 from .lobbybout import BoutMixin, _clamp_card  # noqa: F401
-from .lobbychat import (BODY, CHAT_MAX, CHATW, OFFLINE_ID, ROSTW,  # noqa: F401
-                        ChatMixin, HINTS_FOLDED, HINTS_OPEN,
+from .lobbychat import (BODY, CHAT_MAX, CHATW, DM_BODY, LCDW,  # noqa: F401
+                        OFFLINE_ID, ROSTW, ChatMixin, HINTS_OPEN,
                         _fit, _wrap, _tail_cells, _hpbar)
 
 
@@ -96,8 +96,9 @@ class LobbyPanel(BoutMixin, ChatMixin):
         self.buf = ""
         self.sel = 0
         self.scroll = 0                # chat scrollback: lines back from live
-        self.rost_hidden = False       # → folds the player box (chat takes the
-        #                                full width, ↑↓ scroll the log); ← restores
+        # (rost_hidden retired 2026-08-31 with the fold: the roster moved to
+        #  the status card, so the chat ALWAYS has the full width the fold used
+        #  to borrow -- there is nothing left on the LCD line to fold away)
         self.action_for = None
         self.pm_to = None              # (id, name): the input line is a PM compose
         self.invite_prompt = None
@@ -107,6 +108,11 @@ class LobbyPanel(BoutMixin, ChatMixin):
         #                                accept used to force this client into
         #                                a session -- including a PERMANENT
         #                                jogress fusion; audit 2026-07-19)
+        self.confirm_clear = None      # (id, name) awaiting the [Y]/[N] on a
+        #                                thread wipe -- destructive and silent
+        #                                otherwise (Joel 2026-08-31: "I should
+        #                                have the option to clear a thread,
+        #                                instead of it staying there forever")
         self.dm_peer = None            # (id, name): the open DM thread
         self.dm_scroll = 0             # DM scrollback offset (0 = live tail)
         self.sfx = None
@@ -237,6 +243,39 @@ class LobbyPanel(BoutMixin, ChatMixin):
                 if nm not in here]
         return sorted(others, key=lambda p: (not p.get("live", True),
                                              str(p.get("name", "")).lower())) + away
+    def _has_thread(self, name):
+        """Is there a saved conversation with `name` to clear?"""
+        st = getattr(self, "state", None)
+        return st is not None and name in (getattr(st, "dms", None) or {})
+
+    def _clear_thread(self, name):
+        """FORGET one conversation: the thread, its unread badge, and -- when
+        the peer is not otherwise on the roster -- the row that existed only
+        to open it (_others builds that tail straight from state.dms).
+
+        Joel 2026-08-31: threads were immortal.  Nothing in the game removed a
+        key from state.dms, so a person you spoke to once kept a row under
+        THREADS for good, and BLOCKING them did not help -- the mute swept
+        their public lines but left the transcript and its row behind.
+
+        The write goes through _save_dms, whose save_dms() rebuilds the stored
+        map from the LIVE dict, so a cleared thread is gone from settings.json
+        the same tick.  Nothing can bring it back: the quit flush saves this
+        same dict, and the cloud carries the PET save, never the threads."""
+        st = self.state
+        if st is None:
+            return
+        st.dms.pop(name, None)
+        st.unread.discard(name)
+        self._save_dms()
+        if self.phase == "dm" and self.dm_peer and self.dm_peer[1] == name:
+            # you were reading it: there is nothing left to read
+            self.phase, self.dm_peer = "lobby", None
+            self.buf, self.dm_scroll = "", 0
+        # the row may have gone with it -- never leave the pick past the end
+        self.sel = max(0, min(self.sel, len(self._others()) - 1))
+        self.status = f"Cleared the thread with {name}."
+
     def _pet_of(self, pid):
         """'Agumon · Champion · lock mega' for a roster id ('' when
         unknown); a worn honor title trails as '· ★Bit Baron' (the
@@ -730,6 +769,17 @@ class LobbyPanel(BoutMixin, ChatMixin):
                 self.client.respond(inv.get("from_id"), inv["kind"], False)
                 self.status, self.invite_prompt = "Declined.", None
             return None
+        if getattr(self, "confirm_clear", None) is not None:
+            # a wipe is PERMANENT and unsendable -- it asks, like the fusion
+            # commit and the invite do
+            _, pname = self.confirm_clear
+            if k in ("y", "Y"):
+                self.confirm_clear = None
+                self._clear_thread(pname)
+            elif k in ("n", "N", "escape"):
+                self.confirm_clear = None
+                self.status = f"Kept the thread with {pname}."
+            return None
         if self.action_for is not None:
             pid, pname, plive = self.action_for
             if k in ("b", "B") and plive:
@@ -774,6 +824,10 @@ class LobbyPanel(BoutMixin, ChatMixin):
                     self.status = f"Blocked {pname}."
                 persistence.set_blocked(b)
                 self.action_for = None
+            elif k in ("d", "D") and self._has_thread(pname):
+                # ask first; _clear_thread does the forgetting
+                self.confirm_clear = (pid, pname)
+                self.action_for = None
             elif k in ("m", "M"):
                 # compose a private message: the input line retargets
                 self.pm_to = (pid, pname)
@@ -809,26 +863,15 @@ class LobbyPanel(BoutMixin, ChatMixin):
         if k == "pagedown":
             self.scroll = max(0, self.scroll - (BODY - 1))
             return None
-        if k == "right" and not self.rost_hidden:
-            # fold the player box: the chat gets the full width (Joel 2026-07-10)
-            self.rost_hidden = True
-            self.status = HINTS_FOLDED
-            return None
-        if k == "left" and self.rost_hidden:
-            self.rost_hidden = False
-            self.status = HINTS_OPEN
-            return None
+        # ←/→ retired with the fold (2026-08-31).  They folded the roster off
+        # the LCD to widen the chat; the roster is on the CARD now and the chat
+        # is always wide.  ↑↓ no longer mean two different things depending on a
+        # hidden flag -- they pick a tamer, always; PgUp/PgDn walk the log.
         if k == "up":
-            if self.rost_hidden:
-                self.scroll += 1               # older; _text_lobby clamps to the log
-            else:
-                self.sel = max(0, self.sel - 1)
+            self.sel = max(0, self.sel - 1)
             return None
         if k == "down":
-            if self.rost_hidden:
-                self.scroll = max(0, self.scroll - 1)
-            else:
-                self.sel = min(max(0, len(self._others()) - 1), self.sel + 1)
+            self.sel = min(max(0, len(self._others()) - 1), self.sel + 1)
             return None
         if k == "enter":
             self.scroll = 0                    # speaking snaps the view live
@@ -858,7 +901,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
                     self.status = "Retrying now…"
             else:
                 others = self._others()
-                if others and not self.rost_hidden:   # no acting on an unseen pick
+                if others:
                     p = others[min(self.sel, len(others) - 1)]
                     self.action_for = (p["id"], p["name"], p.get("live", True))
             return None
@@ -942,6 +985,8 @@ class LobbyPanel(BoutMixin, ChatMixin):
                                   ("ESC", "back"))
             return menu.hints(("ENTER", "send"), ("ESC", "back")) + \
                 "  [dim]— thread saved[/]"
+        if getattr(self, "confirm_clear", None) is not None:
+            return menu.hints(("Y", "clear"), ("N", "keep"))
         if self.invite_prompt is not None:
             return menu.hints(("Y", "accept"), ("N", "decline"))
         if self.action_for is not None:
@@ -950,6 +995,13 @@ class LobbyPanel(BoutMixin, ChatMixin):
                 # mirror the in-LCD line: a blocked name offers the way back
                 # out, nothing else (round 30: the two surfaces disagreed)
                 return menu.hints(("X", "unblock"), ("ESC", "back"))
+            # D rides the strip only where the 40-col budget has room for it.
+            # A LIVE peer's four verbs already spend 35 and "· D clear" needs
+            # ten more, so there it is card-only -- which costs nothing now
+            # that the CARD is the standing menu and lists every verb with its
+            # key (2026-08-31).  The strip was always the overflow surface;
+            # this is the first time that is written down.
+            clear = (("D", "clear"),) if self._has_thread(pname) else ()
             if plive:
                 # ONE feature, ONE name (Joel 2026-07-29: "call it all pm"):
                 # V reads the thread, M quick-sends -- both are PM doors, so
@@ -958,9 +1010,9 @@ class LobbyPanel(BoutMixin, ChatMixin):
                 return menu.hints(("B", "battle"), ("J", "jog"),
                                   ("V/M", "PM"), ("X", "block"))
             if pid == OFFLINE_ID:      # no app to nudge: the thread is the point
-                return menu.hints(("V/M", "PM"), ("X", "block"))
+                return menu.hints(("V/M", "PM"), ("X", "block"), *clear)
             return menu.hints(("P", "ping"), ("V/M", "PM"),
-                              ("X", "block"))
+                              ("X", "block"), *clear)
         if self.pm_to is not None:
             return menu.hints(("ENTER", "send ✉"), ("ESC", "cancel"))
         # the pet's alarm outranks everything social -- it only fires in the
@@ -971,14 +1023,12 @@ class LobbyPanel(BoutMixin, ChatMixin):
             return cue
         # the open room: a fresh ✉ pops its own nudge ahead of the key chrome
         unread = sorted(self.state.unread) if self.state else []
-        if unread and not self.rost_hidden:
+        if unread:
             who = unread[0][:12] + ("…" if len(unread) > 1 else "")
             return f"[b]✉ {who}[/][dim] unread — V on their name[/]"
-        if self.rost_hidden:
-            return menu.hints(("←", "players"), ("↑↓", "scroll"),
-                              ("ESC", "live/leave"))
-        return menu.hints(("→", "fold"), ("↑↓", "pick"),
-                          ("ENTER", "act"), ("PgUp", "log"))
+        # ESC's word lives on the LCD's own footer (HINTS_OPEN); repeating it
+        # here pushed the strip to 42 of its 40 columns
+        return menu.hints(("↑↓", "pick"), ("ENTER", "act"), ("PgUp", "log"))
     def text(self):
         if self.pshow is not None:
             return self._text_podium()

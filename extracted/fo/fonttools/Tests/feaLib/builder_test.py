@@ -72,14 +72,14 @@ class BuilderTest(unittest.TestCase):
         spec9a spec9a2 spec9b spec9c1 spec9c2 spec9c3 spec9d spec9e spec9f
         spec9g spec10
         bug453 bug457 bug463 bug501 bug502 bug504 bug505 bug506 bug509
-        bug512 bug514 bug568 bug633 bug1307 bug1459 bug2276 variable_bug2772
+        bug512 bug514 bug568 bug633 bug1196 bug1307 bug1459 bug2276 variable_bug2772
         name size size2 multiple_feature_blocks omitted_GlyphClassDef
         ZeroValue_SinglePos_horizontal ZeroValue_SinglePos_vertical
         ZeroValue_PairPos_horizontal ZeroValue_PairPos_vertical
         ZeroValue_ChainSinglePos_horizontal ZeroValue_ChainSinglePos_vertical
-        PairPosSubtable ChainSubstSubtable SubstSubtable ChainPosSubtable 
-        LigatureSubtable AlternateSubtable MultipleSubstSubtable 
-        SingleSubstSubtable aalt_chain_contextual_subst AlternateChained 
+        PairPosSubtable ChainSubstSubtable SubstSubtable ChainPosSubtable
+        LigatureSubtable AlternateSubtable MultipleSubstSubtable
+        SingleSubstSubtable aalt_chain_contextual_subst AlternateChained
         MultipleLookupsPerGlyph MultipleLookupsPerGlyph2 GSUB_6_formats
         GSUB_5_formats delete_glyph STAT_test STAT_test_elidedFallbackNameID
         variable_scalar_valuerecord variable_scalar_anchor variable_conditionset
@@ -340,9 +340,7 @@ class BuilderTest(unittest.TestCase):
         )
 
     def test_mixed_singleSubst_multipleSubst_aalt(self):
-        font = self.build(
-            dedent(
-                """
+        font = self.build(dedent("""
                 feature aalt {
                   feature ccmp;
                 } aalt;
@@ -354,9 +352,7 @@ class BuilderTest(unittest.TestCase):
                   sub [A A.sc] by A;
                   sub [B B.sc] by [B B.sc];
                 } ccmp;
-                """
-            )
-        )
+                """))
 
         assert "GSUB" in font
         st = font["GSUB"].table.LookupList.Lookup[0].SubTable[0]
@@ -398,9 +394,7 @@ class BuilderTest(unittest.TestCase):
         self.assertEqual(len(st.ligatures["A"][0].Component), 0)
 
     def test_mixed_singleSubst_ligatureSubst_aalt(self):
-        font = self.build(
-            dedent(
-                """
+        font = self.build(dedent("""
                 feature aalt {
                   feature liga;
                 } aalt;
@@ -410,9 +404,7 @@ class BuilderTest(unittest.TestCase):
                   sub f f i by f_f_i;
                   sub A     by A.sc;
                 } liga;
-                """
-            )
-        )
+                """))
 
         assert "GSUB" in font
         st = font["GSUB"].table.LookupList.Lookup[0].SubTable[0]
@@ -433,17 +425,13 @@ class BuilderTest(unittest.TestCase):
         )
 
     def test_mixed_singleSubst_multipleSubst_ligatureSubst_feature(self):
-        font = self.build(
-            dedent(
-                """
+        font = self.build(dedent("""
                 feature test {
                   sub A     by A.sc;
                   sub f_f   by f f;
                   sub f f i by f_f_i;
                 } test;
-                """
-            )
-        )
+                """))
 
         assert "GSUB" in font
         lookups = font["GSUB"].table.LookupList.Lookup
@@ -1355,6 +1343,28 @@ class BuilderTest(unittest.TestCase):
             FeatureLibError, "Failed to compute deltas for variable scalar"
         ):
             addOpenTypeFeaturesFromString(font, features)
+
+    def test_variable_scalar_default(self):
+        """Test that missing axis name(s) in variable scalar means default location."""
+
+        features = """
+            feature kern {
+                pos two <0 (wght=900:22 12 wdth=150,wght=900:42) 0 0>;
+            } kern;
+        """
+
+        font = self.make_mock_vf()
+        addOpenTypeFeaturesFromString(font, features)
+
+        var_region_list = font.tables["GDEF"].table.VarStore.VarRegionList
+        var_region_axis_wght = var_region_list.Region[0].VarRegionAxis[0]
+        var_region_axis_wdth = var_region_list.Region[0].VarRegionAxis[1]
+        assert self.get_region(var_region_axis_wght) == (0.0, 0.875, 1.0)
+        assert self.get_region(var_region_axis_wdth) == (0.0, 0.0, 0.0)
+        var_region_axis_wght = var_region_list.Region[1].VarRegionAxis[0]
+        var_region_axis_wdth = var_region_list.Region[1].VarRegionAxis[1]
+        assert self.get_region(var_region_axis_wght) == (0.0, 0.875, 1.0)
+        assert self.get_region(var_region_axis_wdth) == (0.0, 0.5, 1.0)
 
     def test_ligatureCaretByPos_variable_scalar(self):
         """Test that the `avar` table is consulted when normalizing user-space

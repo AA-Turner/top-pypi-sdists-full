@@ -27,7 +27,8 @@ from typing import Any, cast
 from IPython.display import HTML, display
 
 from dargs import Argument, Variant
-from dargs.dargs import _resolve_ref
+from dargs._context import TraversalContext
+from dargs._refs import resolve_ref
 
 __all__ = ["JSON"]
 
@@ -126,6 +127,11 @@ def print_html(
     -------
     str
         The HTML string.
+
+    Raises
+    ------
+    ValueError
+        If the data or arg type is unknown
     """
     if isinstance(data, str):
         data = json.loads(data)
@@ -168,11 +174,20 @@ class ArgumentData:
         arg: Argument | Variant,
         repeat: bool = False,
         allow_ref: bool = False,
+        _ref_base_dir: str | None = None,
+        _ref_context: TraversalContext | None = None,
     ) -> None:
         self.data = data
         self.arg = arg
         self.repeat = repeat
         self.allow_ref = allow_ref
+        # Keep the directory of the file that supplied this mapping so that
+        # nested relative references are resolved beside their declaring file.
+        self._ref_context = _ref_context or TraversalContext(
+            allow_ref=allow_ref,
+            ref_base_dir=_ref_base_dir,
+        )
+        self._ref_base_dir = self._ref_context.ref_base_dir
         self.subdata = []
         self._init_subdata()
 
@@ -185,7 +200,7 @@ class ArgumentData:
         ):
             # Work on a copy to avoid mutating the caller's data
             data = self.data.copy()
-            _resolve_ref(data, self.allow_ref)
+            ref_context = resolve_ref(data, self._ref_context)
             sub_fields = self.arg.sub_fields.copy()
             # extend subfiles with sub_variants
             for vv in self.arg.sub_variants.values():
@@ -196,7 +211,12 @@ class ArgumentData:
             for kk in data:
                 if kk in sub_fields:
                     self.subdata.append(
-                        ArgumentData(data[kk], sub_fields[kk], allow_ref=self.allow_ref)
+                        ArgumentData(
+                            data[kk],
+                            sub_fields[kk],
+                            allow_ref=self.allow_ref,
+                            _ref_context=ref_context,
+                        )
                     )
                 elif kk in self.arg.sub_variants:
                     self.subdata.append(
@@ -204,6 +224,7 @@ class ArgumentData:
                             data[kk],
                             self.arg.sub_variants[kk],
                             allow_ref=self.allow_ref,
+                            _ref_context=ref_context,
                         )
                     )
                 else:
@@ -216,7 +237,13 @@ class ArgumentData:
         ):
             for dd in self.data:
                 self.subdata.append(
-                    ArgumentData(dd, self.arg, repeat=True, allow_ref=self.allow_ref)
+                    ArgumentData(
+                        dd,
+                        self.arg,
+                        repeat=True,
+                        allow_ref=self.allow_ref,
+                        _ref_context=self._ref_context,
+                    )
                 )
         elif (
             isinstance(self.data, dict)
@@ -226,7 +253,13 @@ class ArgumentData:
         ):
             for dd in self.data.values():
                 self.subdata.append(
-                    ArgumentData(dd, self.arg, repeat=True, allow_ref=self.allow_ref)
+                    ArgumentData(
+                        dd,
+                        self.arg,
+                        repeat=True,
+                        allow_ref=self.allow_ref,
+                        _ref_context=self._ref_context,
+                    )
                 )
 
     def print_html(self, _level: int = 0, _last_one: bool = True) -> str:
@@ -238,6 +271,16 @@ class ArgumentData:
             The level of indentation, by default 0
         _last_one : bool, optional
             Whether it is the last one, by default True
+
+        Returns
+        -------
+        str
+            The HTML string
+
+        Raises
+        ------
+        ValueError
+            If the data or arg type is incompatible
         """
         linebreak = "<br/>"
         indent = (
@@ -259,11 +302,11 @@ class ArgumentData:
             buff.append(r"""<code class="dargs-code">""")
             buff.append('"')
             if isinstance(self.arg, Argument):
-                buff.append(self.arg.name)
+                buff.append(html.escape(self.arg.name, quote=False))
             elif isinstance(self.arg, Variant):
-                buff.append(self.arg.flag_name)
+                buff.append(html.escape(self.arg.flag_name, quote=False))
             elif isinstance(self.arg, str):
-                buff.append(self.arg)
+                buff.append(html.escape(self.arg, quote=False))
             else:
                 raise ValueError(f"Unknown type: {type(self.arg)}")
             buff.append('"')
@@ -271,11 +314,13 @@ class ArgumentData:
             if isinstance(self.arg, (Argument, Variant)):
                 buff.append(r"""<span class="dargs-doc">""")
                 if isinstance(self.arg, Argument):
-                    doc_head = (
-                        self.arg.gen_doc_head()
-                        .replace("| type:", "type:")
-                        .replace("\n", linebreak)
-                    )
+                    # Escape the generated text before adding our line-break
+                    # markup. This preserves generated ``<br/>`` elements while
+                    # keeping identically spelled user content escaped.
+                    doc_head = html.escape(
+                        self.arg.gen_doc_head().replace("| type:", "type:"),
+                        quote=False,
+                    ).replace("\n", linebreak)
                     # use re to replace ``xx`` to <code>xx</code>
                     doc_head = re.sub(
                         r"``(.*?)``",
@@ -285,19 +330,21 @@ class ArgumentData:
                     doc_head = re.sub(r"\*(.+)\*", r"<i>\1</i>", doc_head)
                     buff.append(doc_head)
                 elif isinstance(self.arg, Variant):
-                    buff.append(f"{self.arg.flag_name}:<br/>type: ")
+                    buff.append(
+                        f"{html.escape(self.arg.flag_name, quote=False)}:<br/>type: "
+                    )
                     buff.append(r"""<span class="dargs-doc-code">""")
                     buff.append("str")
                     buff.append(r"""</span>""")
                     if self.arg.default_tag:
                         buff.append(", default: ")
                         buff.append(r"""<span class="dargs-doc-code">""")
-                        buff.append(self.arg.default_tag)
+                        buff.append(html.escape(self.arg.default_tag, quote=False))
                         buff.append(r"""</span>""")
                 else:
                     raise ValueError(f"Unknown type: {type(self.arg)}")
 
-                doc_body = html.escape(self.arg.doc.strip())
+                doc_body = html.escape(self.arg.doc.strip(), quote=False)
                 if doc_body:
                     buff.append("<hr/>")
                 doc_body = re.sub(r"""\n+""", "\n", doc_body)
@@ -348,7 +395,7 @@ class ArgumentData:
         else:
             buff.append(r"""<code class="dargs-code">""")
             buff.append(
-                json.dumps(self.data, indent=2)
+                html.escape(json.dumps(self.data, indent=2), quote=False)
                 .replace(" ", "&nbsp;")
                 .replace(
                     "\n", f"""</code>{linebreak}{indent}<code class="dargs-code">"""

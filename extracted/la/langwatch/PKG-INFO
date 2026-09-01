@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langwatch
-Version: 1.2.1
+Version: 1.3.0
 Summary: LangWatch Python SDK, for monitoring your LLMs
 Author-email: Langwatch Engineers <engineering@langwatch.ai>
 License: MIT
@@ -37,6 +37,7 @@ Requires-Dist: retry>=0.9.2
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: termcolor>=3.0.1
 Requires-Dist: tqdm>=4.62.0
+Requires-Dist: websockets>=12
 Provides-Extra: dev
 Requires-Dist: ruff>=0.16.2; extra == 'dev'
 Provides-Extra: dspy

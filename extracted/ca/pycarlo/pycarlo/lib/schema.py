@@ -26569,6 +26569,19 @@ class AzureInformation(sgqlc.types.Type):
     """Azure Secondary Region"""
 
 
+class BatchUpdatePiiBulkMonitors(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("bulk_monitors", "updated_count")
+    bulk_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("BulkMonitor"))),
+        graphql_name="bulkMonitors",
+    )
+    """PII bulk monitors updated by this mutation."""
+
+    updated_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="updatedCount")
+    """Number of PII bulk monitors updated."""
+
+
 class BiContainer(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -46234,6 +46247,7 @@ class Mutation(sgqlc.types.Type):
         "test_glue_credentials_v2",
         "test_dbt_cloud_credentials_v2",
         "create_pii_monitor",
+        "batch_update_pii_bulk_monitors",
         "mark_pii_scan_finding_false_positive",
         "restore_pii_scan_finding_false_positive",
         "create_jira_ticket_for_pii_scan_findings",
@@ -69725,6 +69739,103 @@ class Mutation(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
+    batch_update_pii_bulk_monitors = sgqlc.types.Field(
+        BatchUpdatePiiBulkMonitors,
+        graphql_name="batchUpdatePiiBulkMonitors",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="audiences", default=None
+                    ),
+                ),
+                (
+                    "bulk_monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="bulkMonitorUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="failureAudiences", default=None
+                    ),
+                ),
+                (
+                    "field_pattern",
+                    sgqlc.types.Arg(String, graphql_name="fieldPattern", default=None),
+                ),
+                (
+                    "match_threshold",
+                    sgqlc.types.Arg(Float, graphql_name="matchThreshold", default=None),
+                ),
+                (
+                    "pii_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(PiiType)),
+                        graphql_name="piiTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "sampling_config",
+                    sgqlc.types.Arg(
+                        MonitorSamplingConfigInput, graphql_name="samplingConfig", default=None
+                    ),
+                ),
+                (
+                    "schedule_config",
+                    sgqlc.types.Arg(
+                        ScheduleConfigInput, graphql_name="scheduleConfig", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Apply the same editable PII monitor settings to
+    selected PII bulk monitors.
+
+    Arguments:
+
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
+    * `audiences` (`[String]`): Notification audiences to apply to
+      every selected PII bulk monitor.
+    * `bulk_monitor_uuids` (`[UUID!]!`): PII bulk monitor UUIDs to
+      update.
+    * `failure_audiences` (`[String]`): Failure-only notification
+      audiences to apply to every selected PII bulk monitor.
+    * `field_pattern` (`String`): Glob pattern to match TEXT column
+      names.
+    * `match_threshold` (`Float`): Alert threshold as a proportion
+      (0-1).
+    * `pii_types` (`[PiiType!]`): Built-in PII types to apply to every
+      selected PII bulk monitor.
+    * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
+      for child metric monitors.
+    * `schedule_config` (`ScheduleConfigInput`): Collection schedule
+      to apply to every selected PII bulk monitor.
+    """
+
     mark_pii_scan_finding_false_positive = sgqlc.types.Field(
         MarkPiiScanFindingFalsePositive,
         graphql_name="markPiiScanFindingFalsePositive",
@@ -73005,10 +73116,24 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     """Cost insights surfaced on the Performance Page."""
 
     __schema__ = schema
-    __field_names__ = ("is_enabled", "insights", "thread_id", "created_time")
+    __field_names__ = (
+        "is_enabled",
+        "disabled_reason",
+        "insights",
+        "insights_count",
+        "thread_id",
+        "created_time",
+    )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
-    """Whether cost insights are enabled for the caller's account. When
-    false, the Performance Page insights section should not be shown.
+    """Whether cost insights are fully enabled for the caller's account.
+    False when the account no longer has access to them, and while it
+    has none yet; 'disabledReason' tells the two apart.
+    """
+
+    disabled_reason = sgqlc.types.Field(String, graphql_name="disabledReason")
+    """When the account has insights it cannot see in full, this shows
+    the reason why they are disabled. Null when the account simply has
+    none yet.
     """
 
     insights = sgqlc.types.Field(
@@ -73018,7 +73143,14 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
         graphql_name="insights",
     )
     """Insights from the latest completed cost-insights run for the
-    caller's account. Empty until a run has produced insights.
+    caller's account, limited to what the account has access to. Empty
+    until a run has produced insights.
+    """
+
+    insights_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="insightsCount")
+    """How many insights the latest completed run produced, which can
+    exceed the number in 'insights' when the account does not have the
+    Performance & Cost agent feature enabled.
     """
 
     thread_id = sgqlc.types.Field(String, graphql_name="threadId")
@@ -101506,6 +101638,7 @@ class ScheduledReportType(sgqlc.types.Type):
         "config",
         "audience_uuids",
         "enabled",
+        "disabled_reason",
         "created_by",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
@@ -101544,7 +101677,16 @@ class ScheduledReportType(sgqlc.types.Type):
     """Audience (monitor label) UUIDs the report is delivered to."""
 
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
-    """Whether the report is actively scheduled."""
+    """Whether the report is actively scheduled. False when the account
+    no longer has access to this kind of report or when a user
+    explicitly disables it.
+    """
+
+    disabled_reason = sgqlc.types.Field(String, graphql_name="disabledReason")
+    """Why the report is not actively scheduled, or null when it is. Set
+    whenever 'enabled' is false: either a user turned the report off,
+    or the account no longer has access to this kind of report.
+    """
 
     created_by = sgqlc.types.Field("UserInfoOutput", graphql_name="createdBy")
     """User who created the report."""

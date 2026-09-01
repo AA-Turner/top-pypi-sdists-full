@@ -28,14 +28,35 @@ class InitialsTestCase(HumanNameTestBase):
         hn = HumanName("", constants=Constants())
         self.assertEqual(hn.initials(), "")
 
-    def test_initials_middle_name_all_prefixes(self) -> None:
-        # "Vega, Juan de la" parses with middle name "de la", which contains
-        # no initialable words (both are prefixes). The part must be skipped
-        # entirely — not emit an empty initial ("J. . V.") and not crash when
-        # empty_attribute_default is None.
+    def test_initials_with_an_attached_tussenvoegsel(self) -> None:
+        # "Vega, Juan de la" used to park "de la" in the middle name; #379
+        # attaches it to the family instead, so the initials come from
+        # 'Juan' and the family BASE. The all-prefix MIDDLE this test
+        # was written for now comes from "Nguyen, Van Le" below --
+        # whether such a middle should exist at all is #402.
         hn = HumanName("Vega, Juan de la")
-        self.m(hn.middle, "de la", hn)
+        self.m(hn.middle, "", hn)
+        self.m(hn.last, "de la Vega", hn)
         self.assertEqual(hn.initials_list(), ["J", "V"])
+        self.assertEqual(hn.initials(), "J. V.")
+
+    def test_initials_middle_name_all_prefixes(self) -> None:
+        # "Nguyen, Van Le" parses with middle name "Le", every word of
+        # which is particle vocabulary. A particle standing alone in a
+        # name part is not doing a particle's work there, so it
+        # initials as an ordinary name word (rules.md#R2/#R3) rather
+        # than being dropped -- this read "V. N." until #404, losing
+        # the middle name entirely.
+        hn = HumanName("Nguyen, Van Le")
+        self.m(hn.middle, "Le", hn)
+        self.assertEqual(hn.initials_list(), ["V", "L", "N"])
+        self.assertEqual(hn.initials(), "V. L. N.")
+
+    def test_initials_still_drop_a_particle_beside_a_name(self) -> None:
+        # The other half: where the part HAS a name word, the particle
+        # is doing particle work and contributes nothing.
+        hn = HumanName("Juan de la Vega")
+        self.m(hn.last, "de la Vega", hn)
         self.assertEqual(hn.initials(), "J. V.")
 
     def test_initials_complex_name(self) -> None:

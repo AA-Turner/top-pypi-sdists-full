@@ -6,7 +6,7 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 readme = {file = "README.md", content-type = "text/markdown"}
 dynamic = ["version"]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 # Python and Django versions are read from this file by GitHub Actions.
 # Precise formatting is important.
 classifiers = [
@@ -16,7 +16,6 @@ classifiers = [
     'Operating System :: OS Independent',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -28,6 +27,8 @@ classifiers = [
     'Framework :: Django :: 5',
     'Framework :: Django :: 5.1',
     'Framework :: Django :: 5.2',
+    'Framework :: Django :: 6.0',
+    'Framework :: Django :: 6.1',
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 dependencies = ["django"]
@@ -51,3 +52,27 @@ name = "django_cte"
 
 [tool.distutils.bdist_wheel]
 universal = true
+
+[tool.tox]
+requires = ["tox>=4.43"]
+env_list = [
+    {product = [{prefix = "py3", start = 10, stop = 12}, ["django42"]]},
+    {product = [{prefix = "py3", start = 10, stop = 12}, ["django50"]]},
+    {product = [{prefix = "py3", start = 10, stop = 13}, ["django51"]]},
+    {product = [{prefix = "py3", start = 10, stop = 14}, ["django52"]]},
+    {product = [{prefix = "py3", start = 12, stop = 14}, ["django60", "django61", "djangomain"]]},
+]
+
+[tool.tox.env_run_base]
+default_base_python = "python3"
+commands = [["pytest", {replace = "posargs", default = [], extend = true}]]
+dependency_groups = ["dev"]
+deps = [
+  {replace = "if", condition = "factor.django42", then = ["Django>=4.2,<5.0"], extend = true},
+  {replace = "if", condition = "factor.django50", then = ["Django>=5.0,<5.1"], extend = true},
+  {replace = "if", condition = "factor.django51", then = ["Django>=5.1,<5.2"], extend = true},
+  {replace = "if", condition = "factor.django52", then = ["Django>=5.2,<6.0"], extend = true},
+  {replace = "if", condition = "factor.django60", then = ["Django>=6.0,<6.1"], extend = true},
+  {replace = "if", condition = "factor.django61", then = ["Django>=6.1,<6.2"], extend = true},
+  {replace = "if", condition = "factor.djangomain", then = ["https://github.com/django/django/archive/main.tar.gz"], extend = true},
+]

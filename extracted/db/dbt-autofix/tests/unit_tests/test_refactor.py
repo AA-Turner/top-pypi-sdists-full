@@ -18,6 +18,7 @@ from dbt_autofix.refactor import (
     changeset_remove_extra_tabs,
     changeset_remove_indentation_version,
     changeset_replace_non_alpha_underscores_in_name_values,
+    is_project_config_file,
     load_dbtignore,
     remove_unmatched_endings,
     skip_file,
@@ -28,6 +29,7 @@ from dbt_autofix.refactors.changesets.dbt_schema_yml import (
     changeset_replace_fancy_quotes,
 )
 from dbt_autofix.refactors.changesets.dbt_sql import CONFIG_MACRO_PATTERN, refactor_custom_configs_to_meta_sql
+from dbt_autofix.refactors.constants import PROJECT_ROOT_ONLY_YAML_FILENAMES
 from dbt_autofix.refactors.results import (
     DbtProjectYMLRefactorConfig,
     SQLContent,
@@ -1395,6 +1397,120 @@ class TestSkipFile:
                 dbtignore=dbtignore,
                 root_path=root,
             )
+
+
+class TestIsProjectConfigFile:
+    """Tests for is_project_config_file function"""
+
+    def test_reserved_name_next_to_dbt_project(self):
+        """Test that every reserved name is project config when a dbt_project.yml is its sibling"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            Path(root, "dbt_project.yml").touch()
+            for name in PROJECT_ROOT_ONLY_YAML_FILENAMES:
+                yml_file = root / name
+                yml_file.touch()
+                assert is_project_config_file(yml_file), name
+
+    def test_reserved_name_without_sibling_dbt_project(self):
+        """Test that a reserved name elsewhere is a properties file that must still be processed"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            models = Path(tmpdir, "models")
+            models.mkdir()
+            Path(tmpdir, "dbt_project.yml").touch()
+
+            properties_file = models / "packages.yml"
+            properties_file.touch()
+            assert not is_project_config_file(properties_file)
+
+            nested = models / "nested"
+            nested.mkdir()
+            orphan_file = nested / "dependencies.yml"
+            orphan_file.touch()
+            assert not is_project_config_file(orphan_file)
+
+    def test_dbt_project_yml_itself(self):
+        """Test that a dbt_project.yml is project config, since it is trivially its own sibling"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yml_file = Path(tmpdir, "dbt_project.yml")
+            yml_file.touch()
+            assert is_project_config_file(yml_file)
+
+    def test_non_reserved_name_in_project_root(self):
+        """Test that the rule is filename-based, not 'anything sitting in a project root'"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            Path(root, "dbt_project.yml").touch()
+            yml_file = root / "schema.yml"
+            yml_file.touch()
+            assert not is_project_config_file(yml_file)
+
+    def test_sibling_dbt_project_is_a_directory(self):
+        """Test that a directory named dbt_project.yml does not suppress a real properties file"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            Path(root, "dbt_project.yml").mkdir()
+            yml_file = root / "packages.yml"
+            yml_file.touch()
+            assert not is_project_config_file(yml_file)
+
+
+class TestRefactorYmlStrEmptyGuard:
+    """Tests for the guard that stops custom top-level key removal from emptying a document"""
+
+    def test_all_custom_keys_left_unchanged(self, schema_specs: SchemaSpecs):
+        """Test that a document with no recognized top-level keys is left byte-identical"""
+        input_yaml = """
+packages:
+  - package: dbt-labs/dbt_utils
+    version: 1.1.1
+"""
+        result = changeset_refactor_yml_str(_yml(input_yaml), _yml_cfg(schema_specs))
+        assert not result.refactored
+        assert result.refactored_yaml == input_yaml
+        assert len(result.refactor_warnings) == 1
+        assert "no recognized top-level keys" in result.refactor_warnings[0]
+        assert "packages" in result.refactor_warnings[0]
+
+    def test_mixed_keys_still_have_custom_keys_removed(self, schema_specs: SchemaSpecs):
+        """Test that the rule still removes custom keys when a recognized key is also present"""
+        input_yaml = """
+version: 2
+
+models:
+  - name: my_model
+
+some_custom_key: some_value
+"""
+        result = changeset_refactor_yml_str(_yml(input_yaml), _yml_cfg(schema_specs))
+        assert result.refactored
+        assert not result.refactor_warnings
+        assert "Removed custom top-level key: 'some_custom_key'" in result.refactor_logs
+        assert "some_custom_key" not in safe_load(result.refactored_yaml)
+
+    def test_only_recognized_keys_unchanged(self, schema_specs: SchemaSpecs):
+        """Test that a plain properties document is neither refactored nor warned about"""
+        input_yaml = """
+version: 2
+
+models:
+  - name: my_model
+    description: "A test model"
+"""
+        result = changeset_refactor_yml_str(_yml(input_yaml), _yml_cfg(schema_specs))
+        assert not result.refactored
+        assert result.refactored_yaml == input_yaml
+        assert not result.refactor_warnings
+
+    def test_empty_document_is_not_warned_about(self, schema_specs: SchemaSpecs):
+        """Test that a document with no top-level keys at all stays quiet"""
+        input_yaml = """
+# nothing but a comment
+"""
+        result = changeset_refactor_yml_str(_yml(input_yaml), _yml_cfg(schema_specs))
+        assert not result.refactored
+        assert result.refactored_yaml == input_yaml
+        assert not result.refactor_warnings
 
 
 class TestLoadDbtignore:
@@ -2993,3 +3109,64 @@ select 1 as id
         assert "on_column" in result.deprecation_refactors[0].log
         assert "nugget" in result.deprecation_refactors[0].log
         assert "meta" in result.deprecation_refactors[0].log
+
+    @pytest.mark.parametrize(
+        "trigger_config,expected_trigger_log",
+        [
+            # A hook rename collapses the dict into keyword arguments...
+            (
+                '"post-hook": ["select 1"]',
+                "Config 'post-hook' is a common misspelling of 'post_hook', it has been renamed.",
+            ),
+            # ...and so does a custom config moving to meta, so the fix is not hook-specific
+            ('"my_custom_thing": "abc"', "Moved custom config ['my_custom_thing'] to 'meta'"),
+        ],
+    )
+    def test_repeated_dict_key_keeps_last_value(
+        self, schema_specs: SchemaSpecs, trigger_config: str, expected_trigger_log: str
+    ):
+        """A repeated key in a config() dict resolves to its last occurrence, as dbt does."""
+        sql_content = (
+            f'{{{{ config({{"materialized": "table", "tags": "mapping_tables", '
+            f'{trigger_config}, "tags": ["weekly"]}}) }}}}\nselect 1 as id\n'
+        )
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert result.refactored
+        assert 'tags=["weekly"]' in result.refactored_content
+        assert "mapping_tables" not in result.refactored_content
+        assert result.refactor_logs == [
+            "Config key 'tags' was defined 2 times in the config() dictionary; "
+            'kept the last value (["weekly"]) and dropped the earlier one ("mapping_tables"), '
+            "which is how dbt resolves a repeated key.",
+            expected_trigger_log,
+        ]
+        # This is autofix preserving dbt's own resolution, not a dbt deprecation
+        assert result.deprecation_refactors[0].deprecation is None
+
+    def test_dict_key_repeated_three_times(self, schema_specs: SchemaSpecs):
+        """More than one dropped value is reported as a list, and the third value survives."""
+        sql_content = (
+            '{{ config({"tags": "one", "tags": "two", "tags": "three", "my_custom_thing": "abc"}) }}\nselect 1 as id\n'
+        )
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert result.refactored
+        assert 'tags="three"' in result.refactored_content
+        assert result.refactor_logs[0] == (
+            "Config key 'tags' was defined 3 times in the config() dictionary; "
+            'kept the last value ("three") and dropped the earlier ones ("one", "two"), '
+            "which is how dbt resolves a repeated key."
+        )
+
+    def test_repeated_dict_key_without_other_trigger_is_left_alone(self, schema_specs: SchemaSpecs):
+        """A duplicate alone is not a reason to rewrite the file, so nothing is reported."""
+        sql_content = '{{ config({"materialized": "table", "tags": "first", "tags": "second"}) }}\nselect 1 as id\n'
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert not result.refactored
+        assert result.refactored_content == sql_content
+        assert result.refactor_logs == []

@@ -1,18 +1,9 @@
 /*
- * Internal workspace structs used during the solve.
- *
- * ScsWork holds all mutable state for one solve: ADMM iterates, residuals,
- * normalization data, and pointers to the linear system and cone workspaces.
- * ScsScaling holds the diagonal matrices from Ruiz equilibration.
- * ScsResiduals tracks primal/dual residuals and infeasibility certificates.
- *
- * These are internal to SCS -- the public API is in scs.h.
+ * Define ScsWork and related internal-only structs (not part of external API).
  */
 
 #ifndef SCS_WORK_H_GUARD
 #define SCS_WORK_H_GUARD
-
-#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,9 +17,6 @@ typedef struct {
   scs_int m;        /* Length of D */
   scs_int n;        /* Length of E */
   scs_float primal_scale, dual_scale;
-  /* accumulated tau-slot scaling from the stacked-operator equilibration;
-   * becomes the sigma applied to b, c in normalize_b_c */
-  scs_float tau_scale;
 } ScsScaling;
 
 /** Holds residual information. */
@@ -68,14 +56,10 @@ struct SCS_WORK {
   scs_float *diag_r; /* vector of R matrix diagonals (affects cone proj) */
   scs_float *b_orig, *c_orig;     /* original unnormalized b and c vectors */
   scs_float nm_b_orig, nm_c_orig; /* unnormalized NORM(b), NORM(c) */
-  scs_float nm_a_orig;            /* unnormalized max abs entry of A */
-  /* consecutive checks the infeas/unbdd certificate has passed */
-  scs_int infeas_cert_streak, unbdd_cert_streak;
   AaWork *accel;                  /* struct for acceleration workspace */
   ScsData *d;                     /* Problem data deep copy NORMALIZED */
   ScsCone *k;                     /* Problem cone deep copy */
   ScsSettings *stgs;      /* contains solver settings specified by user */
-  FILE *log_csv_fout;     /* open CSV log stream for current solve */
   ScsLinSysWork *p;       /* struct populated by linear system solver */
   ScsScaling *scal;       /* contains the re-scaling data */
   ScsConeWork *cone_work; /* workspace for the cone projection step */
@@ -86,11 +70,6 @@ struct SCS_WORK {
   /* Scale updating workspace */
   scs_float sum_log_scale_factor;
   scs_int last_scale_update_iter, n_log_scale_factor, scale_updates;
-  /* per-row scale multipliers on R_y, size m (adaptive_diag_scale >= 1) */
-  scs_float *scale_mults;
-  /* floor on the row-profile denominators, see row_rel_res */
-  scs_float den_floor;
-  /* per-column multipliers on rho_x, size n (adaptive_diag_scale >= 2) */
   /* AA stats */
   scs_float aa_norm;
   scs_int rejected_accel_steps, accepted_accel_steps;

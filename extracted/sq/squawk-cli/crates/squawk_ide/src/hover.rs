@@ -300,6 +300,8 @@ fn hover_literal(literal: &ast::Literal) -> Option<Hover> {
         LitKind::IntNumber(_) => return None,
         LitKind::Null(_) => return None,
         LitKind::NumericNumber(_) => return None,
+        LitKind::Off(_) => return None,
+        LitKind::On(_) => return None,
         LitKind::PositionalParam(_) => return None,
         LitKind::True(_) => return None,
     };
@@ -879,7 +881,7 @@ fn target_has_schema_qualified_from_item(target: &ast::Target) -> bool {
         return false;
     };
 
-    for from_item in from_clause.from_items() {
+    for from_item in ast_nav::iter_from_clause(&from_clause) {
         if let ast::FromItem::RelationFromItem(relation) = from_item
             && relation
                 .path_ref()
@@ -1885,7 +1887,9 @@ fn hover_named_arg_parameter(db: &dyn Db, def: Location) -> Option<Hover> {
     let def_node = def.to_node(db)?;
     let param = def_node.ancestors().find_map(ast::Param::cast)?;
     let param_name = param.name().map(|name| Name::from_node(&name))?;
-    let param_type = param.ty().map(|ty| ty.syntax().text().to_string());
+    let param_type = param
+        .func_type()
+        .map(|func_type| func_type.syntax().text().to_string());
 
     for ancestor in def_node.ancestors() {
         if let Some(create_function) = ast::CreateFunction::cast(ancestor.clone()) {

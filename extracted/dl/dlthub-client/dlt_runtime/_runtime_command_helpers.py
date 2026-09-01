@@ -96,13 +96,12 @@ from dlt_runtime.runtime_clients.api.models import (
     DataplaneInfo,
     DeployManifestRequest,
     DetailedRunResponse,
-    ListScriptsArchived,
     RunStatus,
     TJobDefinition as ApiTJobDefinition,
     UploadInitiatedResponse,
     WorkspaceResponse,
 )
-from dlt_runtime.runtime_clients.api.types import Unset
+from dlt_runtime.runtime_clients.api.types import UNSET as API_UNSET, Unset
 from dlt_runtime.runtime_clients.dataplane_api.api.variables import (
     change_workspace_variables,
     list_workspace_variables,
@@ -111,10 +110,11 @@ from dlt_runtime.runtime_clients.dataplane_api.client import (
     Client as DataplaneApiClient,
 )
 from dlt_runtime.runtime_clients.dataplane_api.models import (
+    PlainVariableUpsert,
     ScopeVariablesResponse,
+    SecretVariableUpsert,
     VariablesChange,
     VariablesChangeResponse,
-    VariableUpsert,
     WorkspaceVariablesResponse,
 )
 from dlt_runtime.runtime_clients.dataplane_api.types import UNSET
@@ -497,9 +497,8 @@ def _resolve_job_ref_from_server(
         pass
 
     # Bare name — fetch the workspace job list as the resolution scope.
-    archived = (
-        ListScriptsArchived.ALL if include_archived else ListScriptsArchived.FALSE
-    )
+    # Including archived jobs means dropping the filter, not naming both values.
+    archived = API_UNSET if include_archived else False
     with handle_client_exceptions():
         res = list_scripts.sync_detailed(
             client=api_client,
@@ -1121,7 +1120,7 @@ def _change_workspace_variables(
     workspace_id: UUID,
     *,
     profile: Optional[str],
-    upserts: Optional[list[VariableUpsert]] = None,
+    upserts: Optional[list[Union[PlainVariableUpsert, SecretVariableUpsert]]] = None,
     deletes: Optional[list[str]] = None,
 ) -> VariablesChangeResponse:
     """One atomic batch against a single scope; ``profile=None`` is workspace-wide."""
@@ -1463,9 +1462,8 @@ def _fetch_jobs(
     include_archived: bool = False,
 ) -> list[Any]:
     """Fetch all jobs (scripts). Returns list of script models."""
-    archived = (
-        ListScriptsArchived.ALL if include_archived else ListScriptsArchived.FALSE
-    )
+    # Including archived jobs means dropping the filter, not naming both values.
+    archived = API_UNSET if include_archived else False
     with handle_client_exceptions():
         res = list_scripts.sync_detailed(
             client=api_client,

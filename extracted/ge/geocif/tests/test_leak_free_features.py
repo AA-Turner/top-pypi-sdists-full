@@ -126,12 +126,25 @@ def test_train_side_call_unchanged():
 
 
 def test_call_site_passes_train_as_source():
-    """Guard the wiring: geocif.py's df_test call must pass df_source."""
+    """Guard the wiring: geocif.py's df_test call must pass df_source.
+
+    The invariant is that the test frame's neighbour yield stats are sourced
+    from the TRAIN frame, never from df_test itself (which holds the held-out
+    year's observed yields). The source may legitimately be wrapped — it is
+    currently ``_leakfree(self.df_train)``, which additionally strips rows
+    promoted from the forecast year — so match on ``self.df_train`` appearing
+    as the df_source argument rather than on one exact spelling.
+    """
     src = (ROOT / "geocif.py").read_text(encoding="utf-8")
     i = src.index("self.df_test = sn.add_neighbor_features")
-    block = src[i:i + 400]
-    assert "df_source=self.df_train" in block, \
-        "test-side add_neighbor_features must source yield stats from df_train"
+    block = " ".join(src[i:i + 400].split())
+    assert "df_source=" in block, "df_source must be passed explicitly"
+    j = block.index("df_source=")
+    arg = block[j:j + 60]
+    assert "self.df_train" in arg, \
+        f"test-side add_neighbor_features must source yield stats from df_train, got: {arg}"
+    assert "self.df_test" not in arg, \
+        f"df_source must never be the test frame, got: {arg}"
 
 
 # ---------------------------------------------------------------------------

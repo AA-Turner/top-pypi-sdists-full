@@ -210,7 +210,11 @@ class BeamFnData(object):
 
 
 class BeamFnStateStub(object):
-    """Missing associated documentation comment in .proto file."""
+    """An API for the SDK harness to access state stored by the runner on behalf
+    of the SDK. State is scoped to the currently processing bundle and can be
+    used for user state, side inputs, and runner-managed references.
+    Stable
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -226,7 +230,11 @@ class BeamFnStateStub(object):
 
 
 class BeamFnStateServicer(object):
-    """Missing associated documentation comment in .proto file."""
+    """An API for the SDK harness to access state stored by the runner on behalf
+    of the SDK. State is scoped to the currently processing bundle and can be
+    used for user state, side inputs, and runner-managed references.
+    Stable
+    """
 
     def State(self, request_iterator, context):
         """Used to get/append/clear state stored by the runner on behalf of the SDK.
@@ -254,7 +262,11 @@ def add_BeamFnStateServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class BeamFnState(object):
-    """Missing associated documentation comment in .proto file."""
+    """An API for the SDK harness to access state stored by the runner on behalf
+    of the SDK. State is scoped to the currently processing bundle and can be
+    used for user state, side inputs, and runner-managed references.
+    Stable
+    """
 
     @staticmethod
     def State(request_iterator,
@@ -344,7 +356,10 @@ class BeamFnLogging(object):
 
 
 class BeamFnExternalWorkerPoolStub(object):
-    """Missing associated documentation comment in .proto file."""
+    """An API for the runner to manage external SDK worker processes.
+    Allows the runner to start and stop SDK worker instances, typically used
+    for containerized or process-based execution environments.
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -365,7 +380,10 @@ class BeamFnExternalWorkerPoolStub(object):
 
 
 class BeamFnExternalWorkerPoolServicer(object):
-    """Missing associated documentation comment in .proto file."""
+    """An API for the runner to manage external SDK worker processes.
+    Allows the runner to start and stop SDK worker instances, typically used
+    for containerized or process-based execution environments.
+    """
 
     def StartWorker(self, request, context):
         """Start the SDK worker with the given ID.
@@ -402,7 +420,10 @@ def add_BeamFnExternalWorkerPoolServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class BeamFnExternalWorkerPool(object):
-    """Missing associated documentation comment in .proto file."""
+    """An API for the runner to manage external SDK worker processes.
+    Allows the runner to start and stop SDK worker instances, typically used
+    for containerized or process-based execution environments.
+    """
 
     @staticmethod
     def StartWorker(request,

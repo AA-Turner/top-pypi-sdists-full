@@ -115,7 +115,51 @@ def conditional_join(
     will be a MultiIndex; the first level points to the original positions in `df`,
     while the second level points to the original positions in `right`.
 
+    !!! tip "Cumulative-Event Aggregation vs. Range Join Aggregations"
 
+        When computing single additive running totals (e.g., daily sums) over overlapping time intervals,
+        a cumulative-event aggregation (sweep-line algorithm) is often significantly faster than using range join
+        aggregations (`join_agg` / `conditional_join`).
+
+        **Algorithm & Complexity:**
+        For inclusive intervals `[start_date, end_date]`, group values by start and end dates, taking cumulative sums (`cumsum`)
+        reindexed to the target calendar, and subtract the end totals with an appropriate shift (+1 period for inclusive bounds).
+        This operates in $\mathcal{O}(N + K)$ time complexity, where $N$ is the number of interval rows and $K$ is the number of calendar points.
+
+        **When to use `join_agg` / `conditional_join` instead:**
+
+        - Multiple simultaneous aggregations are needed at once.
+        - Non-additive aggregations such as `min`, `max`, or `prod`.
+        - Combining equality conditions with range conditions.
+        - Arbitrary interval/query shapes or standard join semantics.
+
+        **Special Considerations:**
+
+        - **Endpoint Handling:** Ensure inclusive vs. exclusive bounds are shifted properly (e.g., `end_date + pd.Timedelta(days=1)`).
+        - **Precision:** Accumulating floating-point values over long ranges may incur numerical drift; consider rounding or integer representation when exact precision is required.
+        - **Reference:** For details on range aggregation optimizations, see Issue #1648.
+
+        ```python
+        import pandas as pd
+
+        # Example: Daily active totals using cumulative-event aggregation
+        df = pd.DataFrame(
+            {
+                "start_date": pd.to_datetime(["2023-01-01", "2023-01-02"]),
+                "end_date": pd.to_datetime(["2023-01-03", "2023-01-04"]),
+                "val": [10, 20],
+            }
+        )
+        calendar = pd.date_range("2023-01-01", "2023-01-05")
+
+        starts = df.groupby("start_date")["val"].sum()
+        ends = df.groupby(df["end_date"] + pd.Timedelta(days=1))["val"].sum()
+
+        daily_totals = (
+            starts.reindex(calendar, fill_value=0)
+            - ends.reindex(calendar, fill_value=0)
+        ).cumsum()
+        ```
 
     Examples:
         >>> import pandas as pd
@@ -366,9 +410,6 @@ def _conditional_join_preliminary_checks(
 
     check("right", right, [pd.DataFrame, pd.Series])
 
-    df = df.copy()
-    right = right.copy()
-
     if isinstance(right, pd.Series):
         if not right.name:
             raise ValueError("Unnamed Series are not supported for conditional_join.")
@@ -485,23 +526,9 @@ def _conditional_join_preliminary_checks(
             f"instead got {join_algorithm}"
         )
 
-    return (
-        df,
-        right,
-        conditions,
-        how,
-        df_columns,
-        right_columns,
-        keep,
-        use_numba,
-        indicator,
-        force,
-        aggfunc,
-        include_join_positions,
-        return_building_blocks,
-        reverse,
-        join_algorithm,
-    )
+    # Only index and column metadata are reassigned downstream. Shallow copies
+    # protect the caller's frames without duplicating every column buffer.
+    return df.copy(deep=False), right.copy(deep=False)
 
 
 def _conditional_join_type_check(
@@ -562,23 +589,7 @@ def _conditional_join_compute(
     This is where the actual computation
     for the conditional join takes place.
     """
-    (
-        df,
-        right,
-        conditions,
-        how,
-        df_columns,
-        right_columns,
-        keep,
-        use_numba,
-        indicator,
-        force,
-        aggfunc,
-        include_join_positions,
-        return_building_blocks,
-        reverse,
-        join_algorithm,
-    ) = _conditional_join_preliminary_checks(
+    df, right = _conditional_join_preliminary_checks(
         df=df,
         right=right,
         conditions=conditions,
@@ -612,10 +623,28 @@ def _conditional_join_compute(
             le_lt_check = True
     df.index = range(len(df))
     right.index = range(len(right))
+    # Default to the complete frames for single-condition joins and for the
+    # deprecated Numba path, whose behavior this optimization does not change.
+    matching_df = df
+    matching_right = right
+    if (len(conditions) > 1) and not use_numba:
+        # dict.fromkeys removes repeated column references without scrambling
+        # the user-supplied condition order.
+        condition_left_columns = list(
+            dict.fromkeys(condition[0] for condition in conditions)
+        )
+        condition_right_columns = list(
+            dict.fromkeys(condition[1] for condition in conditions)
+        )
+        # ELI5: use a small working table containing only the columns needed to
+        # find matches. Keep df and right complete so result assembly can still
+        # return every requested payload column with its original dtype.
+        matching_df = df.loc(axis=1)[condition_left_columns]
+        matching_right = right.loc(axis=1)[condition_right_columns]
     if eq_check:
         indices = _multiple_conditional_join_eq(
-            df=df,
-            right=right,
+            df=matching_df,
+            right=matching_right,
             conditions=conditions,
             keep=keep,
             use_numba=use_numba,
@@ -625,8 +654,8 @@ def _conditional_join_compute(
         )
     elif (len(conditions) > 1) & le_lt_check:
         indices = _multiple_conditional_join_le_lt(
-            df=df,
-            right=right,
+            df=matching_df,
+            right=matching_right,
             conditions=conditions,
             keep=keep,
             use_numba=use_numba,
@@ -635,8 +664,8 @@ def _conditional_join_compute(
         )
     elif len(conditions) > 1:
         indices = _multiple_conditional_join_ne(
-            df=df,
-            right=right,
+            df=matching_df,
+            right=matching_right,
             conditions=conditions,
             keep=keep,
         )
@@ -1400,7 +1429,35 @@ def join_agg(
     represent the positions of the rows from the right dataframe
     that have matches in the left dataframe.
 
+    Internally, join discovery may remain compact until aggregation. A
+    ``starts``/``ends`` pair contains one half-open candidate slice per driving
+    row. ``matches`` is a flat mask aligned with those slices, and ``positions``
+    is an integer tape indexing ``right_index`` rather than a dataframe-label
+    array. ``left_index`` and ``right_index`` carry original dataframe index
+    values (labels); ``positions`` entries are offsets into the right-side
+    array. Depending
+    on join shape, some representations are absent: equality joins may return
+    pairs directly, while range joins commonly retain boundaries until
+    aggregation. Empty ranges have equal boundaries and contribute no matches.
+
+    For example, with ``right_index = ["a", "b", "c", "d"]``,
+    ``positions = [2, 0, 2, 3, 1]``, ``starts = [0, 2, 4]`` and
+    ``ends = [2, 4, 5]``, the three driving rows select ``["c", "a"]``,
+    ``["c", "d"]`` and ``["b"]`` respectively. Simple/equi joins generally
+    return direct pairs; starts-only/ends-only paths represent one-sided
+    inequalities; range and multi-condition joins may retain both boundaries
+    and a mask. ``keep="first"`` or ``keep="last"`` reduces each slice before
+    labels are restored, while ``keep="all"`` emits every surviving position.
+
     !!! info "New in version 0.32.10"
+
+    !!! tip "Cumulative-Event Aggregation Alternative"
+
+        For single additive running totals (such as daily interval sums),
+        computing cumulative start and end events using `groupby` and `cumsum` operates
+        in $\mathcal{O}(N + K)$ time and is often significantly faster than calling
+        `join_agg(..., reverse=True)`. See the [`conditional_join`][janitor.functions.conditional_join.conditional_join]
+        documentation for details and a runnable example.
 
     Examples:
         >>> import pandas as pd

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import itertools
 import os
@@ -34,7 +35,6 @@ from pyhanko.sign.general import (
     SigningError,
     as_signing_certificate,
     as_signing_certificate_v2,
-    find_cms_attribute,
     find_cms_attribute_iter,
     find_unique_cms_attribute,
     simple_cms_attribute,
@@ -51,7 +51,6 @@ from pyhanko.sign.validation import (
     async_validate_detached_cms,
     async_validate_pdf_signature,
     collect_validation_info,
-    validate_cms_signature,
     validate_pdf_signature,
 )
 from pyhanko.sign.validation.ades import ades_lta_validation
@@ -105,48 +104,13 @@ from pyhanko_testing_commons.test_utils.signing_commons import (
     async_val_trusted,
     live_ac_vcs,
     live_testing_vc,
+    notrust_v_context,
     simple_dsa_v_context,
     simple_ecc_v_context,
     simple_v_context,
     val_trusted,
     val_untrusted,
 )
-
-
-def test_generic_data_sign_legacy():
-    input_data = b'Hello world!'
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-        signature = FROM_CA.sign_general_data(
-            input_data, 'sha256', detached=True
-        )
-
-    # reset the stream
-    if isinstance(input_data, BytesIO):
-        input_data.seek(0)
-
-    # re-parse just to make sure we're starting fresh
-    signature = cms.ContentInfo.load(signature.dump())
-
-    raw_digest = hashlib.sha256(b'Hello world!').digest()
-    content = signature['content']
-    assert content['version'].native == 'v1'
-    assert isinstance(content, cms.SignedData)
-
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-
-        # noinspection PyDeprecation
-        status = validate_cms_signature(content, raw_digest=raw_digest)
-    assert status.valid
-    assert status.intact
-
-    eci = content['encap_content_info']
-    assert eci['content_type'].native == 'data'
-    assert eci['content'].native is None
-
-    assert status.valid
-    assert status.intact
 
 
 @pytest.mark.parametrize(
@@ -182,7 +146,11 @@ async def test_generic_data_sign(input_data, detached):
     content = signature['content']
     assert content['version'].native == 'v1'
     assert isinstance(content, cms.SignedData)
-    status = await async_validate_cms_signature(content, raw_digest=raw_digest)
+    status = await async_validate_cms_signature(
+        content,
+        raw_digest=raw_digest,
+        validation_context=notrust_v_context(),
+    )
     assert status.valid
     assert status.intact
 
@@ -191,7 +159,11 @@ async def test_generic_data_sign(input_data, detached):
         assert eci['content_type'].native == 'data'
         assert eci['content'].native is None
 
-        status = await async_validate_detached_cms(input_data, content)
+        status = await async_validate_detached_cms(
+            input_data,
+            content,
+            signer_validation_context=notrust_v_context(),
+        )
         assert status.valid
         assert status.intact
         assert (
@@ -244,7 +216,11 @@ async def test_cms_v3_sign(detached):
         raw_digest = None
         inner_eci = eci['content'].parsed['encap_content_info']
         assert inner_eci['content'].native == b'Hello world!'
-    status = await async_validate_cms_signature(content, raw_digest=raw_digest)
+    status = await async_validate_cms_signature(
+        content,
+        raw_digest=raw_digest,
+        validation_context=notrust_v_context(),
+    )
     assert status.valid
     assert status.intact
 
@@ -260,7 +236,9 @@ async def test_detached_cms_with_self_reported_timestamp():
     )
     signature = cms.ContentInfo.load(signature.dump())
     status = await async_validate_detached_cms(
-        b'Hello world!', signature['content']
+        b'Hello world!',
+        signature['content'],
+        signer_validation_context=notrust_v_context(),
     )
     assert status.signer_reported_dt == dt
     assert status.timestamp_validity is None
@@ -277,7 +255,9 @@ async def test_detached_cms_with_tst():
     )
     signature = cms.ContentInfo.load(signature.dump())
     status = await async_validate_detached_cms(
-        b'Hello world!', signature['content']
+        b'Hello world!',
+        signature['content'],
+        signer_validation_context=notrust_v_context(),
     )
     assert status.signer_reported_dt is None
     assert status.timestamp_validity.intact
@@ -381,7 +361,9 @@ async def test_detached_cms_with_content_tst():
     )
     signature = cms.ContentInfo.load(signature.dump())
     status = await async_validate_detached_cms(
-        b'Hello world!', signature['content']
+        b'Hello world!',
+        signature['content'],
+        signer_validation_context=notrust_v_context(),
     )
     assert status.signer_reported_dt is None
     assert status.timestamp_validity.intact
@@ -436,7 +418,9 @@ async def test_detached_cms_with_wrong_tst():
     )
     signature = cms.ContentInfo.load(signature.dump())
     status = await async_validate_detached_cms(
-        b'Hello world!', signature['content']
+        b'Hello world!',
+        signature['content'],
+        signer_validation_context=notrust_v_context(),
     )
     assert status.signer_reported_dt is None
     # signature in TS is valid, but digest is wrong
@@ -484,7 +468,9 @@ async def test_detached_cms_with_wrong_content_tst():
     )
     signature = cms.ContentInfo.load(signature.dump())
     status = await async_validate_detached_cms(
-        b'Hello world!', signature['content']
+        b'Hello world!',
+        signature['content'],
+        signer_validation_context=notrust_v_context(),
     )
     assert status.signer_reported_dt is None
     assert status.timestamp_validity.intact
@@ -540,6 +526,7 @@ async def test_detached_cms_with_duplicated_attr():
     ):
         await async_validate_cms_signature(
             signature['content'],
+            validation_context=notrust_v_context(),
         )
 
 
@@ -609,7 +596,11 @@ async def test_detached_with_malformed_content_tst(content, detach):
     with pytest.raises(
         SignatureValidationError, match="does not encapsulate TSTInfo"
     ):
-        await async_validate_detached_cms(b'Hello world!', signature['content'])
+        await async_validate_detached_cms(
+            b'Hello world!',
+            signature['content'],
+            signer_validation_context=notrust_v_context(),
+        )
 
 
 @freeze_time('2020-11-01')
@@ -680,12 +671,12 @@ def _tamper_with_signed_attrs(
             {'algorithm': 'rsassa_pkcs1v15'}
         ),
     )
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-        cms_obj = signer.sign(
+    cms_obj = asyncio.run(
+        signer.async_sign(
             data_digest=prep_digest.document_digest,
             digest_algorithm=md_algorithm,
         )
+    )
     sd = cms_obj['content']
     (si,) = sd['signer_infos']
     signed_attrs = si['signed_attrs']
@@ -1478,13 +1469,13 @@ def test_direct_pdfcmsembedder_usage():
 
     signer: signers.SimpleSigner = FROM_CA
     # let's supply the CMS object as a raw bytestring
-    with pytest.deprecated_call():
-        # noinspection PyDeprecation
-        cms_bytes = signer.sign(
+    cms_bytes = asyncio.run(
+        signer.async_sign(
             data_digest=prep_digest.document_digest,
             digest_algorithm=md_algorithm,
-            timestamp=timestamp,
-        ).dump()
+            signed_attr_settings=PdfCMSSignedAttributes(signing_time=timestamp),
+        )
+    ).dump()
     sig_contents = cms_writer.send(cms_bytes)
 
     # we requested in-place output
@@ -1555,7 +1546,11 @@ async def test_noop_attribute_prov():
 
     raw_digest = hashlib.sha256(input_data).digest()
     content = signature['content']
-    status = await async_validate_cms_signature(content, raw_digest=raw_digest)
+    status = await async_validate_cms_signature(
+        content,
+        raw_digest=raw_digest,
+        validation_context=notrust_v_context(),
+    )
     assert status.valid
     assert status.intact
 
@@ -1602,7 +1597,7 @@ async def test_no_certificates(delete):
     with pytest.raises(CMSExtractionError, match='signer cert.*includ'):
         emb = r.embedded_signatures[0]
         await collect_validation_info(
-            embedded_sig=emb, validation_context=ValidationContext()
+            embedded_sig=emb, validation_context=notrust_v_context()
         )
     with pytest.raises(SignatureValidationError, match='signer cert.*includ'):
         r.embedded_signatures[0].signer_cert.dump()
@@ -1647,7 +1642,7 @@ async def test_two_signer_infos():
     with pytest.raises(CMSExtractionError, match='exactly one'):
         emb = r.embedded_signatures[0]
         await collect_validation_info(
-            embedded_sig=emb, validation_context=ValidationContext()
+            embedded_sig=emb, validation_context=notrust_v_context()
         )
 
 
@@ -1678,7 +1673,7 @@ def get_ac_aware_signer(
     'ac_to_include',
     ['alice-role-with-rev', 'alice-role-norev', 'alice-role-with-rev-crl-only'],
 )
-async def test_embed_ac(requests_mock, ac_to_include):
+async def test_embed_ac(pki_services, ac_to_include):
     signer = get_ac_aware_signer(attr_cert=ac_to_include)
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     out = await signers.async_sign_pdf(
@@ -1690,7 +1685,7 @@ async def test_embed_ac(requests_mock, ac_to_include):
     # 4 CA certs, 1 AA certs, 1 AC, 1 signer cert -> 7 certs
     assert len(s.other_embedded_certs) == 5  # signer cert is excluded
     assert len(s.embedded_attr_certs) == 1
-    main_vc, ac_vc = live_ac_vcs(requests_mock)
+    main_vc, ac_vc = live_ac_vcs(pki_services)
     status = await async_validate_pdf_signature(
         s, signer_validation_context=main_vc, ac_validation_context=ac_vc
     )
@@ -1703,7 +1698,7 @@ async def test_embed_ac(requests_mock, ac_to_include):
 
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
-async def test_embed_ac_revinfo_adobe_style(requests_mock):
+async def test_embed_ac_revinfo_adobe_style(pki_services, fetchers):
     signer = get_ac_aware_signer()
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     pki_arch = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-with-aa'))
@@ -1714,12 +1709,7 @@ async def test_embed_ac_revinfo_adobe_style(requests_mock):
             [pki_arch.get_cert('root')]
         ),
     )
-    from certomancer.integrations.illusionist import Illusionist
-    from pyhanko_certvalidator.fetchers.requests_fetchers import (
-        RequestsFetcherBackend,
-    )
 
-    fetchers = RequestsFetcherBackend().get_fetchers()
     main_vc = ValidationContext(
         trust_roots=[pki_arch.get_cert('root')],
         allow_fetching=True,
@@ -1734,7 +1724,7 @@ async def test_embed_ac_revinfo_adobe_style(requests_mock):
         fetchers=fetchers,
         revocation_mode='require',
     )
-    Illusionist(pki_arch).register(requests_mock)
+    pki_services.register(pki_arch)
     out = await signers.async_sign_pdf(
         w,
         signers.PdfSignatureMetadata(
@@ -1782,12 +1772,12 @@ async def test_embed_ac_revinfo_adobe_style(requests_mock):
 
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
-async def test_ac_detached(requests_mock):
+async def test_ac_detached(pki_services):
     input_data = b'Hello world!'
     signer = get_ac_aware_signer()
     output = await signer.async_sign_general_data(input_data, 'sha256')
     assert output['content']['version'].native == 'v4'
-    main_vc, ac_vc = live_ac_vcs(requests_mock)
+    main_vc, ac_vc = live_ac_vcs(pki_services)
     status = await async_validate_detached_cms(
         input_data,
         output['content'],
@@ -1804,11 +1794,11 @@ async def test_ac_detached(requests_mock):
 
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
-async def test_ac_attr_validation_fail(requests_mock):
+async def test_ac_attr_validation_fail(pki_services):
     input_data = b'Hello world!'
     signer = get_ac_aware_signer()
     output = await signer.async_sign_general_data(input_data, 'sha256')
-    main_vc, _ac_vc = live_ac_vcs(requests_mock)
+    main_vc, _ac_vc = live_ac_vcs(pki_services)
     status = await async_validate_detached_cms(
         input_data,
         output['content'],
@@ -1822,13 +1812,13 @@ async def test_ac_attr_validation_fail(requests_mock):
 
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
-async def test_ac_attr_validation_holder_mismatch(requests_mock):
+async def test_ac_attr_validation_holder_mismatch(pki_services):
     input_data = b'Hello world!'
     # sign with a key pair that's not the same as the holder of the AC
     # that we're embedding
     signer = get_ac_aware_signer('signer2')
     output = await signer.async_sign_general_data(input_data, 'sha256')
-    main_vc, ac_vc = live_ac_vcs(requests_mock)
+    main_vc, ac_vc = live_ac_vcs(pki_services)
     status = await async_validate_detached_cms(
         input_data,
         output['content'],
@@ -1852,7 +1842,9 @@ async def test_detached_cades_cms_with_tst():
     )
     signature = cms.ContentInfo.load(signature.dump())
     status = await async_validate_detached_cms(
-        b'Hello world!', signature['content']
+        b'Hello world!',
+        signature['content'],
+        signer_validation_context=notrust_v_context(),
     )
     assert status.signer_reported_dt == datetime.now(tz=timezone.utc)
     assert status.timestamp_validity.intact
@@ -1924,7 +1916,7 @@ async def test_parse_malformed_claimed_attrs(data, fatal):
 
 @pytest.mark.parametrize('bad_attr', [NONSENSICAL_ATTR, UNTYPABLE_ATTR])
 @pytest.mark.asyncio
-async def test_validate_with_malformed_claimed_attrs(bad_attr, requests_mock):
+async def test_validate_with_malformed_claimed_attrs(bad_attr, pki_services):
     # This should parse up to the first level and be reencoded by asn1crypto
     #  without asking any questions.
     cms_sig = await FROM_CA.async_sign_general_data(
@@ -1942,7 +1934,7 @@ async def test_validate_with_malformed_claimed_attrs(bad_attr, requests_mock):
     status = await async_validate_detached_cms(
         input_data=b'Hello world',
         signed_data=cms_sig['content'],
-        signer_validation_context=live_testing_vc(requests_mock),
+        signer_validation_context=live_testing_vc(pki_services),
     )
     assert isinstance(status, StandardCMSSignatureStatus)
     # The malformed attribute shouldn't have been processed,
@@ -2018,7 +2010,7 @@ ATTR_CERT_CFG = {
 
 
 @pytest.mark.asyncio
-async def test_parse_ac_with_malformed_attribute(requests_mock):
+async def test_parse_ac_with_malformed_attribute(pki_services):
     pki_arch = PKIArchitecture(
         arch_label=ArchLabel('test'),
         key_set=TESTING_CA.key_set,
@@ -2054,7 +2046,7 @@ async def test_parse_ac_with_malformed_attribute(requests_mock):
             )
         ),
     )
-    vc = live_testing_vc(requests_mock)
+    vc = live_testing_vc(pki_services)
     ac_vc = ValidationContext(
         trust_roots=[pki_arch.get_cert(CertLabel('ac-issuer'))],
         allow_fetching=False,
@@ -2414,54 +2406,6 @@ def test_find_cms_attribute_iter_empty_attrs():
     attrs = cms.CMSAttributes([])
     values = list(find_cms_attribute_iter(attrs, 'content_type'))
     assert values == []
-
-
-def test_find_cms_attribute_deprecated_success():
-    attrs = _create_test_attrs()
-
-    with pytest.deprecated_call():
-        values = find_cms_attribute(attrs, 'content_type')
-
-    assert len(values) == 1
-    assert isinstance(values[0], cms.ContentType)
-    assert values[0].native == 'data'
-
-
-def test_find_cms_attribute_deprecated_raises_on_missing():
-    attrs = _create_test_attrs()
-
-    with (
-        pytest.deprecated_call(),
-        pytest.raises(NonexistentAttributeError, match='nonexistent_attribute'),
-    ):
-        find_cms_attribute(attrs, 'nonexistent_attribute')
-
-
-def test_find_cms_attribute_deprecated_none_attrs():
-    with pytest.deprecated_call(), pytest.raises(NonexistentAttributeError):
-        find_cms_attribute(None, 'content_type')
-
-
-def test_find_cms_attribute_deprecated_with_multiple_values():
-    attr_val1 = core.OctetString(b'test1')
-    attr_val2 = core.OctetString(b'test2')
-    attrs = cms.CMSAttributes(
-        [
-            cms.CMSAttribute(
-                {
-                    'type': cms.CMSAttributeType('message_digest'),
-                    'values': (attr_val1, attr_val2),
-                }
-            )
-        ]
-    )
-
-    with pytest.deprecated_call():
-        values = find_cms_attribute(attrs, 'message_digest')
-
-    assert len(values) == 2
-    assert values[0].native == b'test1'
-    assert values[1].native == b'test2'
 
 
 def test_find_unique_cms_attribute_success():

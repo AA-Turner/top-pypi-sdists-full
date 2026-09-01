@@ -36,6 +36,7 @@ from dlt_runtime.runtime_clients.api.api.workspaces import create_workspace
 from dlt_runtime.runtime_clients.api.client import Client as ApiClient
 from dlt_runtime.runtime_clients.api.models import (
     CreateWorkspaceResponse409,
+    ErrorCode,
     MeResponse,
     OrganizationMembershipResponse,
     OrganizationResponse,
@@ -525,7 +526,7 @@ def get_auth_client(*, include_device_id: bool = False) -> AuthClient:
     )
 
 
-# Must match the detail string returned by the API auth middleware for expired tokens.
+# Fallback for a server predating the machine-readable code.
 _EXPIRED_TOKEN_MARKER = "Token expired"
 
 
@@ -590,11 +591,16 @@ class JwtAuth(httpx.Auth):
 
     @staticmethod
     def _is_expired_token_response(response: httpx.Response) -> bool:
-        """True if the 401 response detail indicates an expired token."""
+        """True if the 401 names an expired token, by code or by legacy detail string."""
         try:
-            detail = response.json().get("detail", "")
+            body = response.json()
         except Exception:
-            detail = response.text
+            return _EXPIRED_TOKEN_MARKER in response.text
+        if not isinstance(body, dict):
+            return False
+        if body.get("code") == ErrorCode.TOKEN_EXPIRED:
+            return True
+        detail = body.get("detail", "")
         return isinstance(detail, str) and _EXPIRED_TOKEN_MARKER in detail
 
 

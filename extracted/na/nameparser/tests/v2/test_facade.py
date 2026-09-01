@@ -1,4 +1,4 @@
-"""The 2.0 HumanName facade (migration spec §2)."""
+"""The 2.0 HumanName facade (mechanisms.md#FACADE-CONTRACT)."""
 import pickle
 import warnings
 from pathlib import Path
@@ -123,7 +123,7 @@ def test_field_assignment_str_list_none() -> None:
     assert n.full_name == "John Smith"       # no re-parse (v1 parity)
 
 
-def test_list_attributes_are_snapshots() -> None:          # spec §2 exc. 1
+def test_list_attributes_are_snapshots() -> None:
     n = HumanName("John Quincy Adams Smith")
     lst = n.middle_list
     lst.append("HACKED")
@@ -174,6 +174,49 @@ def test_suffix_list_heals_joined_continuations() -> None:  # v1 fix_phd
     n = HumanName("John Ph. D.")
     assert n.suffix == "Ph. D."
     assert n.suffix_list == ["Ph. D."]       # ONE element, v1 parity
+
+
+def test_the_joined_tag_never_reaches_a_title(  # #429 regression guard
+) -> None:
+    """The "joined" tag is role-BLIND and _list_for heals it for every
+    role, so a tag placed for the suffix view is read by the title view
+    too.
+
+    #429 widened the one-entry join off the tail path, where assign
+    routes every piece to SUFFIX, onto the family-comma path, where it
+    does not. Its first draft let any piece open an entry; a title piece
+    doing so tagged the title behind it, and title_list collapsed.
+
+    Asserted on the LIST views because the string views cannot see it --
+    titles render space-joined either way, which is why the case table
+    and the differential (both string-only) stayed green while this was
+    broken.
+    """
+    n = HumanName("Smith, Rev. Dr.")
+    assert n.title == "Rev. Dr."             # unchanged, and why it hid
+    assert n.title_list == ["Rev.", "Dr."]   # TWO elements
+
+    # The other half: with a suffix already standing from the pre-comma
+    # segment, a title opening the entry glued the next suffix backward
+    # across the writer's own comma.
+    m = HumanName("Smith Jr., Mr. Jr.")
+    assert m.suffix == "Jr., Jr."
+    assert m.suffix_list == ["Jr.", "Jr."]
+
+    # The control: where the pieces really are one entry, they DO heal.
+    k = HumanName("Smith, MD PhD")
+    assert k.suffix_list == ["MD PhD"]        # ONE element
+
+    # And the pin for the TAG CONDITION itself, which the three above
+    # miss: they all pin the sticky entry_open update, and the whole
+    # suite stays green with `in_entry and` dropped from the tag test.
+    # This needs a suffix piece FIRST -- opening the entry legitimately
+    # -- and then TWO titles, so the second title is a continuation of
+    # an entry it does not belong to.
+    j = HumanName("Smith, MD Rev. Dr.")
+    assert j.suffix == "MD"
+    assert j.title == "Rev. Dr."             # identical either way
+    assert j.title_list == ["Rev.", "Dr."]   # the mutant gives ['Rev. Dr.']
 
 
 def test_str_uses_string_format_with_v1_cleanup() -> None:

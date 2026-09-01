@@ -23,14 +23,14 @@ fn is_reference_node(node: &SyntaxNode) -> bool {
     if let Some(ty) = ast::Type::cast(node.clone()) {
         return match ty {
             ast::Type::BitType(_)
-            | ast::Type::CharType(_)
+            | ast::Type::BitVaryingType(_)
+            | ast::Type::VarcharType(_)
+            | ast::Type::CharacterType(_)
             | ast::Type::DoubleType(_)
             | ast::Type::IntervalType(_)
-            | ast::Type::TimeType(_) => true,
-            ast::Type::ArrayType(_)
-            | ast::Type::ExprType(_)
-            | ast::Type::PathType(_)
-            | ast::Type::PercentType(_) => false,
+            | ast::Type::TimeType(_)
+            | ast::Type::TimestampType(_) => true,
+            ast::Type::ArrayType(_) | ast::Type::PathType(_) => false,
         };
     }
 

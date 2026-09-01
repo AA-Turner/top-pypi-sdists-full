@@ -433,6 +433,13 @@ Oiiotool::read(ImageRecRef img, ReadPolicy readpolicy, string_view channel_set)
     total_imagecache_readtime += post_ic_time - pre_ic_time;
     total_readtime.add_seconds(pre_ic_time - post_ic_time);
 
+    // A failed read leaves the ImageRec with no subimages, so bail out before
+    // anything below tries to examine its specs.
+    if (!ok || !img->subimages()) {
+        error("read", format_read_error(img->name(), img->geterror()));
+        return false;
+    }
+
     // If this is the first tiled image we have come across, use it to
     // set our tile size (unless the user explicitly set a tile size, or
     // explicitly instructed scanline output).
@@ -445,9 +452,7 @@ Oiiotool::read(ImageRecRef img, ReadPolicy readpolicy, string_view channel_set)
     // channel name that we encounter.
     remember_input_channelformats(img);
 
-    if (!ok)
-        error("read", format_read_error(img->name(), img->geterror()));
-    return ok;
+    return true;
 }
 
 
@@ -471,9 +476,13 @@ Oiiotool::read_nativespec(ImageRecRef img)
     imagecache->getattribute("stat:fileio_time", post_ic_time);
     total_imagecache_readtime += post_ic_time - pre_ic_time;
 
-    if (!ok)
+    // A failed read leaves the ImageRec with no subimages, so callers must
+    // not be handed back a "success" they will dereference.
+    if (!ok || !img->subimages()) {
         error("read", format_read_error(img->name(), img->geterror()));
-    return ok;
+        return false;
+    }
+    return true;
 }
 
 
@@ -887,7 +896,6 @@ adjust_output_options(string_view filename, ImageSpec& spec,
                       const ImageSpec* nativespec, const Oiiotool& ot,
                       int subimage_index, int nsubimages,
                       bool format_supports_tiles,
-                      bool format_supports_thumbnail,
                       const ParamValueList& fileoptions,
                       bool was_direct_read = false)
 {
@@ -1060,16 +1068,6 @@ adjust_output_options(string_view filename, ImageSpec& spec,
     spec.erase_attribute("oiio:SHA-1");
     spec.erase_attribute("oiio:ConstantColor");
     spec.erase_attribute("oiio:AverageColor");
-
-    // If the output format can't embed a thumbnail, don't let the thumbnail
-    // bookkeeping attributes leak into the file as metadata describing a
-    // thumbnail that isn't actually there.
-    if (!format_supports_thumbnail) {
-        spec.erase_attribute("thumbnail_width");
-        spec.erase_attribute("thumbnail_height");
-        spec.erase_attribute("thumbnail_nchannels");
-        spec.erase_attribute("thumbnail_image");
-    }
 }
 
 
@@ -5677,7 +5675,7 @@ input_file(Oiiotool& ot, cspan<const char*> argv)
                 // Try to get a more precise error message to report.
                 auto in         = ImageInput::open(filename);
                 std::string err = in ? in->geterror() : OIIO::geterror();
-                errmsg = Strutil::format(ot.format_read_error(filename, err));
+                errmsg          = ot.format_read_error(filename, err);
             }
             // Second chances: do we have a substitute image policy?
             ImageSpec substitute_spec;
@@ -5727,16 +5725,20 @@ input_file(Oiiotool& ot, cspan<const char*> argv)
             if (ot.input_config_set)
                 ot.curimg->configspec(ot.input_config);
             ot.curimg->input_dataformat(input_dataformat);
+            bool ok;
             if (readnow) {
                 ReadPolicy policy = native ? ReadNativeNoCache : ReadNoCache;
-                ot.read(policy, channel_set);
-            } else
-                ot.read_nativespec();
+                ok                = ot.read(policy, channel_set);
+            } else {
+                ok = ot.read_nativespec();
+            }
+            if (!ok)
+                break;  // error already reported by the read
+            const ImageSpec* nspec = ot.curimg->nativespec();
             if (!ot.first_input_dimensions_is_set()) {
                 ImageSpec new_first_dims;
-                new_first_dims.copy_dimensions(*ot.curimg->nativespec());
-                new_first_dims.channelnames
-                    = ot.curimg->nativespec()->channelnames;
+                new_first_dims.copy_dimensions(*nspec);
+                new_first_dims.channelnames = nspec->channelnames;
                 ot.set_first_input_dimensions(new_first_dims);
                 if (ot.parent_oiiotool)
                     ot.parent_oiiotool->set_first_input_dimensions(
@@ -6075,9 +6077,8 @@ output_file(Oiiotool& ot, cspan<const char*> argv)
     }
     bool supports_displaywindow  = out->supports("displaywindow");
     bool supports_negativeorigin = out->supports("negativeorigin");
-    bool supports_tiles     = out->supports("tiles") || ot.output_force_tiles;
-    bool procedural         = out->supports("procedural");
-    bool supports_thumbnail = out->supports("thumbnail");
+    bool supports_tiles = out->supports("tiles") || ot.output_force_tiles;
+    bool procedural     = out->supports("procedural");
     if (!ot.read()) {
         return;
     }
@@ -6257,7 +6258,7 @@ output_file(Oiiotool& ot, cspan<const char*> argv)
     if (do_tex || do_latlong || do_bumpslopes) {
         ImageSpec configspec;
         adjust_output_options(filename, configspec, nullptr, ot, 0, 1,
-                              supports_tiles, supports_thumbnail, fileoptions);
+                              supports_tiles, fileoptions);
         prep_texture_config(ot, configspec, fileoptions);
         ImageBufAlgo::MakeTextureMode mode = ImageBufAlgo::MakeTxTexture;
         if (do_shad)
@@ -6287,8 +6288,8 @@ output_file(Oiiotool& ot, cspan<const char*> argv)
         for (int s = 0, send = ir->subimages(); s < send; ++s) {
             ImageSpec spec = *ir->spec(s, 0);
             adjust_output_options(filename, spec, ir->nativespec(s), ot, s,
-                                  send, supports_tiles, supports_thumbnail,
-                                  fileoptions, (*ir)[s].was_direct_read());
+                                  send, supports_tiles, fileoptions,
+                                  (*ir)[s].was_direct_read());
             // If it's not tiled and MIP-mapped, remove any "textureformat"
             if (!spec.tile_pixels() || ir->miplevels(s) <= 1)
                 spec.erase_attribute("textureformat");
@@ -6329,8 +6330,7 @@ output_file(Oiiotool& ot, cspan<const char*> argv)
             for (int m = 0, mend = ir->miplevels(s); m < mend && ok; ++m) {
                 ImageSpec spec = *ir->spec(s, m);
                 adjust_output_options(filename, spec, ir->nativespec(s, m), ot,
-                                      s, send, supports_tiles,
-                                      supports_thumbnail, fileoptions,
+                                      s, send, supports_tiles, fileoptions,
                                       (*ir)[s].was_direct_read());
                 if (s > 0 || m > 0) {  // already opened first subimage/level
                     if (!out->open(tmpfilename, spec, mode)) {

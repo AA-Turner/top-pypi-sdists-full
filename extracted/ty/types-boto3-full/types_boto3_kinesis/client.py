@@ -28,18 +28,24 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     DescribeStreamPaginator,
+    ListChannelsPaginator,
     ListShardsPaginator,
     ListStreamConsumersPaginator,
     ListStreamsPaginator,
 )
 from .type_defs import (
     AddTagsToStreamInputTypeDef,
+    CreateChannelInputTypeDef,
+    CreateChannelOutputTypeDef,
     CreateStreamInputTypeDef,
     DecreaseStreamRetentionPeriodInputTypeDef,
+    DeleteChannelInputTypeDef,
     DeleteResourcePolicyInputTypeDef,
     DeleteStreamInputTypeDef,
     DeregisterStreamConsumerInputTypeDef,
     DescribeAccountSettingsOutputTypeDef,
+    DescribeChannelInputTypeDef,
+    DescribeChannelOutputTypeDef,
     DescribeLimitsOutputTypeDef,
     DescribeStreamConsumerInputTypeDef,
     DescribeStreamConsumerOutputTypeDef,
@@ -58,6 +64,8 @@ from .type_defs import (
     GetShardIteratorInputTypeDef,
     GetShardIteratorOutputTypeDef,
     IncreaseStreamRetentionPeriodInputTypeDef,
+    ListChannelsInputTypeDef,
+    ListChannelsOutputTypeDef,
     ListShardsInputTypeDef,
     ListShardsOutputTypeDef,
     ListStreamConsumersInputTypeDef,
@@ -86,6 +94,8 @@ from .type_defs import (
     UntagResourceInputTypeDef,
     UpdateAccountSettingsInputTypeDef,
     UpdateAccountSettingsOutputTypeDef,
+    UpdateChannelInputTypeDef,
+    UpdateChannelOutputTypeDef,
     UpdateMaxRecordSizeInputTypeDef,
     UpdateShardCountInputTypeDef,
     UpdateShardCountOutputTypeDef,
@@ -93,7 +103,7 @@ from .type_defs import (
     UpdateStreamWarmThroughputInputTypeDef,
     UpdateStreamWarmThroughputOutputTypeDef,
 )
-from .waiter import StreamExistsWaiter, StreamNotExistsWaiter
+from .waiter import ChannelActiveWaiter, StreamExistsWaiter, StreamNotExistsWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -169,6 +179,17 @@ class KinesisClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#add_tags_to_stream)
         """
 
+    def create_channel(
+        self, **kwargs: Unpack[CreateChannelInputTypeDef]
+    ) -> CreateChannelOutputTypeDef:
+        """
+        Creates a channel that delivers records from a Kinesis data stream to a
+        destination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/create_channel.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#create_channel)
+        """
+
     def create_stream(
         self, **kwargs: Unpack[CreateStreamInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -188,6 +209,16 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/decrease_stream_retention_period.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#decrease_stream_retention_period)
+        """
+
+    def delete_channel(
+        self, **kwargs: Unpack[DeleteChannelInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/delete_channel.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#delete_channel)
         """
 
     def delete_resource_policy(
@@ -226,6 +257,16 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_account_settings.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#describe_account_settings)
+        """
+
+    def describe_channel(
+        self, **kwargs: Unpack[DescribeChannelInputTypeDef]
+    ) -> DescribeChannelOutputTypeDef:
+        """
+        Describes the specified channel, including its configuration and current status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_channel.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#describe_channel)
         """
 
     def describe_limits(self) -> DescribeLimitsOutputTypeDef:
@@ -325,6 +366,16 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/increase_stream_retention_period.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#increase_stream_retention_period)
+        """
+
+    def list_channels(
+        self, **kwargs: Unpack[ListChannelsInputTypeDef]
+    ) -> ListChannelsOutputTypeDef:
+        """
+        Lists the channels in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/list_channels.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#list_channels)
         """
 
     def list_shards(self, **kwargs: Unpack[ListShardsInputTypeDef]) -> ListShardsOutputTypeDef:
@@ -504,6 +555,17 @@ class KinesisClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_account_settings)
         """
 
+    def update_channel(
+        self, **kwargs: Unpack[UpdateChannelInputTypeDef]
+    ) -> UpdateChannelOutputTypeDef:
+        """
+        Updates the data freshness interval or the Amazon CloudWatch Logs configuration
+        of an existing channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_channel.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_channel)
+        """
+
     def update_max_record_size(
         self, **kwargs: Unpack[UpdateMaxRecordSizeInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -560,6 +622,17 @@ class KinesisClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_channels"]
+    ) -> ListChannelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_shards"]
     ) -> ListShardsPaginator:
         """
@@ -589,6 +662,17 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_paginator.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["channel_active"]
+    ) -> ChannelActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]

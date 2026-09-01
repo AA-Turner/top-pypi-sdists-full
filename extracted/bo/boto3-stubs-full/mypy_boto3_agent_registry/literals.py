@@ -39,7 +39,7 @@ BatchGetDiscoverableRegistryRecordErrorCodeType = Literal[
     "ACCESS_DENIED", "INTERNAL_ERROR", "RESOURCE_NOT_FOUND"
 ]
 ListDiscoverableRegistryRecordsPaginatorName = Literal["list_discoverable_registry_records"]
-RecordTypeType = Literal["AGENT", "CUSTOM", "MCP", "SKILL"]
+RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL"]
 RegistryRecordFilterNameType = Literal["descriptorType", "recordType"]
 RegistryRecordStatusType = Literal[
     "APPROVED",

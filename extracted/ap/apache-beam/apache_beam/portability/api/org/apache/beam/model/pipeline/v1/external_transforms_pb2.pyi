@@ -91,7 +91,12 @@ global___ExpansionMethods = ExpansionMethods
 
 @typing_extensions.final
 class ManagedTransforms(google.protobuf.message.Message):
-    """Defines the URNs for managed transforms."""
+    """Defines the URNs for managed transforms.
+    Managed transforms are high-level, pre-configured transforms that map to
+    specific SchemaTransform implementations. They provide a way to
+    to use common I/O patterns without worrying about Beam version.
+    See https://beam.apache.org/documentation/io/managed-io/
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -102,35 +107,63 @@ class ManagedTransforms(google.protobuf.message.Message):
     class _UrnsEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ManagedTransforms._Urns.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         ICEBERG_READ: ManagedTransforms._Urns.ValueType  # 0
+        """Reads from an Iceberg table."""
         ICEBERG_WRITE: ManagedTransforms._Urns.ValueType  # 1
+        """Writes to an Iceberg table."""
         KAFKA_READ: ManagedTransforms._Urns.ValueType  # 2
+        """Reads from a Kafka topic."""
         KAFKA_WRITE: ManagedTransforms._Urns.ValueType  # 3
+        """Writes to a Kafka topic."""
         BIGQUERY_READ: ManagedTransforms._Urns.ValueType  # 4
+        """Reads from BigQuery using the Storage API."""
         BIGQUERY_WRITE: ManagedTransforms._Urns.ValueType  # 5
+        """Writes to BigQuery."""
         ICEBERG_CDC_READ: ManagedTransforms._Urns.ValueType  # 6
+        """Reads from Iceberg in CDC (Change Data Capture) mode."""
         POSTGRES_READ: ManagedTransforms._Urns.ValueType  # 7
+        """Reads from a PostgreSQL database."""
         POSTGRES_WRITE: ManagedTransforms._Urns.ValueType  # 8
+        """Writes to a PostgreSQL database."""
         MYSQL_READ: ManagedTransforms._Urns.ValueType  # 9
+        """Reads from a MySQL database."""
         MYSQL_WRITE: ManagedTransforms._Urns.ValueType  # 10
+        """Writes to a MySQL database."""
         SQL_SERVER_READ: ManagedTransforms._Urns.ValueType  # 11
+        """Reads from a SQL Server database."""
         SQL_SERVER_WRITE: ManagedTransforms._Urns.ValueType  # 12
+        """Writes to a SQL Server database."""
         DELTA_LAKE_READ: ManagedTransforms._Urns.ValueType  # 13
+        DELTA_LAKE_CDC_READ: ManagedTransforms._Urns.ValueType  # 14
 
     class Urns(_Urns, metaclass=_UrnsEnumTypeWrapper): ...
     ICEBERG_READ: ManagedTransforms.Urns.ValueType  # 0
+    """Reads from an Iceberg table."""
     ICEBERG_WRITE: ManagedTransforms.Urns.ValueType  # 1
+    """Writes to an Iceberg table."""
     KAFKA_READ: ManagedTransforms.Urns.ValueType  # 2
+    """Reads from a Kafka topic."""
     KAFKA_WRITE: ManagedTransforms.Urns.ValueType  # 3
+    """Writes to a Kafka topic."""
     BIGQUERY_READ: ManagedTransforms.Urns.ValueType  # 4
+    """Reads from BigQuery using the Storage API."""
     BIGQUERY_WRITE: ManagedTransforms.Urns.ValueType  # 5
+    """Writes to BigQuery."""
     ICEBERG_CDC_READ: ManagedTransforms.Urns.ValueType  # 6
+    """Reads from Iceberg in CDC (Change Data Capture) mode."""
     POSTGRES_READ: ManagedTransforms.Urns.ValueType  # 7
+    """Reads from a PostgreSQL database."""
     POSTGRES_WRITE: ManagedTransforms.Urns.ValueType  # 8
+    """Writes to a PostgreSQL database."""
     MYSQL_READ: ManagedTransforms.Urns.ValueType  # 9
+    """Reads from a MySQL database."""
     MYSQL_WRITE: ManagedTransforms.Urns.ValueType  # 10
+    """Writes to a MySQL database."""
     SQL_SERVER_READ: ManagedTransforms.Urns.ValueType  # 11
+    """Reads from a SQL Server database."""
     SQL_SERVER_WRITE: ManagedTransforms.Urns.ValueType  # 12
+    """Writes to a SQL Server database."""
     DELTA_LAKE_READ: ManagedTransforms.Urns.ValueType  # 13
+    DELTA_LAKE_CDC_READ: ManagedTransforms.Urns.ValueType  # 14
 
     def __init__(
         self,
@@ -235,6 +268,11 @@ global___BuilderMethod = BuilderMethod
 
 @typing_extensions.final
 class Annotations(google.protobuf.message.Message):
+    """Defines annotation keys used to attach metadata to transforms in the
+    portable pipeline representation. These annotations allow SDKs to
+    recover configuration information that was used to construct a transform.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     class _Enum:

@@ -1,19 +1,106 @@
 [build-system]
-requires = ["setuptools>=42","wheel"]
+requires = [
+    "setuptools>=61",
+    "wheel",
+    "setuptools-git-versioning>=3.0,<4",
+]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "pyuvm"
+description = "A Python implementation of the UVM using cocotb"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Ray Salemi", email = "ray@raysalemi.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Framework :: cocotb",
+]
+dependencies = [
+    "cocotb>=1.6.0,<3.0",
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/pyuvm/pyuvm"
+"Bug Tracker" = "https://github.com/pyuvm/pyuvm/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pyuvm*"]
+namespaces = false
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "ruff",
+    {include-group = "tests"},
+]
+tests = [
+    "pytest",
+    "coverage",
+]
+docs = [
+    "cocotb>=2.0.1",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.2.3",
+    "sphinx-autodoc2>=0.5.0",
+    "sphinx-rtd-theme>=3.0.2",
+]
+
+[tool.uv.dependency-groups]
+docs = {requires-python = ">=3.11"}
 
 [tool.ruff]
-target-version = "py37"
+target-version = "py39"
 
 [tool.ruff.lint]
-extend-select = [
+select = [
     "I",        # isort
     "UP",       # pyupgrade
+    "PL",       # pylint
     "E",        # pycodestyle errors
     "W",        # pycodestyle warnings
     "F",        # pyflakes
-    "PL",       # pylint
+    "C4",       # flake8-comprehension
+    "LOG",      # flake8-logging
+    "G",        # flake8-logging-format
+    "ISC",      # implicit string concat
+    "TC",       # flake8-typechecking
+    "PTH",      # flake8-use-pathlib
+    "B",        # flake8-bugbear
+    "BLE",      # flake8-blind-except
+    "T10",      # flake8-debugger
+    "EXE",      # flake8-executable
+    "DTZ",      # flake8-datetimez
+    "YTT",      # flake8-2020
+    "SLOT",     # flake8-slots
+    "PERF",     # perflint
+    "SIM103",   # return the condition directly
+    "SIM300",   # yoda conditions
+    "RUF100",   # unused noqa
+    "RUF101",   # redirected noqa
+    "RUF010",   # explicit type conversion in f-string
+    "RUF005",   # collection literal concatenation
+    "RUF022",   # unsorted __all__
+    "RUF023",   # unsorted __slots__
+    "PYI030",   # unnecessary literal union
+    "PT010",    # pytest.raises without an Exception type argument
+    "PT031",    # pytest.warns should be single statement
+    "TRY201",   # `raise exc` instead of plain `raise`
+    "TRY401",   # logging with exception instead of `log.exception`
+    "S102",     # use of `exec`
+    "S110",     # try-except-pass
+    "S112",     # try-except-continue
 ]
 ignore = [
     "E741",    # ambiguous variable name (preference)
@@ -23,10 +110,17 @@ ignore = [
     "PLR0912", # Too many branches (>12) (preference)
     "PLR0913", # Too many arguments to function call (>5) (preference)
     "PLR0915", # Too many statements (>50) (preference)
+    "PLR0917", # Too many positional args (>5) (preference)
     "PLR2004", # Magic value used in comparison (preference)
     "PLR0911", # Too many return statements (preference)
     "PLW0603", # Using the global statement (pedantic)
-    "PLW1641", # object does not implement `__hash__` method (pedantic)
+    "PLW1641", # __eq__ without __hash__ (mypy compatibility)
+    "PTH123",  # Path.open() over open() (preference)
+    "PTH207",  # Path.glob() over glob.glob() (preference)
+    "LOG004",  # Use of log.exception outside exception handler (bad assumption)
+    "B010",    # Do not call `setattr` with constant value (mypy compatibility)
+    "B011",    # Do not `assert False` (pytest/cocotb test compatibility)
+    "PERF203", # try-except in loop (not an issue Python > 3.11)
 ]
 
 [tool.ruff.lint.isort]
@@ -39,11 +133,17 @@ known-third-party = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"pyuvm/__init__.py" = [
+"src/pyuvm/__init__.py" = [
     "F401",
+    "I001",
+]
+"src/pyuvm/uvm_reporting/__init__.py" = [
+    "E402",
+    "I001",
 ]
 
 [tool.codespell]
+skip = 'uv.lock'
 ignore-words-list = [
     "synopsys",
 ]
@@ -52,6 +152,10 @@ ignore-words-list = [
 testpaths = [
     "tests/pytests",
 ]
+# Make the repo top importable from any test (issue #406), so a test can
+# pull code from any other test or example, e.g.
+# `from examples.TinyALU.testbench import ...`.
+pythonpath = ["."]
 markers = [
     "test_reg_get_name",
     "test_reg_configure",
@@ -97,3 +201,10 @@ markers = [
     "reg_block_with_sub_blocks",
     "reg_block_get_field_empty_reg",
 ]
+
+[tool.setuptools-git-versioning]
+enabled = true
+version_file = "VERSION"
+count_commits_from_version_file = true
+dev_template = "{tag}.dev{ccount}+r{sha}"
+dirty_template = "{tag}.dev{ccount}+r{sha}.dirty"

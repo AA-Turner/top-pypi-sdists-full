@@ -33,6 +33,13 @@ class TestWebhooksV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_organization_webhooks(self) -> None:
+        """Test case for get_organization_webhooks
+
+        Get Organization Webhooks.
+        """
+        pass
+
     def test_get_webhook(self) -> None:
         """Test case for get_webhook
 

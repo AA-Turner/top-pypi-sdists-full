@@ -1,7 +1,5 @@
 from typing import (
     Any,
-    Dict,
-    Optional,
 )
 
 from eth_abi import (
@@ -34,10 +32,10 @@ from web3.utils.ccip_url_validation import (
 
 
 def handle_offchain_lookup(
-    offchain_lookup_payload: Dict[str, Any],
+    offchain_lookup_payload: dict[str, Any],
     transaction: TxParams,
     allow_http: bool = False,
-    url_validator: Optional[CcipUrlValidator] = None,
+    url_validator: CcipUrlValidator | None = None,
 ) -> bytes:
     formatted_sender = to_hex_if_bytes(offchain_lookup_payload["sender"]).lower()
     formatted_data = to_hex_if_bytes(offchain_lookup_payload["callData"]).lower()

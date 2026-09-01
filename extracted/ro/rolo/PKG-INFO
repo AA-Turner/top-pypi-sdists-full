@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: rolo
-Version: 0.8.3
+Version: 0.8.4
 Dynamic: Description
 Dynamic: Description-Content-Type
 Summary: A Python framework for building HTTP-based server applications

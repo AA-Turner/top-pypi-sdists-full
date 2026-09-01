@@ -1,4 +1,4 @@
-"""Property layer (core spec §7.3). Hypothesis is a dev dependency only.
+"""Property layer. Hypothesis is a dev dependency only.
 
 The alphabet is punctuation-heavy on purpose: plain st.text() spreads
 over all of Unicode, so commas, quotes, and delimiters almost never
@@ -103,9 +103,13 @@ def _fork_count(state: ParseState) -> int:
 def test_a_leading_ambiguous_particle_is_reported_once_and_only_once(
 ) -> None:
     """PARTICLE_OR_GIVEN is the one kind two stages emit: _group takes
-    the particle branch when a title shifts the particle off index 0 and
-    the chain claims something ("Dr. Van Johnson"), _assign takes the
-    given branch when it stays a lone leading piece ("Van Johnson").
+    the particle branch when something shifts the particle off the
+    name's leading piece and the chain claims something ("Freiherr von
+    Richthofen"), _assign takes the given branch when it stays a lone
+    leading piece ("Van Johnson", and since #367 "Dr. Van Johnson" as
+    well -- a plain title is transparent, so only a leading word that
+    is BOTH a title and a particle still reaches _group's emitter,
+    which is what the 'Freiherr ' lead below exercises).
     Each reports the side it decides -- see the ParseState docstring --
     but they coordinate only through _group's `j > k + 1` guard, which
     mirrors _assign's reachability by hand. Nothing checked the mirror.
@@ -122,7 +126,16 @@ def test_a_leading_ambiguous_particle_is_reported_once_and_only_once(
     one is a fork -- so any reconstruction here would have to
     re-implement _group rather than check it.
     """
-    lex = Lexicon.default()
+    # The 'Freiherr ' lead below has to be a title AND a particle, or it
+    # is transparent to the leading-particle exception (#367), every
+    # shape using it leaves _group's emitter for _assign's, and this
+    # sweep goes on passing with the fork count unchanged -- coverage
+    # lost silently, which is the failure this sweep is least able to
+    # notice about itself. Supplied rather than borrowed from the shipped
+    # vocabulary, for the reason test_parser.py's _TITLE_PARTICLES block
+    # gives; a no-op against today's data, and #360-proof against
+    # tomorrow's.
+    lex = Lexicon.default().add(titles={"freiherr"}, particles={"freiherr"})
     # bound-given prefixes are excluded, not overlooked: 'abu' is both
     # an ambiguous particle and a bound given prefix, so whether it
     # forks depends on whether the bound join fired -- a second rule,
@@ -131,7 +144,7 @@ def test_a_leading_ambiguous_particle_is_reported_once_and_only_once(
     assert particles, "no ambiguous particles to exercise"
     failures = []
     for particle in particles:
-        for lead in ("", "Dr. ", "Dr. Ann "):
+        for lead in ("", "Dr. ", "Dr. Ann ", "Freiherr "):
             for body in ("", "Johnson ", "Johnson Smith "):
                 for tail in ("", "Jr.", "MD", "III"):
                     text = f"{lead}{particle} {body}{tail}".strip()

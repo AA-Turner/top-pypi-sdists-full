@@ -15,4 +15,5 @@ class LogicalTypes(object):
     FIXED_CHAR = PropertiesFromEnumValue('beam:logical_type:fixed_char:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     VAR_CHAR = PropertiesFromEnumValue('beam:logical_type:var_char:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     DATE = PropertiesFromEnumValue('beam:logical_type:date:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    TIMESTAMP = PropertiesFromEnumValue('beam:logical_type:timestamp:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 

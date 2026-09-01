@@ -1,4 +1,5 @@
-"""The locale pack layer (locales spec §2-3): lazy access, the shipped
+"""The locale pack layer (mechanisms.md#LOCALE-PACKS-PURE-DATA):
+lazy access, the shipped
 packs, composition, and the non-interference gate."""
 import functools
 import importlib.util
@@ -218,7 +219,7 @@ def test_ja_pack_contents() -> None:
     assert locales.JA.code == "ja"
     # segmentation activation ONLY: no vocabulary (no list settles a
     # kanji name) and no order (the kana license already reads
-    # Japanese family-first by default, amendment 2026-07-29 §1)
+    # Japanese family-first by default, decisions.md#W4)
     assert locales.JA.policy.segment_scripts == frozenset(
         {Script.HAN, Script.HIRAGANA})
     assert locales.JA.policy.name_order is UNSET
@@ -404,7 +405,8 @@ def test_ja_end_to_end() -> None:
 @_needs_ja
 def test_ja_keeps_a_transcribed_name_in_its_source_order() -> None:
     # pure katakana is excluded from the pack's activation by design
-    # (amendment §1: katakana is how Japanese writes FOREIGN names), so
+    # (rule W4's boundary: katakana is how Japanese writes FOREIGN
+    # names), so
     # the nakaguro form divides on the dot and keeps its given-first
     # source order instead of being read family-first
     n = _PACKED["ja"].parse("マイケル・ジャクソン")
@@ -413,7 +415,7 @@ def test_ja_keeps_a_transcribed_name_in_its_source_order() -> None:
 
 @_needs_ja
 def test_ja_composes_with_zh() -> None:
-    # vocabulary first, segmenter on decline (amendment §2)
+    # vocabulary first, segmenter on decline (rule W1)
     p = parser_for(locales.ZH, locales.JA, segmenter=locales.ja_segmenter())
     assert p.parse("毛泽东").family == "毛"      # zh surname wins
     assert p.parse("山田太郎").family == "山田"   # zh declines, segmenter
@@ -730,7 +732,8 @@ def test_parser_for_results_chain_as_bases() -> None:
 
 def test_locales_import_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
     # importing the package must not import any pack module; PEP 562
-    # loads them on first attribute access (spec §2: "importing
+    # loads them on first attribute access (the lazy-access contract:
+    # "importing
     # nameparser never pays for pack data"). monkeypatch snapshots
     # sys.modules AND the parent package attribute (the fresh import
     # below rebinds nameparser.locales), so everything rolls back even
@@ -754,7 +757,7 @@ def _assert_non_interference(
     packed: Parser, deviates: Callable[[str], bool], corpus: Iterable[str],
 ) -> int:
     """Return the number of DECLARED deviations seen; fail on any
-    undeclared one (spec §5.2 = the pack-acceptance rejection rule)."""
+    undeclared one (the pack-acceptance rejection rule)."""
     declared = 0
     for name in corpus:
         base = _default_parse(name)
@@ -849,7 +852,7 @@ _ROTATORS["zh"] = [
 # ja has no marker regexes and no vocabulary either: its rotators cover
 # the shapes only the pack PLUS its segmenter changes. Every row is
 # UNSPACED on purpose -- a spaced kana-licensed name (高橋 みなみ) now
-# reads family-first by DEFAULT (amendment 2026-07-29 §1), so it would
+# reads family-first by DEFAULT (decisions.md#W4), so it would
 # not deviate and would fail the must-deviate assertion below.
 _ROTATORS["ja"] = [
     "山田太郎",      # 2-kanji family + 2-kanji given, the common shape
@@ -889,7 +892,9 @@ def test_range_declaring_packs_stay_out_of_marker_classification() -> None:
 
 
 def test_registry_is_the_pack_contract() -> None:
-    # spec §2 authoring requirement 3, enforced structurally (design
+    # the declared-deviations authoring requirement
+    # (mechanisms.md#LOCALE-PACKS-PURE-DATA), enforced structurally
+    # (design
     # note 2026-07-18, option C): every registered pack module must
     # declare its deviation surface, and every pack must feed the gate's
     # positive side -- a new pack fails HERE until it ships both, rather
@@ -1075,7 +1080,7 @@ def test_non_interference_all_packs_combined() -> None:
     ("أبو مازن", "given", "أبو"),
     ("أحمد أبو خليل", "family", "أبو خليل"),
     ("علي ابو خالد", "family", "ابو خالد"),
-    # "الشيخ" carries the FIRST_NAME_TITLES semantics of its
+    # "الشيخ" carries the GIVEN_NAME_TITLES semantics of its
     # transliterated cousin 'sheikh': a single following name reads as
     # given, not family.
     ("الشيخ محمد", "given", "محمد"),
@@ -1102,6 +1107,14 @@ def test_non_interference_all_packs_combined() -> None:
     ("الحاج عبد الرحمن السيد", "title", "الحاج"),
     ("الحاج عبد الرحمن السيد", "given", "عبد الرحمن"),
     ("الحاج عبد الرحمن السيد", "family", "السيد"),
+    # a given-name title plus the bound pair ALONE: the licence
+    # (rules.md#P5, #369) lifts the family reserve, so the pair is the
+    # given name and, as for "Sir John", there is no family. Thirteen
+    # of the given-name titles are this script's, so this is where
+    # the licence mostly fires.
+    ("الشيخ عبد الله", "title", "الشيخ"),
+    ("الشيخ عبد الله", "given", "عبد الله"),
+    ("الشيخ عبد الله", "family", ""),
     # "و" ("and") joins title chains like Cyrillic "и"; single-char
     # conjunctions need the same single-letter carve-out headroom (enough
     # rootname pieces), so pinned with the 6-piece shape the и row uses
@@ -1110,7 +1123,7 @@ def test_non_interference_all_packs_combined() -> None:
     # behavior.
     ("דוד בן גוריון", "family", "בן גוריון"),
     ("שרה בת אברהם", "family", "בת אברהם"),
-    # Hebrew "מר" title (plain title, not FIRST_NAME_TITLES -- like
+    # Hebrew "מר" title (plain title, not GIVEN_NAME_TITLES -- like
     # 'mr', the following name reads as family).
     ("מר דוד לוי", "title", "מר"),
     # Hebrew title/suffix sweep (#269 follow-up): plain titles (Israeli

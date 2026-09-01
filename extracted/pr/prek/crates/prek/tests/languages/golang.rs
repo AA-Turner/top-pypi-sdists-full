@@ -1,20 +1,17 @@
+#[cfg(feature = "ci")]
 use assert_fs::assert::PathAssert;
-use assert_fs::fixture::{FileWriteStr, PathChild, PathCreateDir};
-use prek_consts::env_vars::{EnvVars, EnvVarsRead};
-use prek_consts::{PRE_COMMIT_CONFIG_YAML, PRE_COMMIT_HOOKS_YAML};
+#[cfg(feature = "ci")]
+use assert_fs::fixture::PathChild;
 
 use crate::common::{TestEnv, cmd_snapshot};
 
 /// Test `language_version` parsing and installation for golang hooks.
 /// We use `setup-go` action to install go 1.24 in CI, so go 1.23 will be auto downloaded.
+#[cfg(feature = "ci")]
 #[test]
 fn language_version() -> anyhow::Result<()> {
-    if !EnvVars.is_set(EnvVars::CI) {
-        // Skip when not running in CI, as we may have other go versions installed locally.
-        return Ok(());
-    }
-
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -60,8 +57,8 @@ fn language_version() -> anyhow::Result<()> {
                 language_version: '<1.25'
                 always_run: true
                 pass_filenames: false
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     let go_dir = context.home_dir().child("tools").child("go");
     go_dir.assert(predicates::path::missing());
@@ -139,10 +136,10 @@ fn language_version() -> anyhow::Result<()> {
 /// Test a remote go hook.
 #[test]
 fn remote_hook() {
-    let context = TestEnv::new();
+    let context = TestEnv::new().init_git();
 
     // Run hooks with system found go.
-    let context = context.with_config(indoc::indoc! {r"
+    context.write_config(indoc::indoc! {r"
         repos:
           - repo: https://github.com/prek-ci/golang-hooks
             rev: v1.0
@@ -150,7 +147,7 @@ fn remote_hook() {
               - id: echo
                 verbose: true
         "});
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -180,7 +177,7 @@ fn remote_hook() {
                 language_version: '1.23.11' # will auto download
                 pass_filenames: false
     "#});
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r#"
     success: true
@@ -215,7 +212,7 @@ fn remote_hook() {
                 verbose: true
                 language_version: '1.23.11' # will auto download
         "});
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -233,66 +230,56 @@ fn remote_hook() {
 
 /// Fix <https://github.com/j178/prek/issues/901>
 #[test]
-fn local_additional_deps() -> anyhow::Result<()> {
-    let go_hook = TestEnv::new();
+fn local_additional_deps() {
+    let context = TestEnv::new().init_git();
+    let hook_repo = context
+        .create_hook_repo(
+            "go-hook",
+            indoc::indoc! {r"
+                - id: go-hook
+                  name: go-hook
+                  entry: cmd
+                  language: golang
+                  additional_dependencies: [ ./cmd ]
+            "},
+        )
+        .with_file(
+            "go.mod",
+            indoc::indoc! {r"
+                module example.com/go-hook
+            "},
+        )
+        .with_file(
+            "main.go",
+            indoc::indoc! {r#"
+                package main
 
-    // Create a local go hook with additional_dependencies.
-    go_hook
-        .work_dir()
-        .child("go.mod")
-        .write_str(indoc::indoc! {r"
-        module example.com/go-hook
-    "})?;
-    go_hook
-        .work_dir()
-        .child("main.go")
-        .write_str(indoc::indoc! {r#"
-        package main
+                func main() {
+                    println("Hello, World!")
+                }
+            "#},
+        )
+        .with_file(
+            "cmd/main.go",
+            indoc::indoc! {r#"
+                package main
 
-        func main() {
-            println("Hello, World!")
-        }
-    "#})?;
-    go_hook.work_dir().child("cmd").create_dir_all()?;
-    go_hook
-        .work_dir()
-        .child("cmd/main.go")
-        .write_str(indoc::indoc! {r#"
-        package main
+                func main() {
+                    println("Hello, Utility!")
+                }
+            "#},
+        )
+        .build();
 
-        func main() {
-            println("Hello, Utility!")
-        }
-    "#})?;
-    go_hook
-        .work_dir()
-        .child(PRE_COMMIT_HOOKS_YAML)
-        .write_str(indoc::indoc! {r"
-        - id: go-hook
-          name: go-hook
-          entry: cmd
-          language: golang
-          additional_dependencies: [ ./cmd ]
-    "})?;
-    go_hook.git_add_all();
-    go_hook.git_commit("Initial commit");
-    go_hook.git().args(["tag", "v1.0", "-m", "v1.0"]).output()?;
-
-    let context = TestEnv::new();
-    let work_dir = context.work_dir();
-
-    let hook_url = go_hook.work_dir().to_str().unwrap();
-    work_dir
-        .child(PRE_COMMIT_CONFIG_YAML)
-        .write_str(&indoc::formatdoc! {r"
+    context.write_config(indoc::formatdoc! {r"
         repos:
-          - repo: {hook_url}
-            rev: v1.0
+          - repo: {hook_repo}
+            rev: v1.0.0
             hooks:
               - id: go-hook
                 verbose: true
-   ", hook_url = hook_url})?;
-    context.git_add_all();
+   "});
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -306,54 +293,42 @@ fn local_additional_deps() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 /// Ensure `go.mod` metadata (go/toolchain directives) is used to constrain
 /// the Go version for remote hooks.
 #[test]
-fn remote_go_mod_metadata_sets_language_version() -> anyhow::Result<()> {
-    // Create a remote repo containing a golang hook.
-    let go_hook = TestEnv::new();
+fn remote_go_mod_metadata_sets_language_version() {
+    let context = TestEnv::new().init_git();
+    let hook_repo = context
+        .create_hook_repo(
+            "go-hook",
+            indoc::indoc! {r"
+                - id: echo
+                  name: echo
+                  entry: echo
+                  language: golang
+                  verbose: true
+            "},
+        )
+        .with_file(
+            "go.mod",
+            indoc::indoc! {r"
+                module example.com/go-hook
 
-    go_hook
-        .work_dir()
-        .child("go.mod")
-        .write_str(indoc::indoc! {r"
-      module example.com/go-hook
-
-      go 2.100 // unrealistic version to ensure the downloading fails
-      "})?;
-
-    go_hook
-        .work_dir()
-        .child(PRE_COMMIT_HOOKS_YAML)
-        .write_str(indoc::indoc! {r"
-      - id: echo
-        name: echo
-        entry: echo
-        language: golang
-        verbose: true
-      "})?;
-
-    go_hook.git_add_all();
-    go_hook.git_commit("Initial commit");
-    go_hook.git().args(["tag", "v1.0", "-m", "v1.0"]).output()?;
-
-    // Use it as a remote repo in a separate project.
-    let context = TestEnv::new();
-
-    let hook_url = go_hook.work_dir().to_str().unwrap();
-    let context = context.with_config(indoc::formatdoc! {r"
+                go 2.100 // unrealistic version to ensure the downloading fails
+            "},
+        )
+        .build();
+    context.write_config(indoc::formatdoc! {r"
       repos:
-        - repo: {hook_url}
-          rev: v1.0
+        - repo: {hook_repo}
+          rev: v1.0.0
           hooks:
             - id: echo
               verbose: true
-      ", hook_url = hook_url});
-    context.git_add_all();
+      "});
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @"
     success: false
@@ -366,6 +341,4 @@ fn remote_go_mod_metadata_sets_language_version() -> anyhow::Result<()> {
       caused by: Failed to resolve go version `>= 2.100.0`
       caused by: Version `>= 2.100.0` not found on remote
     ");
-
-    Ok(())
 }

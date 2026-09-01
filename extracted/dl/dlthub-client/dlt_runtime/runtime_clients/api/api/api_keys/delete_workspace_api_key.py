@@ -7,6 +7,9 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.delete_workspace_api_key_response_409 import (
+    DeleteWorkspaceApiKeyResponse409,
+)
 from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
@@ -33,7 +36,8 @@ def _get_kwargs(
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> (
-    ErrorResponse400
+    DeleteWorkspaceApiKeyResponse409
+    | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
@@ -65,6 +69,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = DeleteWorkspaceApiKeyResponse409.from_dict(response.json())
+
+        return response_409
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -74,7 +83,8 @@ def _parse_response(
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> Response[
-    ErrorResponse400
+    DeleteWorkspaceApiKeyResponse409
+    | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
@@ -94,7 +104,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
 ) -> Response[
-    ErrorResponse400
+    DeleteWorkspaceApiKeyResponse409
+    | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
@@ -116,7 +127,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse]
+        Response[DeleteWorkspaceApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse]
     """
 
     kwargs = _get_kwargs(
@@ -137,7 +148,8 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
 ) -> (
-    ErrorResponse400
+    DeleteWorkspaceApiKeyResponse409
+    | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
@@ -160,7 +172,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse
+        DeleteWorkspaceApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse
     """
 
     return sync_detailed(
@@ -176,7 +188,8 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
 ) -> Response[
-    ErrorResponse400
+    DeleteWorkspaceApiKeyResponse409
+    | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
@@ -198,7 +211,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse]
+        Response[DeleteWorkspaceApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse]
     """
 
     kwargs = _get_kwargs(
@@ -217,7 +230,8 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
 ) -> (
-    ErrorResponse400
+    DeleteWorkspaceApiKeyResponse409
+    | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
@@ -240,7 +254,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse
+        DeleteWorkspaceApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceApiKeyResponse
     """
 
     return (

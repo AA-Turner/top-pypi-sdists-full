@@ -1,10 +1,8 @@
+from collections.abc import Callable, Coroutine
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Coroutine,
     Literal,
-    Optional,
     Union,
     cast,
 )
@@ -23,7 +21,6 @@ from web3.middleware.base import (
     Web3MiddlewareBuilder,
 )
 from web3.types import (
-    EthSubscriptionParams,
     Formatters,
     FormattersDict,
     RPCEndpoint,
@@ -63,7 +60,7 @@ def _apply_response_formatters(
         appropriate_response = response[response_type]
 
         if response_type == "params":
-            appropriate_response = cast(EthSubscriptionParams, response[response_type])
+            appropriate_response = response[response_type]
             return assoc(
                 response,
                 response_type,
@@ -81,7 +78,7 @@ def _apply_response_formatters(
     if not isinstance(response, dict):
         raise BadResponseFormat(
             "Malformed response: expected a valid JSON-RPC response object, got: "
-            "`{}`".format(response)
+            f"`{response}`"
         )
     elif response.get("result") is not None and method in result_formatters:
         return _format_response("result", result_formatters[method])
@@ -116,12 +113,12 @@ class FormattingMiddlewareBuilder(Web3MiddlewareBuilder):
     def build(
         w3: Union["Web3", "AsyncWeb3[Any]"],
         # formatters option:
-        request_formatters: Optional[Formatters] = None,
-        result_formatters: Optional[Formatters] = None,
-        error_formatters: Optional[Formatters] = None,
+        request_formatters: Formatters | None = None,
+        result_formatters: Formatters | None = None,
+        error_formatters: Formatters | None = None,
         # formatters builder option:
-        sync_formatters_builder: Optional[SYNC_FORMATTERS_BUILDER] = None,
-        async_formatters_builder: Optional[ASYNC_FORMATTERS_BUILDER] = None,
+        sync_formatters_builder: SYNC_FORMATTERS_BUILDER | None = None,
+        async_formatters_builder: ASYNC_FORMATTERS_BUILDER | None = None,
     ) -> "FormattingMiddlewareBuilder":
         # if not both sync and async formatters are specified, raise error
         if (

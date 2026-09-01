@@ -11,6 +11,7 @@ class TriggeredJobStatus(str, Enum):
     SKIPPED_PAUSED = "skipped_paused"
     SKIPPED_TRIAL_EXPIRED = "skipped_trial_expired"
     SKIPPED_UPSTREAM_PENDING = "skipped_upstream_pending"
+    SKIPPED_WORKSPACE_ARCHIVED = "skipped_workspace_archived"
     TRIGGERED = "triggered"
 
     def __str__(self) -> str:

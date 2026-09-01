@@ -46,6 +46,7 @@ AudioContentMimeType = Union[
         "audio/opus",
         "audio/alaw",
         "audio/mulaw",
+        "audio/webm",
     ],
     UnrecognizedStr,
 ]

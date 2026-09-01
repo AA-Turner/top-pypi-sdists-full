@@ -4,6 +4,7 @@ import collections.abc
 import dataclasses
 import datetime as dt
 import enum
+import hashlib
 import json
 import os
 import random
@@ -13,13 +14,14 @@ import types
 import typing
 import warnings
 from functools import cached_property
+from math import ceil
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 from urllib.parse import urlparse
 
 import grpc
 import grpc.experimental
 import requests
-from google.protobuf import empty_pb2, timestamp_pb2
+from google.protobuf import empty_pb2, json_format, struct_pb2, timestamp_pb2
 from rich.console import Console
 from rich.style import Style
 from rich.text import Text
@@ -153,6 +155,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListServiceTokensResponse,
 )
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
+from chalk._gen.chalk.server.v1.training_runs_pb2 import CheckpointTrainingRunRequest, CheckpointTrainingRunResponse
+from chalk._gen.chalk.server.v1.training_runs_pb2_grpc import TrainingRunServiceStub
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
 from chalk._reporting.rich.color import CHALK_WEBSITE_GREEN
 from chalk.client import ChalkAuthException, ChalkError, FeatureReference
@@ -237,7 +241,7 @@ from chalk.features.feature_set import is_feature_set_class
 from chalk.features.resolver import Resolver
 from chalk.features.tag import DeploymentId
 from chalk.importer import CHALK_IMPORT_FLAG
-from chalk.ml import LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelType, SourceConfig
+from chalk.ml import FileInfo, LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelType, SourceConfig
 from chalk.ml.model_file_transfer import ModelFileUploader
 from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH, is_model_handler
 from chalk.ml.utils import ModelClass, model_class_from_proto, model_encoding_from_proto, model_type_from_proto
@@ -611,6 +615,12 @@ class StubProvider:
         return ScriptTaskServiceStub(self._server_channel)
 
     @cached_property
+    def training_run_stub(self) -> TrainingRunServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return TrainingRunServiceStub(self._server_channel)
+
+    @cached_property
     def builder_stub(self) -> "BuilderServiceStub":
         from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
 
@@ -952,6 +962,9 @@ class StubRefresher:
     def call_task_stub(self, fn: Callable[[ScriptTaskServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.task_stub)
 
+    def call_training_run_stub(self, fn: Callable[[TrainingRunServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.training_run_stub)
+
     def call_model_deployment_stub(self, fn: Callable[["ModelDeploymentServiceStub"], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.model_deployment_stub)
 
@@ -1014,6 +1027,23 @@ def _model_artifact_spec_from_proto(artifact: Any) -> ModelArtifactSpec:
         output_features=list(spec.output_features),
         dependencies=list(spec.python_dependencies),
     )
+
+
+def _get_local_file_info(filename: str, file_path: str) -> FileInfo:
+    parsed_path = urlparse(file_path)
+    if parsed_path.scheme == "file":
+        local_path = parsed_path.path
+    elif parsed_path.scheme == "":
+        local_path = file_path
+    else:
+        raise ValueError(f"Training run checkpoints only support local files. Got: {file_path}")
+
+    with open(local_path, "rb") as file:
+        file_data = file.read()
+
+    file_hash = hashlib.sha256(file_data).digest()
+    filesize_kb = ceil(os.path.getsize(local_path) / 1024.0)
+    return FileInfo(filename, filesize_kb, file_hash)
 
 
 class ChalkGRPCClient:
@@ -4261,6 +4291,86 @@ class ChalkGRPCClient:
             except Exception as e:
                 raise RuntimeError(f"Could not register model artifact. {e}")
         raise RuntimeError("Error creating model serializer context to create model artifact.")
+
+    def _checkpoint_training_run(
+        self,
+        training_run_id: str,
+        model: Any,
+        additional_files: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> RegisterModelArtifactResponse:
+        with ModelSerializer.from_model(model) as model_serializer:
+            try:
+                dir_allowlist: List[str] = []
+                model_tmp_path, model_encoding = model_serializer.serialize()
+                dir_allowlist.append(model_tmp_path)
+
+                model_file_uploader = ModelFileUploader(LocalSourceConfig())
+                all_files_to_process, model_file_names = model_file_uploader.prepare_file_mapping(
+                    [model_tmp_path], additional_files
+                )
+
+                input_schema, output_schema = model_serializer.infer_input_output_schemas()
+                input_model_schema = model_serializer.convert_schema(input_schema)
+                output_model_schema = model_serializer.convert_schema(output_schema)
+                dependencies = model_serializer.get_dependencies()
+
+                model_artifact = _model_artifact_pb2.ModelArtifactSpec(
+                    model_files=[
+                        model_serializer.fileinfo_to_protobuf(_get_local_file_info(filename, file_path))
+                        for filename, file_path in all_files_to_process.items()
+                        if filename in model_file_names
+                    ],
+                    additional_files=[
+                        model_serializer.fileinfo_to_protobuf(_get_local_file_info(filename, file_path))
+                        for filename, file_path in all_files_to_process.items()
+                        if filename not in model_file_names
+                    ],
+                    model_type=model_serializer.model_type,
+                    model_class=model_serializer.model_class,
+                    model_encoding=model_encoding,
+                    model_signature=_model_artifact_pb2.ModelSignature(
+                        inputs=input_model_schema,
+                        outputs=output_model_schema,
+                    ),
+                    input_features=[],
+                    output_features=[],
+                    python_dependencies=dependencies,
+                )
+
+                artifact_spec = struct_pb2.Struct()
+                artifact_spec.update(json_format.MessageToDict(model_artifact, preserving_proto_field_name=True))
+
+                resp: CheckpointTrainingRunResponse = self._stub_refresher.call_training_run_stub(
+                    lambda x: x.CheckpointTrainingRun(
+                        CheckpointTrainingRunRequest(
+                            training_run_id=training_run_id,
+                            file_names=list(all_files_to_process.keys()),
+                            artifact_spec=artifact_spec,
+                        )
+                    )
+                )
+
+                model_file_uploader.upload_files(
+                    file_paths=all_files_to_process,
+                    model_file_names=model_file_names,
+                    presigned_urls=resp.upload_urls,
+                    dir_allowlist=dir_allowlist,
+                )
+
+                return RegisterModelArtifactResponse(
+                    artifact_id=resp.model_artifact_id,
+                    path=f"env_{self._stub_refresher.environment_id}/artifacts/{resp.model_artifact_id}",
+                    spec=model_artifact,
+                    metadata=metadata or {},
+                    created_by="",
+                    created_at=dt.datetime.now(tz=dt.timezone.utc),
+                )
+            except grpc.RpcError as e:
+                raise RuntimeError(f"Could not checkpoint training run. {e.details()}")
+            except Exception as e:
+                raise RuntimeError(f"Could not checkpoint training run. {e}")
+        raise RuntimeError("Error creating model serializer context to checkpoint training run.")
 
     def promote_model_artifact(
         self,

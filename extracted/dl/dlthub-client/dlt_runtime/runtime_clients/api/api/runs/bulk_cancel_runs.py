@@ -9,6 +9,7 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.bulk_cancel_request import BulkCancelRequest
 from ...models.bulk_cancel_response import BulkCancelResponse
+from ...models.bulk_cancel_runs_response_409 import BulkCancelRunsResponse409
 from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
@@ -42,6 +43,7 @@ def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> (
     BulkCancelResponse
+    | BulkCancelRunsResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -73,6 +75,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = BulkCancelRunsResponse409.from_dict(response.json())
+
+        return response_409
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -83,6 +90,7 @@ def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> Response[
     BulkCancelResponse
+    | BulkCancelRunsResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -103,6 +111,7 @@ def sync_detailed(
     body: BulkCancelRequest,
 ) -> Response[
     BulkCancelResponse
+    | BulkCancelRunsResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -127,7 +136,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[BulkCancelResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
+        Response[BulkCancelResponse | BulkCancelRunsResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
     """
 
     kwargs = _get_kwargs(
@@ -149,6 +158,7 @@ def sync(
     body: BulkCancelRequest,
 ) -> (
     BulkCancelResponse
+    | BulkCancelRunsResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -174,7 +184,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        BulkCancelResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
+        BulkCancelResponse | BulkCancelRunsResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
     """
 
     return sync_detailed(
@@ -191,6 +201,7 @@ async def asyncio_detailed(
     body: BulkCancelRequest,
 ) -> Response[
     BulkCancelResponse
+    | BulkCancelRunsResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -215,7 +226,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[BulkCancelResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
+        Response[BulkCancelResponse | BulkCancelRunsResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
     """
 
     kwargs = _get_kwargs(
@@ -235,6 +246,7 @@ async def asyncio(
     body: BulkCancelRequest,
 ) -> (
     BulkCancelResponse
+    | BulkCancelRunsResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -260,7 +272,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        BulkCancelResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
+        BulkCancelResponse | BulkCancelRunsResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
     """
 
     return (

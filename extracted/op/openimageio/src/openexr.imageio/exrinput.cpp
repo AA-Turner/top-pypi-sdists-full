@@ -86,8 +86,8 @@ OIIO_PLUGIN_NAMESPACE_BEGIN
 // Defined in exrinput_c.cpp. Declare here at C++ namespace scope (not inside
 // the extern "C" block below) so the linkage matches the definition in the
 // non-embedded (dynamic plugin) build where OIIO_PLUGIN_EXPORTS_BEGIN is
-// `extern "C"`.
-extern ImageInput*
+// `extern "C"`. Use OIIO_EXPORT to ensure safe unity build on Windows.
+extern OIIO_EXPORT ImageInput*
 openexrcore_input_imageio_create();
 #endif
 
@@ -1135,6 +1135,13 @@ OpenEXRInput::seek_subimage(int subimage, int miplevel)
     //     m_spec.attribute("oiio:miplevels", part.nmiplevels);
 
     if (!check_open(m_spec, { 0, 1 << 30, 0, 1 << 30, 0, 1, 0, 1 << 12 }))
+        return false;
+
+    // check_open's size cap still admits a dataWindow that is absurd for a tiny
+    // compressed file, so also bound the declared-vs-compressed ratio.
+    imagesize_t filesize = m_io ? m_io->size()
+                                : Filesystem::file_size(m_filename);
+    if (!check_compression_ratio(m_spec, filesize))
         return false;
 
     if (miplevel == 0 && part.levelmode == Imf::ONE_LEVEL) {

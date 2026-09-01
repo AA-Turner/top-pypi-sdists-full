@@ -387,12 +387,24 @@ def get_stage_information_dict(stage_str, method):
         # ``"Dec 1-Apr 30"`` renders as ``"Apr 1-Dec 31"`` — the actual
         # Apr-through-Dec window the model saw. For forward-order windows
         # (start <= end numerically) the display equals the raw name.
-        if int(start_stage) <= int(end_stage):
-            stage_info["Stage Window Display"] = stage_info["Stage Name"]
-        else:
+        # Reverse-cumulative (``_r``) methods ALWAYS carry
+        # start_stage = latest month and end_stage = earliest month by the
+        # convention documented above, so their display label must ALWAYS be
+        # swapped into calendar order. Keying the swap off the numeric
+        # comparison instead silently failed for a season that WRAPS the new
+        # year: brazil soybean's ``Stage_ID 4_3_2_1_12_11_10_9`` is a Sep->Apr
+        # window (as-of April), but 4 <= 9 so the swap was skipped, the display
+        # read "Apr 1-Sep 30", and ``_add_calendar_columns`` then reported
+        # ``Prediction Month = Sep`` — the PLANTING month, ~7 months earlier
+        # than the true data cutoff. USA (Mar->Sep, non-wrapping) was
+        # unaffected, which is why this went unnoticed.
+        # The numeric test is only meaningful for forward-order methods.
+        if "_r" in str(method) or int(start_stage) > int(end_stage):
             stage_info["Stage Window Display"] = (
                 stage_dict[e_key] + "-" + stage_dict_end[s_key]
             )
+        else:
+            stage_info["Stage Window Display"] = stage_info["Stage Name"]
 
     return stage_info
 

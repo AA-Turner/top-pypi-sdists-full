@@ -1,4 +1,5 @@
-"""THE shared behavior case table (core spec §7.2).
+"""THE shared behavior case table (rules.md cites it as the pin of
+CURRENT behavior).
 
 Format is fixed here, in the first pipeline PR, and never per-PR:
 one Case per input, expected values for exactly the non-empty fields,
@@ -17,13 +18,25 @@ still wearing it is a row whose parity is simply unknown.
 The v1 suite's full corpus is extracted into this table by the
 migration plan (facade runner consumes the same rows); this file seeds
 it with the pinned battery.
+
+What earns a row is a FORK: a branch taken for one input and not
+another -- a rule's boundary, a precedence contest between two rules,
+a policy that changes the answer. A row demonstrating one more member
+of a vocabulary set pins nothing its other members do not, and one row
+per entry grows this table without narrowing what can break
+(mechanisms.md#VOCABULARY-EXERCISES-FORKS -- a restatement, and
+nothing checks it against the entry: test_doc_citations verifies an
+excerpt only where the reference is followed by a colon and a quoted
+span, which running prose like this one is not. Read the entry, not
+this paragraph, if the two ever disagree).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from nameparser import Policy
-from nameparser._policy import PatronymicRule
+from nameparser._policy import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
+                               PatronymicRule)
 
 
 @dataclass(frozen=True)
@@ -89,8 +102,12 @@ CASES: tuple[Case, ...] = (
          {"given": "Mohamad", "family": "Ahmad Ali Hassan"},
          policy=Policy(middle_as_family=True),
          notes="v1 PREPENDED middle_list to last_list; folded tokens "
-               "carry vocab:folded-middle and the family view orders "
-               "them first (spans cannot reorder)"),
+               "carry vocab:folded-middle and every view of them orders "
+               "them first (spans cannot reorder). This table has no "
+               "initials column, so the half #408 moved is pinned in "
+               "rules.md#R3 and tests/v2/test_render.py: initials were "
+               "'M. H. A. A.' here and are 'M. A. A. H.' now, which is "
+               "also 1.4.0's answer"),
     Case("ambiguous_surname_acronyms", "Jack MA",
          {"given": "Jack", "family": "MA"},
          ambiguities=("suffix-or-name",),
@@ -114,20 +131,417 @@ CASES: tuple[Case, ...] = (
          {"given": "John", "middle": "Q", "family": "Smith",
           "suffix": "MA"},
          ambiguities=("suffix-or-name",)),
-    Case("titled_ambiguous_particle_chains", "Dr. Van Johnson",
-         {"title": "Dr.", "family": "Van Johnson"},
+    Case("titled_ambiguous_particle_does_not_chain", "Dr. Van Johnson",
+         {"title": "Dr.", "given": "Van", "family": "Johnson"},
+         classification="fix(#367)",
          ambiguities=("particle-or-given",),
-         notes="the other branch of 'Van Johnson': a leading title "
-               "shifts Van off the given position, the prefix chain "
-               "fires, and the fork is reported from group rather than "
-               "assign (v1 parity on the fields)"),
-    Case("titled_ambiguous_particle_no_op_chain", "Dr. Van Jr.",
-         {"title": "Dr.", "given": "Van", "suffix": "Jr."},
+         notes="reads exactly as the untitled 'Van Johnson' does, "
+               "because a title is not part of the name and so cannot "
+               "decide whether the NAME begins with a particle (#367). "
+               "This row pinned the opposite until 2.2 -- title 'Dr.', "
+               "family 'Van Johnson', the chain having fired because "
+               "the title shifted Van off piece index 0 -- and cited "
+               "v1 parity for it. Parity was real (1.4.0 gives last "
+               "'Van Johnson') and still not the tiebreaker it looked "
+               "like: this is the SAME shape as 'Mr. Van Nguyen', "
+               "which v1 shipped as an xfail calling the reading "
+               "wrong, so v1 pinned one shape both as correct and as "
+               "broken. Resolved toward the xfail, which now passes "
+               "(tests/test_first_name.py::"
+               "test_first_name_is_prefix_if_three_parts). The fork is "
+               "still reported, from assign rather than group -- the "
+               "same place the untitled 'Van Johnson' reports it"),
+    Case("titled_ambiguous_particle_keeps_its_middles", "Dr. Van Johnson Smith",
+         {"title": "Dr.", "given": "Van", "middle": "Johnson",
+          "family": "Smith"},
+         classification="fix(#367)",
+         ambiguities=("particle-or-given",),
+         notes="the release log names this shape and nothing asserted "
+               "it. 1.4.0 gives title 'Dr.', last 'Van Johnson Smith'; "
+               "un-chaining leaves three name pieces, so the middle "
+               "appears where the whole thing used to be one surname"),
+    Case("given_name_title_ambiguous_particle", "Sir Van Johnson",
+         {"title": "Sir", "given": "Van", "family": "Johnson"},
+         classification="fix(#367)",
+         ambiguities=("particle-or-given",),
+         notes="a GIVEN-NAME title, which is the worse half of the bug "
+               "#367 fixed: 1.4.0 and 2.1 alike gave first "
+               "'Van Johnson' and no family name at all, the chain "
+               "having fired and then been handed whole to `given`. "
+               "Now identical to the untitled 'Van Johnson'"),
+    Case("given_name_title_never_given_particle", "Sir de Mesnil",
+         {"title": "Sir", "family": "de Mesnil"},
+         classification="fix(#367)",
+         notes="the never-given half: `de` is not an ambiguous "
+               "particle, so there is no fork to report and post_rules "
+               "1b folds the name into the family. 1.4.0 and 2.1 gave "
+               "first 'de Mesnil' with no family, because the chain "
+               "left 1b nothing standing alone to fire on"),
+    Case("title_plus_one_word_with_maiden", "Dr. Smith née Jones",
+         {"title": "Dr.", "family": "Smith", "maiden": "Jones"},
+         classification="fix(#410)",
+         notes="H1's 'and nothing else' counted a maiden name as a "
+               "further name word, so adding a maiden clause moved the "
+               "surname into `given` and emptied `family`: 'Dr. Smith' "
+               "reads family 'Smith' and 'Dr. Smith née Jones' read "
+               "given 'Smith'. A maiden name is announced beside the "
+               "name, not part of it. 1.4.0 had no maiden SUPPORT -- "
+               "the field exists, but no default marker vocabulary "
+               "routes to it -- and read first 'Smith', middle 'née', "
+               "last 'Jones'"),
+    Case("title_plus_one_word_with_maiden_particle_spelling",
+         "Freiherr von Richthofen geb. Albrecht",
+         {"title": "Freiherr", "family": "von Richthofen",
+          "maiden": "Albrecht"},
+         classification="fix(#410)",
+         ambiguities=("particle-or-given",),
+         notes="the spelling #410 was found through: #399 stopped the "
+               "particle chain at the marker, which routed the "
+               "canonical title-and-particle shape into H1 for the "
+               "first time and so into this bug. 1.4.0 read the whole "
+               "tail as one surname, last 'von Richthofen geb. "
+               "Albrecht'"),
+    Case("given_name_title_plus_one_word_with_maiden",
+         "Sir John née Jones",
+         {"title": "Sir", "given": "John", "maiden": "Jones"},
+         classification="fix(#274)",
+         notes="H1's carve-out is untouched by #410: a given-name "
+               "title addresses by given name, so the one name word "
+               "stays `given` and the family stays empty, exactly as "
+               "'Sir John' reads -- in the DEFAULT order, which is "
+               "what this row pins: under either family-first order "
+               "the same name reads family 'John', H1 being a no-op "
+               "there because assign has already placed the word. "
+               "The boundary of the widening, and "
+               "the row that fails if the retag is made unconditional. "
+               "The fix classification is #274's marker consumption, "
+               "which is what makes this differ from 1.4.0 (first "
+               "'John', middle 'née', last 'Jones')"),
+    Case("title_plus_one_word_comma_suffix", "Dr. King, Jr.",
+         {"title": "Dr.", "family": "King", "suffix": "Jr."},
+         classification="fix(#410)",
+         notes="the most ordinary shape H1's widening touches, and "
+               "the one the suite could least afford to leave "
+               "unpinned: mutating H1 to decline on any name carrying "
+               "a comma left all 5819 tests green. Nothing else sees "
+               "the class -- the corpus-wide maiden-clause property "
+               "test filters commas out of its parametrization "
+               "(_clause_free_latin_corpus_names), and "
+               "'Smith, Dr.' takes its family from the comma rule "
+               "(C1), not from H1. 1.4.0 had the same empty family "
+               "here (title 'Dr.', first 'King', last ''), so this "
+               "row records a v1 bug fixed, not a v2 divergence"),
+    Case("title_plus_one_word_multi_word_maiden",
+         "Dr. Smith née Mary Jones",
+         {"title": "Dr.", "family": "Smith", "maiden": "Mary Jones"},
+         classification="fix(#410)",
+         notes="the maiden name at two words rather than one. H1 "
+               "counts what stands in the NAME, so the arity of the "
+               "clause beside it is irrelevant -- a rule that "
+               "declined on a second maiden token would pass every "
+               "single-word row above. 1.4.0 read first 'Smith', "
+               "middle 'née Mary', last 'Jones'"),
+    Case("given_name_title_plus_one_word_multi_word_maiden",
+         "Sir John née Mary Jones",
+         {"title": "Sir", "given": "John", "maiden": "Mary Jones"},
+         classification="fix(#410)",
+         notes="the carve-out at the same arity: 'whatever maiden "
+               "name stands beside it' has to leave the given-name "
+               "title alone however long the clause is. Without this "
+               "row the `whatever` is asserted only at one word. "
+               "1.4.0 read first 'John', middle 'née Mary', last "
+               "'Jones'"),
+    Case("title_plus_one_word_two_suffixes", "Dr. Smith PhD Jr.",
+         {"title": "Dr.", "family": "Smith", "suffix": "PhD, Jr."},
+         classification="fix(#410)",
+         notes="two suffix pieces, not one. The removed term asked "
+               "whether ANY token carried a suffix role, so a guard "
+               "rebuilt to decline on the SECOND one would look "
+               "correct against every row that carries a single "
+               "credential. 1.4.0 split them, reading first 'Smith', "
+               "last 'PhD', suffix 'Jr.'"),
+    Case("title_plus_one_word_nickname_and_suffix",
+         "Dr. (Bud) Smith Jr.",
+         {"title": "Dr.", "family": "Smith", "suffix": "Jr.",
+          "nickname": "Bud"},
+         classification="fix(#410)",
+         notes="two DIFFERENT annotations at once, which is the "
+               "combination the single-annotation rows cannot reach: "
+               "a guard declining only where a nickname and a suffix "
+               "are both present passes all of them. 1.4.0 read first "
+               "'Smith', last 'Jr.' with nickname 'Bud' -- the "
+               "credential taking the family slot"),
+    # The smallest shape in which the two family-first orders can
+    # disagree about this rule's leftovers: with one leftover both
+    # send it to `given`, and two or more is what separates them (the
+    # orders differ on plenty of names outside this rule -- 186 of the
+    # 751 corpus names -- so the claim is about the fold, not about
+    # the orders). Spanish because the listing is real: "Apellidos
+    # Nombres" keeps the particle in place, where Dutch moves it
+    # behind the given name ("Jong, Jan Pieter de", the tussenvoegsel
+    # convention -- rule P6's subject, though P6's attachment is
+    # deviates: #379, so that spelling does not yet parse the way P6
+    # describes). Added before #395 landed, when all three orders
+    # still agreed, each taking the whole name into the family.
+    Case("leading_never_given_particle_two_leftovers",
+         "de la Cruz Juan Carlos",
+         {"family": "de la Cruz Juan Carlos"},
+         classification="parity",
+         notes="the DEFAULT order, which #395 leaves alone: with no "
+               "order declared there is no evidence that 'Juan Carlos' "
+               "is anything but more surname, and a particle followed "
+               "by several words really can be all surname -- 'von "
+               "Bergen Wessels' is one. (An earlier draft cited "
+               "'pennie von bergen wessels' as the same SHAPE, which "
+               "it is not: pennie is the given name there and von is "
+               "ambiguous, so this fold cannot fire on it. See "
+               "decisions.md#P1, 2026-08-17.) 1.4.0 gives last 'de la "
+               "Cruz Juan Carlos' too, so this row must not move when "
+               "#395 lands"),
+    Case("leading_never_given_particle_two_leftovers_family_first",
+         "de la Cruz Juan Carlos",
+         {"family": "de la Cruz", "given": "Juan", "middle": "Carlos"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="feat(#395)",
+         notes="core-only: name_order has no v1 spelling. The run "
+               "stops at 'Cruz' because the declared order says what "
+               "follows the family is not more surname. It reaches "
+               "'Cruz' THROUGH ambiguous 'la', which is the chain a "
+               "stop keyed on never-given membership would break"),
+    Case("leading_never_given_particle_two_leftovers_"
+         "family_first_given_last",
+         "de la Cruz Juan Carlos",
+         {"family": "de la Cruz", "middle": "Juan", "given": "Carlos"},
+         policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+         classification="feat(#395)",
+         notes="the row that makes the leftover DISTRIBUTION testable, "
+               "and the divergence is here: FAMILY_FIRST reads 'Juan' "
+               "as the given name, this order reads 'Carlos'. Nothing "
+               "with fewer leftovers can tell the two apart. When "
+               "PR #394 put the placing in grouping, its review found "
+               "the whole suite passed with name_order discarded from "
+               "it; on this branch the same mutation fails three "
+               "tests, this row among them"),
+    # The Dutch alphabetized listing: "Beethoven, Ludwig van" is how
+    # "Ludwig van Beethoven" is filed, the tussenvoegsel moved behind
+    # the given name but belonging to the surname (#379).
+    Case("tussenvoegsel_after_family_comma", "Beethoven, Ludwig van",
+         {"given": "Ludwig", "family": "van Beethoven"},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="1.4.0 gives middle 'van', last 'Beethoven'. The "
+               "particle attaches to the family the comma already "
+               "named and renders before it, so the derived views "
+               "move with it -- family_particles 'van', family_base "
+               "'Beethoven', which is what #130 asked for. The "
+               "textbook-correct Dutch listing reports the fork all "
+               "the same (#405): the parser cannot tell it from "
+               "'Nguyen, Thi Van', which is the same string shape"),
+    Case("tussenvoegsel_multiword", "Berg, Jan van der",
+         {"given": "Jan", "family": "van der Berg"},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="the whole run attaches, not just its last word -- and "
+               "one report covers the whole run, named for 'van', the "
+               "word that is ambiguous vocabulary ('der' is never a "
+               "given name)"),
+    Case("tussenvoegsel_outranks_the_suffix_reading", "Berg, Jan vd",
+         {"given": "Jan", "family": "vd Berg"},
+         classification="fix(#380)",
+         ambiguities=("suffix-or-name",),
+         notes="'vd' is particle AND suffix vocabulary, and assign "
+               "read the trailing one as a post-nominal (1.4.0 and "
+               "2.1 alike gave suffix 'vd'). After a family comma the "
+               "tussenvoegsel abbreviation is far more often the "
+               "reading meant; P6 states that precedence over S2. "
+               "The declined post-nominal is what the report names "
+               "(#405), so the kind is suffix-or-name and not "
+               "particle-or-given -- 'vd' is no given name in either "
+               "reading"),
+    Case("tussenvoegsel_behind_a_post_nominal", "Berg, Jan van Jr.",
+         {"given": "Jan", "family": "van Berg", "suffix": "Jr."},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="the credential sits BEHIND the tussenvoegsel in this "
+               "listing, so the run is found by walking past it. "
+               "Without that walk the same name parsed two ways on "
+               "whether a comma preceded the credential -- "
+               "'Berg, Jan van, Jr.' attached and this one did not"),
+    Case("tussenvoegsel_declines_with_no_given_word_left",
+         "Smith, de Mesnil van",
+         {"family": "Smith de Mesnil van"},
+         classification="fix(comma-precomma-family)",
+         notes="P1's fold has already made all of segment 1 the "
+               "family, so no GIVEN word remains and the "
+               "attachment declines. Testing for any NAME role here "
+               "instead would pass on family text P1 just produced, "
+               "and hoist 'van' in front of a base it never preceded "
+               "('van Smith de Mesnil'). NOT parity: 1.4.0 leaves no "
+               "given name either, but renders last 'de Mesnil van "
+               "Smith' -- it treats only the leading 'de' as a "
+               "last-prefix and leaves 'van' inside the base. The "
+               "structure agrees, the string does not"),
+    Case("tussenvoegsel_behind_a_comma_post_nominal",
+         "Berg, Jan van, Jr.",
+         {"given": "Jan", "family": "van Berg", "suffix": "Jr."},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="the credential in its own comma segment, which is the "
+               "spelling the no-comma row is defined against -- both "
+               "must read the same, and gating the rule on a two"
+               "-segment name silently reverts this one"),
+    Case("tussenvoegsel_behind_a_title", "Berg, Dr. Jan van",
+         {"title": "Dr.", "given": "Jan", "family": "van Berg"},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="the words-to-spare test asks whether ANY word ahead "
+               "of the run holds a given role, not whether all of "
+               "them do: the title does not, and the rule must still "
+               "fire. decisions.md#P6 calls that guard load-bearing"),
+    Case("tussenvoegsel_takes_the_vietnamese_reading", "Nguyen, Thi Van",
+         {"given": "Thi", "family": "Van Nguyen"},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="the accepted cost, pinned so it cannot move without "
+               "someone deciding to move it: Nguyen Thi Van is "
+               "family-middle-given, so the given name Van is lost "
+               "here. The listing is identical to the Dutch one and "
+               "nothing separates them. The comma-less "
+               "FAMILY_FIRST_GIVEN_LAST spelling reads it correctly -- "
+               "that ONE order, not family-first generally, which #467 "
+               "made load-bearing by giving comma-less FAMILY_FIRST the "
+               "same attachment (there it reads family Van Nguyen too). "
+               "That surviving format is what makes the "
+               "loss acceptable -- see rules.md#P6. Since #405 the "
+               "loss is at least REPORTED: 'Van' is ambiguous "
+               "vocabulary, so the attachment declines a live reading "
+               "as a name word and says so"),
+    Case("tussenvoegsel_report_names_the_reading_overridden",
+         "Berg, Jan do",
+         {"given": "Jan", "family": "do Berg"},
+         classification="fix(#379)",
+         ambiguities=("particle-or-given",),
+         notes="`do` is the third word in BOTH the particle and the "
+               "suffix vocabularies, and it reports the OTHER kind "
+               "from vd and mc. The report names what the attachment "
+               "overrode, not what the word is: `do` sits in the "
+               "AMBIGUOUS acronym half, which already left it a name "
+               "word, so assign never read it as a post-nominal and "
+               "there was no credential reading to decline (#405). A "
+               "rule keyed on 'is also suffix vocabulary' would say "
+               "suffix-or-name here and be wrong for the one word "
+               "that most looks like it should"),
+    Case("tussenvoegsel_multiword_run_reports_on_its_reading",
+         "Berg, Jan de vd",
+         {"given": "Jan", "family": "de vd Berg"},
+         classification="fix(#379)",
+         notes="the same point from the other side: `vd` IS suffix "
+               "vocabulary, but behind `de` the run is read as name "
+               "words rather than as a post-nominal, so nothing was "
+               "declined and nothing is reported -- where the lone "
+               "`Berg, Jan vd` reports suffix-or-name. Neither word "
+               "is ambiguous vocabulary either, so no arm fires. The "
+               "arms turn on the READING assign made, which is the "
+               "only thing that makes them a fork"),
+    Case("tussenvoegsel_never_given_reports_nothing", "Jong, Piet de",
+         {"given": "Piet", "family": "de Jong"},
+         classification="fix(#379)",
+         notes="the reporting boundary (#405): 'de' is never-given "
+               "particle vocabulary and is not suffix vocabulary "
+               "either, so the attachment declines no reading the "
+               "parse could have taken and stays SILENT. A single "
+               "kind covering every attachment would assert "
+               "'particle or given' about a word that is no given "
+               "name in any reading"),
+    Case("tussenvoegsel_needs_a_given_word_to_spare", "Nguyen, Van",
+         {"given": "Van", "family": "Nguyen"},
+         classification="parity",
+         notes="the words-to-spare boundary: the only given word IS "
+               "the particle, so it stays a given name rather than "
+               "leaving the name with none. Vietnamese Van is exactly "
+               "the case that guard protects"),
+    # A family made only of particle vocabulary. Position decides:
+    # nothing joins these words to a name, so they are not acting as
+    # particles and they anchor the base (rules.md#R2, #404).
+    Case("all_particle_family_anchors_its_own_base", "Anh Do",
+         {"given": "Anh", "family": "Do"},
+         classification="parity",
+         ambiguities=("suffix-or-name",),
+         notes="the ROLES are parity -- 1.4.0 gives first 'Anh', last "
+               "'Do' too -- and the views are what #404 moved, which "
+               "this table cannot assert (no initials or base column; "
+               "rules.md#R2/#R3 carry those). Worth recording which "
+               "way: 1.4.0's own _split_last guard kept last_base "
+               "'Do', so the empty family_base was a 2.0 regression "
+               "and this restores it. The initials half was broken in "
+               "both: 'A.' at 1.4.0 and 2.1, 'A. D.' now"),
+    Case("all_particle_family_multi_word", "Juan van der",
+         {"given": "Juan", "family": "van der"},
+         classification="parity",
+         notes="roles are parity again; R3's Accepted block used to "
+               "pin the views the other way, reasoning that 'van der' "
+               "has no borne name to anchor a base. Position trumps "
+               "that -- neither word joins anything here, so both are "
+               "name words. 1.4.0 also gave last_base 'van der'; the "
+               "core's '' was the 2.0 regression"),
+    Case("particle_beside_a_name_still_a_particle", "Juan de la Vega",
+         {"given": "Juan", "family": "de la Vega"},
+         classification="parity",
+         notes="the boundary the row above needs: here the particles "
+               "DO join a name word, so they stay particles -- base "
+               "'Vega', particles 'de la', initials 'J. V.'"),
+    Case("suffix_word_title_ambiguous_particle", "Jr. Van Johnson",
+         {"title": "Jr.", "given": "Van", "family": "Johnson"},
+         classification="fix(#367)",
+         ambiguities=("particle-or-given",),
+         notes="a leading 'Jr.' classifies as a TITLE, not a suffix, "
+               "which is why the transparency scan does not step over "
+               "suffix pieces -- see tests/v2/pipeline/test_group.py::"
+               "test_a_suffix_shaped_leading_piece_is_not_stepped_over. "
+               "1.4.0 gives title 'Jr.', last 'Van Johnson'"),
+    Case("titled_particle_chain_survives_a_title_that_is_also_a_particle",
+         "Freiherr von Richthofen",
+         {"title": "Freiherr", "family": "von Richthofen"},
+         ambiguities=("particle-or-given",),
+         notes="#367's title transparency skips a piece that can ONLY "
+               "be a title, never one that could be the name's own "
+               "first piece. 'freiherr' is both a title and an "
+               "ambiguous particle, so it stops the scan and stays the "
+               "leading NAME piece; 'von' behind it is therefore "
+               "non-leading and chains, exactly as before 2.2. This is "
+               "also the CANONICAL shape reaching group's "
+               "PARTICLE_OR_GIVEN emitter, not the only one -- 'St Van "
+               "Johnson', 'Do St Johnson' and 'Dr. Do van Johnson' "
+               "reach it too, the last with a plain title ahead of the "
+               "both-vocabulary word; see tests/v2/test_parser.py -- "
+               "and the class that a plain "
+               "'first piece that is not a title' test broke: it "
+               "skipped 'St'/'Do'/'Freiherr' and collapsed the "
+               "untitled 'St John Smith' into one given name"),
+    Case("titled_ambiguous_particle_no_op_chain", "St Van Jr.",
+         {"title": "St", "family": "Van", "suffix": "Jr."},
          notes="the piece after the particle is a suffix, so the chain "
                "scan never advances and the merge is a no-op -- nothing "
                "was chained, so there is no fork to report (the emitter "
-               "fired here for all 39 ambiguous particles, and _assign "
-               "double-reported the same token)"),
+               "fired here for all ambiguous particles, and _assign "
+               "double-reported the same token). Spelled with 'St' "
+               "since #296's audit took 'do' out of TITLES; before that "
+               "with 'Do', and before 2.2 with 'Dr.': "
+               "under #367 a plain title is transparent, so 'Dr. Van "
+               "Jr.' leaves Van the leading name piece and the chain "
+               "loop skips it without ever reaching the no-op. 'Do' is "
+               "a title AND a particle, which stops the transparency "
+               "scan, so the chain does fire on Van and the j > k + 1 "
+               "guard is what declines it -- the same reading of the "
+               "name, reached through the branch the row exists to pin. "
+               "Not parity, and not #367's doing either: 1.4.0 reads "
+               "'Do Van Jr.' as first 'Do Van', last 'Jr.', so the "
+               "divergence is 2.0's suffix routing plus 'do' being a "
+               "title -- both older than this row's respelling"
+               " -- and since #410 the one name word left standing "
+               "behind the title reads as the family, the suffix no "
+               "longer counting as something else in the name",
+         classification="fix"),
     Case("initial_shaped_not_conjunction", "john e. smith",
          {"given": "john", "middle": "e.", "family": "smith"},
          notes="v1 is_conjunction excludes initials at classify too"),
@@ -147,6 +561,17 @@ CASES: tuple[Case, ...] = (
          notes="v1 made the lone post-comma strict-suffix piece the "
                "given; 2.0 routes it to suffix (same family as the "
                "'Smith, Dr.' row)"),
+    Case("family_comma_suffix_run_renders_unjoined", "Smith, MD PhD",
+         {"family": "Smith", "suffix": "MD PhD"},
+         classification="fix(comma-family)",
+         notes="a space-separated post-nominal run after a family "
+               "comma RENDERED with a comma the input never had "
+               "('MD, PhD'), because the one-entry join was asked by "
+               "segment index and this segment is not a tail one. The "
+               "full-name 'John Smith, MD PhD' has rendered 'MD PhD' "
+               "since 1.4.0, and #429 brought this form into line with "
+               "it. The roles were already right after #428; this was "
+               "its remaining half"),
     Case("period_joined_ambiguous_chunk", "John Doe, Msc.Ed.",
          {"given": "John", "family": "Doe", "suffix": "Msc.Ed."},
          notes="chunk-level suffix membership is v1's is_suffix: bare "
@@ -280,10 +705,14 @@ CASES: tuple[Case, ...] = (
          notes="suffix-ACRONYM membership alone strips periods (v1 "
                "is_suffix parity)"),
     Case("nickname_rule_counts_whole_segment", "Xyz. (Bud) Smith",
-         {"title": "Xyz.", "given": "Smith", "nickname": "Bud"},
+         {"title": "Xyz.", "family": "Smith", "nickname": "Bud"},
+         classification="fix(#410)",
          notes="v1's lone-piece nickname rule counts the segment "
                "BEFORE title peeling (parser.py:1285, pinned live "
-               "2026-07-17)"),
+               "2026-07-17), which is what this row pins and what "
+               "#410 does not change. The FIELD moved: a nickname is "
+               "not a further name word, so the one name word behind "
+               "the title is the family. 1.4.0 read first 'Smith'"),
     Case("suffix_comma_decided_by_first_segment",
          "Dr. John P. Doe-Ray, CLU, CFP, LUTC",
          {"title": "Dr.", "given": "John", "middle": "P.",
@@ -330,7 +759,7 @@ CASES: tuple[Case, ...] = (
     Case("suffix_delimiter_tail_segment", "Doe, John, RN - CRNA",
          {"given": "John", "family": "Doe", "suffix": "RN, CRNA"},
          policy=_SD,
-         notes="v1 suffix_delimiter parity (#191): the delimiter token "
+         notes="v1 suffix_delimiter parity (#206): the delimiter token "
                "is dropped from consumed tail segments (pinned live "
                "2026-07-16)"),
     Case("suffix_delimiter_detection", "Doe, John RN - CRNA",
@@ -431,6 +860,518 @@ CASES: tuple[Case, ...] = (
          {"given": "Jane", "family": "Smith", "maiden": "Jones"},
          classification="fix(#274)",
          notes="v1 mangles to middle='Smith née'"),
+    Case("phrase_marker_takes_the_maiden_name",
+         "Maria Kowalska z domu Nowak",
+         {"given": "Maria", "family": "Kowalska", "maiden": "Nowak"},
+         classification="fix(#434)",
+         notes="the fork a PHRASE entry opens: a marker matched over "
+               "more than one token. 'z domu' is the first multi-word "
+               "entry any shipped vocabulary set holds, so this is the "
+               "row where the multi-token branch of the lookahead is "
+               "taken at all -- and the row that pins how many tokens "
+               "the take drops. With the marker run forced back to one "
+               "piece this reads maiden 'domu Nowak' (measured "
+               "2026-08-26), which is also what the library's former "
+               "advice produced: the dead-entry warning used to say "
+               "'split it into separate entries', and z plus domu as "
+               "two entries gives exactly that. 1.4.0 read first Maria "
+               "/ middle 'Kowalska z domu' / last Nowak (2026-08-26) "
+               "-- the marker inside the name, its ordinary reading of "
+               "every marker. phrase_marker_partial_is_not_a_marker "
+               "and preposition_alone_is_not_a_marker below are the "
+               "boundaries"),
+    Case("phrase_marker_partial_is_not_a_marker",
+         "Maria Kowalska z Nowak",
+         {"given": "Maria", "middle": "Kowalska z", "family": "Nowak"},
+         notes="the boundary above it: the phrase's first word with "
+               "the second one missing. A lookahead that settled for a "
+               "PREFIX of an entry would find a marker here and read "
+               "family Kowalska, maiden Nowak (measured 2026-08-26 "
+               "with the match relaxed to entries starting with the "
+               "key). Nothing about z is marker-ish on its own -- it "
+               "is an ordinary Polish preposition -- which is the "
+               "whole reason the entry is a phrase. Parity"),
+    Case("preposition_alone_is_not_a_marker", "Anna z Nowak",
+         {"given": "Anna", "middle": "z", "family": "Nowak"},
+         notes="the same boundary with only one name word ahead of "
+               "the preposition, which is where the damage of getting "
+               "it wrong is worst: under the split-entry workaround "
+               "the library used to advise, a bare z IS a marker and "
+               "M2 hands it every word after it, so this name reads "
+               "maiden 'Nowak' with NO family name at all (measured "
+               "2026-08-26). This is the row that would have caught "
+               "that advice. It is also the shape "
+               "diminutive_that_was_a_marker_keeps_the_family pins for "
+               "the roz collision -- a marker entry that is also an "
+               "ordinary word eats the family name, and a phrase entry "
+               "is how that is avoided rather than accepted "
+               "(decisions.md#vocabulary-collisions). Parity"),
+    Case("phrase_marker_split_by_a_clause_is_not_a_marker",
+         "Anna z (domu) Nowak",
+         {"given": "Anna", "middle": "z", "family": "Nowak",
+          "nickname": "domu"},
+         notes="the fork that is about WHERE a run stands rather than "
+               "how it is spelled: the phrase's two words with a "
+               "bracketed clause between them. A marker run is tagged "
+               "over the whole token stream and consumed over one "
+               "SEGMENT, and a segment holds neither -- extract gives "
+               "a clause's tokens a role and segment keeps only the "
+               "role-less ones -- so a run written across a clause "
+               "edge is one the consuming walk cannot see whole. "
+               "Tagged anyway, the walk read the first word as the "
+               "entire marker and this name came back family 'Anna', "
+               "maiden 'Nowak' (measured 2026-08-26): the bare "
+               "preposition eating the name, which is the exact damage "
+               "the phrase entry exists to prevent. classify refuses "
+               "to tag a run that crosses such a boundary, so the "
+               "clause is an ordinary nickname and nothing else moves. "
+               "Parity: 1.4.0 read first Anna / middle z / last Nowak "
+               "/ nickname domu (2026-08-26)"),
+    Case("phrase_marker_split_by_a_clause_keeps_the_family",
+         "Maria z (domu) Kowalska Nowak",
+         {"given": "Maria", "middle": "z Kowalska", "family": "Nowak",
+          "nickname": "domu"},
+         notes="the row above with a family name to lose, and it is "
+               "kept as its own row for the reason "
+               "preposition_alone_is_not_a_marker is: the two fail the "
+               "same mutation and record different damage from it. "
+               "Where that one shuffles fields, this one came back "
+               "family 'Maria', maiden 'Kowalska Nowak' -- the real "
+               "family name inside the maiden value and gone from its "
+               "own field (measured 2026-08-26). Losing a family name "
+               "is the consequence worth pinning, not the shuffle. "
+               "Parity: 1.4.0 read first Maria / middle 'z Kowalska' / "
+               "last Nowak / nickname domu (2026-08-26)"),
+    Case("diminutive_that_was_a_marker_keeps_the_family",
+         "Rosalind Roz Smith",
+         {"given": "Rosalind", "middle": "Roz", "family": "Smith"},
+         notes="'roz', the Czech/Slovak abbreviation, shipped in "
+               "MAIDEN_MARKERS through 2.1 and collided with the "
+               "English diminutive of Rosalind -- matching is "
+               "whole-token, case-folded and period-insensitive, so "
+               "Roz, roz and roz. are one string. This name read "
+               "maiden 'Smith' with NO family name at all (measured on "
+               "the pre-removal tree), because M2 hands the marker "
+               "every word after it. The entry is gone in 2.2, which "
+               "is what this row pins. Nothing to do with the "
+               "delimited path, though M3 would have widened it: "
+               "the defect is M2's and predates #335, and the one-word "
+               "'(Roz)' spelling was never affected since M3 declines "
+               "a lone marker -- but 'Jane Smith (Roz Jones)' reads "
+               "maiden 'Jones' with the entry restored, where 2.1.0 "
+               "read nickname 'Roz Jones' (measured 2026-08-26). "
+               "Parity, and it is "
+               "RESTORED parity rather than untouched -- 1.4.0 has no "
+               "maiden support and read first Rosalind / middle Roz / "
+               "last Smith (2026-08-26), which is where the removal "
+               "puts this name back"),
+    Case("full_participle_marker_still_consumes",
+         "Anna Nováková rozená Svobodová",
+         {"given": "Anna", "family": "Nováková", "maiden": "Svobodová"},
+         classification="fix(#274)",
+         notes="the other half of the roz removal, and the reason it "
+               "was a removal and not a retreat from Czech: the full "
+               "participle rozená stays, being a word no one is "
+               "called. Pinned because deleting a vocabulary entry "
+               "invites deleting its neighbours, and because nothing "
+               "else in the suite reaches this entry: removing "
+               "rozená from MAIDEN_MARKERS fails exactly this row's "
+               "two tests, one per runner, and nothing else (measured "
+               "2026-08-26) -- the position "
+               "maiden_marker_delimited_unaccented holds for 'nee'. "
+               "The cost the removal accepts is the "
+               "abbreviation: 'Anna Nováková roz. Svobodová' now reads "
+               "middle 'Nováková roz.', family 'Svobodová' (measured), "
+               "which is exactly how 1.4.0 read it. 1.4.0 read this "
+               "row middle 'Nováková rozená' / last Svobodová "
+               "(2026-08-26) -- the marker inside the name, the "
+               "ordinary v1 reading of every marker"),
+    Case("maiden_marker_after_particle_chain",
+         "Ursula von der Leyen geb. Albrecht",
+         {"given": "Ursula", "family": "von der Leyen",
+          "maiden": "Albrecht"},
+         classification="fix(#399)",
+         notes="#399: the chain that joins 'von der' to Leyen used to "
+               "run on past the marker and take the maiden name with "
+               "it (family 'von der Leyen geb. Albrecht', maiden ''), "
+               "because the marker is consumed AFTER the chain merges "
+               "and by then there is no lone marker piece left to "
+               "find. A suffix already stopped the chain; a marker now "
+               "does too. The same words one chain apart -- "
+               "maiden_marker_no_particle below is the control"),
+    Case("maiden_marker_no_particle", "Ursula Leyen geb. Albrecht",
+         {"given": "Ursula", "family": "Leyen", "maiden": "Albrecht"},
+         classification="fix(#274)",
+         notes="the control for maiden_marker_after_particle_chain: "
+               "identical but for the particles, and it always worked. "
+               "Pinned so a regression in the plain path cannot hide "
+               "behind the particle rows"),
+    Case("maiden_marker_after_one_particle", "Anna von Müller geb. Schmidt",
+         {"given": "Anna", "family": "von Müller", "maiden": "Schmidt"},
+         classification="fix(#399)",
+         notes="one particle is enough to break it -- #399 is not "
+               "about the length of the run"),
+    Case("maiden_marker_after_leading_particle", "von Müller geb. Schmidt",
+         {"given": "von", "family": "Müller", "maiden": "Schmidt"},
+         classification="fix(#274)",
+         ambiguities=("particle-or-given",),
+         notes="the second control for #399, and the one that shows "
+               "where the old boundary fell: a LEADING particle chains "
+               "nothing (P4), so it never reached the marker and this "
+               "shape always worked. given 'von' is P4 plus P1 "
+               "declining to fold ('von' is outside the never-given "
+               "particles), which is also why the row reports the "
+               "fork -- not R2, whose output here is the family "
+               "('Müller', base 'Müller', particles '')"),
+    Case("maiden_marker_after_leading_particle_run",
+         "von der Müller geb. Schmidt",
+         {"given": "von", "family": "der Müller", "maiden": "Schmidt"},
+         classification="fix(#399)",
+         ambiguities=("particle-or-given",),
+         notes="a leading RUN of two broke where a leading single did "
+               "not: 'der' is not the leading piece, so its own chain "
+               "fired and swallowed the marker. What #399 left alone "
+               "is the given/family SPLIT -- given 'von', family "
+               "starting at 'der' (P4 + R2); the family itself shed "
+               "the marker and the maiden name it had swallowed "
+               "('der Müller geb. Schmidt' -> 'der Müller')"),
+    Case("maiden_marker_after_particle_chain_with_suffix",
+         "Jane van der Berg née Jones PhD",
+         {"given": "Jane", "family": "van der Berg", "maiden": "Jones",
+          "suffix": "PhD"},
+         classification="fix(#399)",
+         notes="marker and suffix in the same name: M2's walk takes "
+               "the maiden name up to the suffix before the chain "
+               "runs, so the chain has nothing to stop at (under #399 "
+               "it stopped at the marker). Dutch spelling of the same "
+               "defect, and 'née' unaccented-vs-accented is not the "
+               "variable here"),
+    Case("maiden_marker_stops_the_leading_run_family_first",
+         "de la Cruz née Vega",
+         {"family": "de la Cruz", "maiden": "Vega"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#399)",
+         notes="#399's open question, answered by the marker being "
+               "consumed before anything can place it rather than by "
+               "a rule of its own: the marker used to "
+               "survive as an ordinary name word and compete for the "
+               "leftover given slot, so this read given 'née' / middle "
+               "'Vega'. Consumed and dropped, it never reaches the "
+               "placement. No given name at all is the right answer "
+               "for family-plus-maiden input"),
+    Case("maiden_marker_leaves_family_all_particles",
+         "Jane de la née Jones",
+         {"given": "Jane", "family": "de la", "maiden": "Jones"},
+         classification="fix(#399)",
+         notes="taking the marker before the chain runs can leave a "
+               "family group that is wholly particles, which is exactly "
+               "the shape R2 "
+               "reserves: they are not in particle position, so they "
+               "report as ordinary words -- family_base 'de la', "
+               "family_particles ''. test_cases pins that split only "
+               "up to the partition invariant (non-empty base, words "
+               "conserved), so base 'la' / particles 'de' would also "
+               "satisfy it. Before #399 this read family 'de la née "
+               "Jones' with base 'née Jones'. Nonsense input either "
+               "way; pinned "
+               "because the two rules have to compose without "
+               "either producing an empty base"),
+    Case("maiden_marker_trailing_after_particles",
+         "Jane van der Berg née",
+         {"given": "Jane", "family": "van der Berg née"},
+         notes="M2's boundary on the particle side. A marker with "
+               "nothing after it is just a word: the consumer declines "
+               "it and the chain takes it like any other word. A chain "
+               "that stopped at it instead left the marker as a piece "
+               "of its own, which then took the whole family field and "
+               "demoted the real surname to the middle (family 'née', "
+               "middle 'van der Berg'). The first cut "
+               "of #399 did exactly that -- the marker-less spelling "
+               "'Jones née' -> family 'née' is M2's own boundary "
+               "example, and the particle spelling has to agree with "
+               "the rest of the family name, not replace it"),
+    Case("maiden_marker_trailing_before_suffix",
+         "Jane van der Berg née PhD",
+         {"given": "Jane", "family": "van der Berg née",
+          "suffix": "PhD"},
+         notes="the other way the consumer declines: it walks only up "
+               "to a trailing suffix, so a marker with nothing but a "
+               "suffix after it is not consumed either, and the chain "
+               "takes it. Pinned "
+               "separately from the row above because the two reach "
+               "the same decision through different conditions -- last "
+               "piece vs nothing-but-suffix-follows -- and #399's chain "
+               "stop, keyed on only one of them, looked correct on the "
+               "other"),
+    Case("maiden_marker_surname_spelling_keeps_its_particles",
+         "Jane van der Nee",
+         {"given": "Jane", "family": "van der Nee"},
+         notes="'Nee' is an attested surname as well as a marker "
+               "spelling, which M1 already says ('a one-word clause "
+               "keeps its word, which may itself be a surname'). "
+               "Because nothing follows it the consumer declines, so a "
+               "Dutch bearer of the surname keeps the tussenvoegsel "
+               "in the family name. Ungated, #399 moved 'van der' out "
+               "to the middle and left family 'Nee'"),
+    Case("maiden_marker_trailing_keeps_the_fork_report",
+         "St St née",
+         {"title": "St", "family": "St née"},
+         ambiguities=("particle-or-given",),
+         notes="'st' is both a title and an ambiguous particle (#367), "
+               "so this shape reaches group's PARTICLE_OR_GIVEN "
+               "emitter, which is guarded on the chain having merged "
+               "something. An ungated marker stop made the chain merge "
+               "nothing for a DIFFERENT reason than the guard assumes, "
+               "silencing the report while still deciding the fork -- "
+               "the shape A1 forbids and #405 closed at P6. Pinned because "
+               "removing a report a caller already sees is worse than "
+               "never emitting one"),
+    Case("maiden_marker_particles_on_both_sides",
+         "Anna von der Müller geb. von der Berg",
+         {"given": "Anna", "family": "von der Müller",
+          "maiden": "von der Berg"},
+         classification="fix(#399)",
+         notes="a particle chain on each side of the marker. This is "
+               "the shape decisions.md#M2 first cited against moving "
+               "the maiden handler ahead of the chain and then "
+               "retracted -- merged and unmerged pieces hand the "
+               "consumer the same words -- and the handler now does "
+               "run ahead (#420); pinned so the claim that the reorder "
+               "cannot disturb it stays checked. Before #399 the marker rode "
+               "into the middle name (middle 'von der Müller geb.')"),
+    Case("maiden_marker_stops_the_leading_run", "de la Cruz née Vega",
+         {"family": "de la Cruz", "maiden": "Vega"},
+         classification="fix(#399)",
+         notes="the default-order reading of the family-first row "
+               "below, added because that one is core-only and the "
+               "facade runner would otherwise never see this class. "
+               "Before #399: family 'de la Cruz née Vega'"),
+    Case("maiden_marker_stops_the_leading_run_family_first_given_last",
+         "de la Cruz née Vega",
+         {"family": "de la Cruz", "maiden": "Vega"},
+         policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+         classification="fix(#399)",
+         notes="the sibling of the family-first row, and the point is "
+               "that the two orders now AGREE: consuming the marker "
+               "leaves no leftover to distribute, so the reading that "
+               "distinguishes them has nothing to work on. Before "
+               "#399 they differed -- given 'Vega' middle 'née' here "
+               "against given 'née' middle 'Vega' under FAMILY_FIRST"),
+    Case("connective_join_never_reaches_a_taken_marker",
+         "Jane van der Berg née y Jones",
+         {"given": "Jane", "family": "van der Berg",
+          "maiden": "y Jones"},
+         classification="fix(#412)",
+         notes="the last of the join-swallows. #399's stop tested for "
+               "a LONE marker piece, and P3's connective join ran "
+               "earlier in the same stage and merged the marker into "
+               "a multi-word piece the stop could not see. The marker "
+               "pass now runs before every join, so there is no piece "
+               "list on which a join can reach a taken marker. The "
+               "maiden name is 'y Jones' by M2's own reading: the "
+               "marker takes the words after it, and a connective is "
+               "one of them"),
+    Case("connective_carveout_counts_the_surviving_name",
+         "juan y garcia nee jones",
+         {"given": "juan", "middle": "y", "family": "garcia",
+          "maiden": "jones"},
+         classification="fix(#418)",
+         notes="P3's three-word carve-out counted the marker and the "
+               "maiden name, so a two-word maiden clause lifted "
+               "'juan y garcia' from three words to five, 'y' joined, "
+               "and when the clause left nothing was behind for the "
+               "family: given 'juan y garcia', family ''. The count "
+               "now sees the name that remains, so the clause changes "
+               "nothing about how the rest of this name reads -- the "
+               "reading is 'juan y garcia' plus a maiden name. "
+               "test_parser.py asserts that over the corpus, and "
+               "since #410 the only names it steps over are those "
+               "that parse to nothing at all"),
+    Case("bound_given_reserve_excludes_a_multi_word_maiden_name",
+         "Abd Berg née Mary Jones",
+         {"given": "Abd", "family": "Berg", "maiden": "Mary Jones"},
+         classification="fix(#411)",
+         notes="the maiden name is TWO pieces, which is what "
+               "distinguishes excluding the span from excluding the "
+               "marker plus one. Capping the exclusion at two pieces "
+               "reproduces #411 exactly -- given 'Abd Berg', family "
+               "'' -- and every other row here has a one-word maiden "
+               "name, so none of them can tell the two apart. A "
+               "particle-led maiden name does NOT serve: P2's chain "
+               "makes 'van der Jones' a single piece"),
+    Case("bound_given_join_sees_only_the_surviving_name",
+         "abd née Jones Jr Smith Berg",
+         {"given": "abd", "middle": "Jr Smith", "family": "Berg",
+          "maiden": "Jones"},
+         classification="fix(#418)",
+         notes="#411's shape, re-pinned twice. The maiden walk stops "
+               "at the inner suffix and takes only 'Jones'; with the "
+               "marker pass ahead of the joins, P5 then sees 'abd Jr "
+               "Smith Berg' and reads it exactly as it reads that "
+               "name written alone. Under #411 the join declined here "
+               "because the piece it would absorb was the marker; "
+               "under #420 the marker was gone before P5 looked and "
+               "the join took the suffix instead, given 'abd Jr'; "
+               "since #421 the join declines a suffix piece as it "
+               "declines a marker, so it takes nothing and 'Jr Smith' "
+               "is the middle name, as for 'John Jr Smith Berg'"),
+    Case("bound_given_join_takes_a_chain_carrying_a_declined_marker",
+         "Abd van der Berg née Jr Jones",
+         {"given": "Abd van der Berg née", "middle": "Jr",
+          "family": "Jones"},
+         classification="fix(#417)",
+         notes="the field-level face of #417. The consumer declines "
+               "(a suffix follows the marker), the particle chain "
+               "takes the declined marker as the word M2 says it is, "
+               "and P5 then joins the bound word to the chain -- a "
+               "name piece like any other. P5's decline is for a "
+               "marker standing as a word of its own, and this one "
+               "is not. Under the #399 stop this read given 'Abd van "
+               "der Berg', middle 'née Jr'. Pinned here because the "
+               "lone-piece reading is the nicer-looking one: a "
+               "marker test widened to match inside a piece would "
+               "give given 'Abd', middle 'van der Berg née Jr' with "
+               "the whole suite otherwise green"),
+    Case("bound_given_join_declines_a_marker_before_only_a_suffix",
+         "Berg, abdul née PhD",
+         {"given": "abdul", "middle": "née", "family": "Berg",
+          "suffix": "PhD"},
+         classification="fix(#411)",
+         notes="a marker the consumer declines is still a piece when "
+               "P5 looks, which is why the join asks about the marker "
+               "directly rather than relying on the marker pass having "
+               "removed it. Nothing but a suffix follows the marker, so "
+               "M2 declines -- yet the join would "
+               "still absorb it, reading given 'abdul née'. The "
+               "marker stays an ordinary word here (M2: with nothing "
+               "after it, it is just a word)"),
+    Case("bound_given_join_declines_leaving_the_suffix_reading",
+         "Berg, abd née Jones",
+         {"family": "Berg", "suffix": "abd", "maiden": "Jones"},
+         classification="fix(#411)",
+         notes="'abd' is the one word in both the bound-given and the "
+               "suffix vocabulary, and P5 says the suffix reading "
+               "wins in the given slot after a family comma. With the "
+               "join declining, that reading is what is left -- so "
+               "the name has no given name at all, matching how "
+               "'Berg, abd' alone has always parsed. Pinned because "
+               "it is the shape where the declining join changes most "
+               "and it reads alarmingly"),
+    Case("bound_given_marker_immediately_after_the_bound_word",
+         "abd née Jones",
+         {"given": "abd", "maiden": "Jones"},
+         classification="fix(#411)",
+         notes="the shortest form of the same decision: the very next "
+               "piece is the marker. It is also M4's boundary on the "
+               "vocabulary side, and a corpus name rather than a "
+               "constructed one: 'abd' is a bound given-name word, so "
+               "the vocabulary layer has claimed it as a GIVEN name "
+               "and M4 -- which changes only the positional default "
+               "-- does not reach it (mechanisms.md#TWO-LAYER-ASSIGN). "
+               "Dropping that carve-out reads family 'abd'. The empty "
+               "family is what M4 leaves standing here, not a "
+               "leftover of the join, and not M2's ordinary "
+               "one-name-word behaviour either -- since #445 'Smith "
+               "née Jones' reads family 'Smith', and this row is why "
+               "'abd née Jones' does not"),
+    Case("bound_given_reserve_arabic_script",
+         "عبد Berg née Jones",
+         {"given": "عبد", "family": "Berg", "maiden": "Jones"},
+         classification="fix(#411)",
+         notes="the Arabic-script bound word, in the vocabulary since "
+               "2.0, pinned so the reserve change reaches it too. "
+               "Script segmentation is NOT the point and does not "
+               "fire: the segments and the effective script are the "
+               "same as for the Latin row, so what this adds is "
+               "vocabulary coverage, not a second code path"),
+    Case("bound_given_join_no_longer_swallows_a_marker",
+         "van der Berg, abdul née Jones",
+         {"given": "abdul", "family": "van der Berg",
+          "maiden": "Jones"},
+         classification="fix(#411)",
+         notes="was the second of #412's two join-swallows and is now "
+               "fixed as a side effect of #411, which is why the row "
+               "is renamed rather than deleted. P5's join used to "
+               "merge 'abdul' with the marker before M2's bound could "
+               "see a lone marker piece. #411 made the join decline by "
+               "counting the reserve without the words the maiden name "
+               "takes; since #420 the marker pass takes 'née Jones' "
+               "before P5 looks, leaving 'abdul' alone with nothing to "
+               "join. P3's connective join was the "
+               "last to go, under #412 -- "
+               "connective_join_never_reaches_a_taken_marker"),
+    Case("maiden_marker_ahead_of_a_conjunction",
+         "Jane née and Jones Smith",
+         {"family": "Jane", "maiden": "and Jones Smith"},
+         classification="fix(#445)",
+         notes="M2's greedy reading, with a connective among the "
+               "words taken: the same as 'Jane née Jones Smith' with "
+               "'and' inside it -- which is why M4 reads it the same "
+               "way too, the take leaving one name word either way "
+               "(the family was empty here until #445; 1.4.0 read "
+               "first 'Jane' / middle 'née and Jones' / last 'Smith', "
+               "measured 2026-08-27). Until #412 closed, P3's join ran "
+               "first and produced a marker-HEADED piece 'née and "
+               "Jones' that the lone-piece test could not see, so the "
+               "name read middle 'née and Jones', family 'Smith'. "
+               "The lone-piece test stays as M2's own wording "
+               "('standing as a word of its own'), but with the pass "
+               "ahead of the joins no default-vocabulary input reaches "
+               "a marker-headed piece any more, so nothing pins its "
+               "`len(piece) == 1` half: kept as definition, not as a "
+               "guard -- the comment at _is_maiden_marker_piece "
+               "records the measurement"),
+    Case("maiden_marker_after_particles_in_a_comma_segment",
+         "Smith, Jane van der Berg née Jones",
+         {"given": "Jane", "middle": "van der Berg",
+          "family": "Smith", "maiden": "Jones"},
+         classification="fix(#399)",
+         notes="the listing form, where the chain and the marker are "
+               "both on the given side of the comma. Before #399 the "
+               "marker and the maiden name stayed in the middle name "
+               "('van der Berg née Jones'). Distinct from M2's "
+               "remaining Accepted note, which is about a marker "
+               "standing straight AFTER the comma"),
+    Case("bound_given_reserve_excludes_the_maiden_name",
+         "Abd Berg née Jones",
+         {"given": "Abd", "family": "Berg", "maiden": "Jones"},
+         classification="fix(#411)",
+         notes="#411: P5 reserves a name word so the join always "
+               "leaves a family name behind, but until #420 the "
+               "reserve was counted while the marker and the maiden "
+               "name were still pieces, the marker pass running after "
+               "the join. Four words counted, the join fired, and when "
+               "the two departed nothing was left for the family: given "
+               "'Abd Berg', family ''. The pass now runs first, so the "
+               "reserve sees the two-word name P5 says must not join"),
+    Case("bound_given_reserve_excludes_the_maiden_name_with_particles",
+         "Abd van der Berg née Jones",
+         {"given": "Abd", "family": "van der Berg", "maiden": "Jones"},
+         classification="fix(#411)",
+         notes="the particle spelling of the row above, which is how "
+               "#411 was found -- #399's chain stop put this shape in "
+               "front of the reserve for the first time. The chain "
+               "makes 'van der Berg' ONE piece, so the count is the "
+               "same three-versus-two question"),
+    Case("bound_given_reserve_still_joins_with_a_word_to_spare",
+         "Abd Allah Smith née Jones",
+         {"given": "Abd Allah", "family": "Smith", "maiden": "Jones"},
+         classification="fix(#400)",
+         notes="the control: one more name word, so the join has its "
+               "word to spare even after the maiden name leaves, and "
+               "fires exactly as it does without a maiden clause. "
+               "Unchanged by #411 -- pinned so the fix cannot be "
+               "mistaken for switching the join off near a marker"),
+    Case("bound_given_reserve_maiden_and_suffix",
+         "Abd Berg née Jones PhD",
+         {"given": "Abd", "family": "Berg", "maiden": "Jones",
+          "suffix": "PhD"},
+         classification="fix(#411)",
+         notes="the marker walk stops at a trailing suffix, so the "
+               "excluded span is the marker plus 'Jones' and not the "
+               "suffix -- which the reserve already discounted. Two "
+               "different reasons for a piece not to count, on one "
+               "name"),
     Case("maiden_marker_kyusei", "山田花子 旧姓 佐藤",
          {"family": "山田花子", "maiden": "佐藤"},
          classification="fix(#309)",
@@ -482,7 +1423,15 @@ CASES: tuple[Case, ...] = (
                "nickname_delimiters.pop('parenthesis'), it gave first "
                "Jane / last Smith / maiden 'née Jones' -- same name "
                "fields, marker still inside the value, which is the "
-               "single field this change moves"),
+               "single field this change moves. Since #335 the same "
+               "input reads identically with NO policy at all "
+               "(maiden_marked_clause_reads_maiden_by_default below), "
+               "which does not make this row redundant: the pair "
+               "sitting in the maiden bucket settles the role before "
+               "M3 is consulted, so this row exercises M1's path and "
+               "that one exercises M3's. Rewriting it to drop the "
+               "policy would delete the configured path's coverage "
+               "rather than move it"),
     Case("maiden_marker_delimited_unaccented", "Jane Smith (nee Jones)",
          {"given": "Jane", "family": "Smith", "maiden": "Jones"},
          policy=Policy(maiden_delimiters=frozenset({("(", ")")})),
@@ -501,6 +1450,293 @@ CASES: tuple[Case, ...] = (
                "maiden 'nee Jones' (2026-08-03) -- the same diff the "
                "accented row records, which is the point: the two "
                "spellings behave alike on both sides"),
+    Case("maiden_marked_clause_reads_maiden_by_default",
+         "Jane Smith (née Jones)",
+         {"given": "Jane", "family": "Smith", "maiden": "Jones"},
+         classification="fix(#335)",
+         notes="rules.md#M3 -- the clause says 'maiden' out loud, so the "
+               "pair enclosing it does not have to be configured. "
+               "maiden_marker_delimited above is the same input under "
+               "Policy(maiden_delimiters=...) and reads identically -- "
+               "what M3 adds is the DEFAULT reading, where 1.4.0 and "
+               "2.1 alike gave nickname 'née Jones'"),
+    Case("phrase_marker_delimited_clause",
+         "Maria Kowalska (z domu Nowak)",
+         {"given": "Maria", "family": "Kowalska", "maiden": "Nowak"},
+         classification="fix(#434)",
+         notes="the phrase fork at the OTHER drop site. M3 reads the "
+               "clause and #329's clause pass drops the marker from "
+               "inside it, and that pass counts tokens of its own -- "
+               "phrase_marker_takes_the_maiden_name above exercises "
+               "M2's pieces walk instead, so a count that stayed at "
+               "one token in either place is caught by exactly one of "
+               "the two rows (measured 2026-08-26: forcing the clause "
+               "pass back to a single token moves this row to maiden "
+               "'domu Nowak' and leaves the bare row alone, and "
+               "forcing the pieces walk back does the mirror). 1.4.0 "
+               "read first Maria / last Kowalska / nickname 'z domu "
+               "Nowak' (2026-08-26), the clause a nickname because "
+               "nothing looked inside it"),
+    Case("phrase_marker_delimited_alone_stays_a_nickname",
+         "Maria Kowalska (z domu)",
+         {"given": "Maria", "family": "Kowalska", "nickname": "z domu"},
+         notes="M3's word-after condition, asked of a PHRASE: the word "
+               "must come after the whole marker run, not after the "
+               "clause's first word. "
+               "maiden_marked_clause_one_word_stays_a_nickname holds "
+               "the same boundary for a one-word marker, and cannot "
+               "reach this one -- a condition written as 'more than "
+               "one word in the clause' satisfies that row and turns "
+               "this clause into a maiden one. What it produces is "
+               "maiden 'z domu' (measured 2026-08-26): the same two "
+               "words, in the other field, which is the whole of what "
+               "M3 decides here. The VALUE does not move, because the "
+               "#329 drop is a separate site and declines for its own "
+               "reason -- there is no word past the run inside the "
+               "clause -- so this row catches the mutation on the "
+               "field alone. Parity: 1.4.0 read nickname 'z domu'"),
+    Case("phrase_marker_delimited_alone_keeps_its_words",
+         "Maria Kowalska (z domu)",
+         {"given": "Maria", "family": "Kowalska", "maiden": "z domu"},
+         policy=Policy(maiden_delimiters=frozenset({("(", ")")})),
+         notes="the same string as "
+               "phrase_marker_delimited_alone_stays_a_nickname above, "
+               "under the pair M1 governs, and it reaches a branch "
+               "that row cannot: with the pair configured the clause "
+               "IS the maiden name, so the #329 drop runs and has to "
+               "decide whether a word stands past the marker. It does "
+               "not -- both words ARE the marker -- so M1's carve-out "
+               "keeps them, which is what the value shows. That "
+               "containment test spans the whole marker run, and "
+               "reading it one token in instead deletes this clause's "
+               "text: the marker is dropped and nothing is left. "
+               "Measured 2026-08-26, that mutation fails exactly one "
+               "test in the suite, M1's own doc example -- which is a "
+               "doc, edited by the commit that changes behavior, so "
+               "the pin belongs here too (the argument "
+               "build_rules_corpus.py makes for the rules corpus, one "
+               "layer down). Deleting the guard OUTRIGHT is caught by "
+               "the one-word rows instead -- "
+               "maiden_marker_delimited_two_clauses and M1's (Nee) "
+               "examples -- so this row is the phrase half of the "
+               "branch and not the branch. Parity: 1.4.0 under the "
+               "bucket-move idiom read first Maria / last Kowalska / "
+               "maiden 'z domu' (2026-08-26)"),
+    Case("maiden_marked_clause_interior_keeps_the_family",
+         "Jane (née Jones) Smith",
+         {"given": "Jane", "family": "Smith", "maiden": "Jones"},
+         classification="fix(#335)",
+         notes="the row that decides the MECHANISM. Extracting the "
+               "clause as a Role.MAIDEN region keeps the closing "
+               "delimiter as the maiden name's right boundary; masking "
+               "the delimiters and letting M2's bare-marker rule "
+               "consume the content instead would read maiden 'Jones "
+               "Smith' with an empty family, because M2's take runs to "
+               "the end of the name. The parens say where it stops"),
+    Case("maiden_marked_clause_one_word_stays_a_nickname",
+         "Jane Smith (née)",
+         {"given": "Jane", "family": "Smith", "nickname": "née"},
+         notes="M3's boundary: a marker with no word after it is not a "
+               "maiden clause. Without this condition the default "
+               "reading of a lone parenthesized marker would flip to "
+               "maiden 'née', and M1's own (Nee) boundary -- a "
+               "one-word clause keeps its word, which may be the "
+               "surname Nee -- would be contradicted on the "
+               "unconfigured path. Parity: 1.4.0 read nickname 'née'"),
+    Case("markerless_parenthesized_clause_stays_a_nickname",
+         "Cherice J. (Mary Johnson) Williams",
+         {"given": "Cherice", "middle": "J.", "family": "Williams",
+          "nickname": "Mary Johnson"},
+         notes="M3's other boundary, and the reason the maiden "
+               "delimiters remain worth configuring: the parenthesized "
+               "birth surname without a marker is a real US convention "
+               "-- 'Cherice J. (Johnson) Williams' is the corpus name "
+               "(corpus_issues.jsonl) -- but nothing in the clause "
+               "says 'maiden', so it stays a nickname by default. Only "
+               "a caller who knows their data can say otherwise, which "
+               "is what Policy(maiden_delimiters=...) is for. The "
+               "clause is TWO words here, and that is the whole point "
+               "of the row: M3 tests the clause length before it tests "
+               "the vocabulary, so the corpus spelling's one-word "
+               "clause is refused by the length condition and never "
+               "reaches the vocabulary one -- it would duplicate "
+               "maiden_marked_clause_one_word_stays_a_nickname rather "
+               "than fence the other condition. Measured 2026-08-26: "
+               "with the vocabulary test dropped this reads maiden "
+               "'Mary Johnson' -- the WHOLE clause, because #329's "
+               "drop is gated on the first token carrying "
+               "vocab:maiden-marker and 'Mary' does not, so nothing is "
+               "dropped -- and with the vocabulary test in place the "
+               "one-word spelling reads nickname either way. Parity: "
+               "1.4.0 and 2.1.0 both read nickname 'Mary Johnson'"),
+    Case("markerless_one_word_clause_stays_a_nickname",
+         "Cherice J. (Johnson) Williams",
+         {"given": "Cherice", "middle": "J.", "family": "Williams",
+          "nickname": "Johnson"},
+         notes="the corpus spelling (corpus_issues.jsonl) of the row "
+               "above, kept beside it rather than replaced by it. It "
+               "reaches M3's length condition and stops there, so it "
+               "cannot fence the vocabulary one -- which is why the "
+               "row above widens the clause to two words -- but it is "
+               "the name real US data actually carries, and a row for "
+               "the corpus name is worth its two lines. Parity"),
+    Case("maiden_marker_not_first_stays_a_nickname",
+         "Jane Smith (Jones née)",
+         {"given": "Jane", "family": "Smith", "nickname": "Jones née"},
+         notes="the OPENS-WITH half of M3, which nothing else reaches: "
+               "a marker inside the clause but not first leaves the "
+               "clause a nickname. Measured 2026-08-26, widening the "
+               "predicate from the first word to any word left the "
+               "whole suite green and all three gates at 0 unexplained "
+               "-- this row is what closes that. The bracketed twin of "
+               "maiden_marker_delimited_trailing_marker, which pins the "
+               "same asymmetry one layer down, inside a clause already "
+               "routed to maiden by policy: no marker the shipped "
+               "vocabulary carries is written after the name it marks. "
+               "Parity: 1.4.0 and 2.1.0 both read nickname 'Jones née'"),
+    Case("marker_led_clause_with_one_name_word",
+         "Smith (née Jones)",
+         {"family": "Smith", "maiden": "Jones"},
+         classification="fix(#445)",
+         notes="N3's shape meeting M3, and the row exists because the "
+               "two rules disagree about what a clause is. N3 reads a "
+               "name that is only a nickname plus one name word as "
+               "'that word is the family name' -- but a marker-led "
+               "clause is not a nickname clause, so N3 never sees this "
+               "one, and until #445 the word kept the given-name "
+               "reading the bare spelling gives it. M4 now reaches "
+               "both spellings from the other side: the marker "
+               "announces a FORMER surname, so the one name word left "
+               "beside it is the current one. The bracketed spelling "
+               "RESTORES the family EVERY released version read: "
+               "1.4.0, 2.0.0 and 2.1.0 all read this name family "
+               "'Smith', nickname 'née Jones' (measured on the wheels "
+               "2026-08-27), so the clause reading maiden rather than "
+               "nickname is #335's half and the only thing left that "
+               "differs -- at all three baselines alike. Be exact "
+               "about which spelling read `given`, because a ledger "
+               "took the loose wording this note used to carry and "
+               "narrowed one baseline where three needed it: the BARE "
+               "spelling is what read given 'Smith' on 2.0.0, on "
+               "2.1.0 and here until this rule (1.4.0 read it first "
+               "'Smith' / middle 'née' / last 'Jones'). The bracketed "
+               "spelling this row holds never read `given` on any "
+               "released version"),
+    Case("maiden_marker_makes_the_lone_name_word_the_family",
+         "Smith née Jones",
+         {"family": "Smith", "maiden": "Jones"},
+         classification="fix(#445)",
+         notes="the rule, in its bare spelling: a maiden marker marks "
+               "a surname the bearer no longer uses, so it only means "
+               "anything beside one they do. With exactly one name "
+               "word left after the take, that word is the current "
+               "surname, and the positional convention O5 would "
+               "otherwise apply (a lone name word is read given) is "
+               "the thing M4 overrides. Read given 'Smith', family '' "
+               "on 2.0.0 and 2.1.0; 1.4.0 had no maiden support and "
+               "read first 'Smith' / middle 'née' / last 'Jones' "
+               "(measured 2026-08-27), so this is a new reading and "
+               "not a restoration -- the bracketed sibling "
+               "marker_led_clause_with_one_name_word is the "
+               "restoration"),
+    Case("maiden_marker_interior_makes_the_lone_name_word_the_family",
+         "Jane née Jones Smith",
+         {"family": "Jane", "maiden": "Jones Smith"},
+         classification="fix(#445)",
+         notes="the marker standing INSIDE the name, where M2's take "
+               "runs to the end and swallows the rest -- so what is "
+               "left is again one name word, and M4 counts what is "
+               "left rather than where the marker stood. The widest "
+               "half of the rule and the row that pins it: a guard "
+               "that asked for the marker to be trailing would leave "
+               "this one given 'Jane'. A new reading, and the one "
+               "furthest from 1.4.0, which read first 'Jane' / middle "
+               "'née Jones' / last 'Smith' (measured 2026-08-27) -- "
+               "the real surname there is 'Smith', which 2.x reads as "
+               "part of the maiden name (M2's greedy take, unchanged "
+               "here)"),
+    Case("maiden_marker_lone_name_word_with_suffix",
+         "Smith née Jones PhD",
+         {"family": "Smith", "suffix": "PhD", "maiden": "Jones"},
+         classification="fix(#445)",
+         notes="an annotation is not a name word, which is what #410 "
+               "established for H1 and M4 inherits: the credential "
+               "stands beside the name and does not make it any "
+               "longer, so the count that decides this reading is "
+               "one either way. A guard written over roles generally "
+               "rather than the three name roles reads this name as "
+               "two words and declines. 1.4.0 read first 'Smith' / "
+               "middle 'née' / last 'Jones' / suffix 'PhD' (measured "
+               "2026-08-27)"),
+    Case("maiden_marked_lone_initial_stays_given",
+         "J. née Jones Smith V",
+         {"given": "J.", "maiden": "Jones Smith V"},
+         classification="fix(#274)",
+         notes="M4's boundary on the shape side, and a corpus name "
+               "rather than a constructed one: an initial is not a "
+               "family name, so the word the vocabulary layer has "
+               "already claimed as a shape keeps its reading "
+               "(mechanisms.md#TWO-LAYER-ASSIGN -- M4 changes the "
+               "POSITIONAL default and must not reach a word another "
+               "layer has claimed). Dropping the carve-out reads "
+               "family 'J.'. Unchanged by #445, and the maiden value "
+               "is M2's: the trailing 'V' is S2's suffix reading only "
+               "where a name word precedes it, and an initial does "
+               "not count, so the numeral stays maiden text (M2 "
+               "carries the same input as a boundary example). The "
+               "fix classification is #274's marker consumption, "
+               "which is what makes this differ from 1.4.0 (first "
+               "'J.' / middle 'née Jones' / last 'Smith' / suffix "
+               "'V', measured 2026-08-27)"),
+    Case("marker_led_clause_in_a_quote_pair",
+         'Jane Smith "née Jones"',
+         {"given": "Jane", "family": "Smith", "maiden": "Jones"},
+         classification="fix(#335)",
+         notes="M3 is keyed on the CONTENT, not on which pair matched, "
+               "and this is the row that says so in the commonest "
+               "spelling: a quote pair is how nicknames are usually "
+               "written, and the same clause inside one reads maiden "
+               "exactly as it does inside parentheses. Three of the "
+               "eleven shipped nickname pairs are exercised by a "
+               "marker-led clause anywhere in the suite -- this one, "
+               "the parenthesis, and the fullwidth pair below -- and "
+               "the other EIGHT have no row. Measured 2026-08-26 by "
+               "disabling the swap one pair at a time: those three "
+               "redden and the eight do not. That is a count over a "
+               "wordlist, so read it the way "
+               "mechanisms.md#VOCABULARY-EXERCISES-FORKS says to: the "
+               "eight are not eight gaps, since the pairs fork on "
+               "whether open and close are the same character and on "
+               "the apostrophe carve-out inside that, not on which "
+               "pair. This row is here because a quote pair is the "
+               "same-character branch, and because the release note "
+               "advertises the spelling. 1.4.0 and 2.1.0 both read "
+               "nickname 'née Jones'"),
+    Case("maiden_marked_clause_takes_the_suffix_reading_from_s1",
+         "Jane Smith (née Jr.)",
+         {"given": "Jane", "middle": "Smith", "family": "née",
+          "suffix": "Jr."},
+         notes="S1 takes a suffix-shaped clause before M3 is "
+               "consulted, and the whole reading is here because the "
+               "surprising part is not the suffix: it is that the "
+               "MARKER becomes the family name. S1 drops the brackets "
+               "and lets the content read as if written bare, and "
+               "bare 'Jane Smith née Jr.' has no name word after the "
+               "marker for M2 to take, so 'née' stays an ordinary "
+               "word and lands in the family. rules.md#M3 carries the "
+               "same input as an example line, but the runner checks "
+               "one field per line; this row is the other three. "
+               "Parity, and unchanged by #335 -- 1.4.0 and 2.1.0 read "
+               "it the same way, which is why the corpus row it added "
+               "diffs against no baseline"),
+    Case("maiden_marked_clause_beside_a_nickname",
+         'Jane "Janey" Smith (née Jones)',
+         {"given": "Jane", "family": "Smith", "nickname": "Janey",
+          "maiden": "Jones"},
+         classification="fix(#335)",
+         notes="two clauses, two roles. Through 2.1 both were "
+               "nicknames and the facade joined them into one value, "
+               "'Janey née Jones' -- the merged-nickname half of #335"),
     Case("maiden_marker_delimited_unmarked_content",
          "Jane Smith (Mary Jones)",
          {"given": "Jane", "family": "Smith", "maiden": "Mary Jones"},
@@ -559,19 +1795,27 @@ CASES: tuple[Case, ...] = (
                "Smith / maiden 'Jones née'"),
     Case("maiden_marker_delimited_beside_a_nickname_clause",
          'Jane "née Janie" Smith {née Jones}',
-         {"given": "Jane", "family": "Smith", "nickname": "née Janie",
-          "maiden": "Jones"},
+         {"given": "Jane", "family": "Smith", "maiden": "Janie Jones"},
          policy=Policy(maiden_delimiters=frozenset({("{", "}")})),
-         classification="fix(#329)",
-         notes="the pass is scoped to MAIDEN clauses, and this is the "
-               "row that says so: two extracted clauses, both opening "
-               "with a marker word, and only the maiden one loses it. "
-               "Braces route to maiden here precisely so the default "
-               "nickname set survives untouched -- the parenthesis "
-               "rows above cannot show this, since Policy's "
-               "maiden-wins canonicalization would take ( ) away from "
-               "nickname. Without the role filter the nickname reads "
-               "'Janie'. 1.4.0 cannot express a brace delimiter at "
+         classification="fix(#335)",
+         notes="#335 took this row's job away, and the row is kept to "
+               "record that. It was the pin for the #329 drop pass "
+               "being scoped to MAIDEN clauses -- two extracted "
+               "clauses, both opening with a marker word, only the "
+               "maiden one losing it, nickname 'née Janie' and maiden "
+               "'Jones'. M3 now reads the QUOTED clause as maiden too, "
+               "since it is marker-led like the braced one and M3 is "
+               "keyed on content rather than on which pair matched, so "
+               "there is no nickname left to contrast: both clauses "
+               "are maiden and M1's independence rule joins them into "
+               "one value. The role filter it used to discriminate "
+               "(the 'role is not Role.MAIDEN' branch of "
+               "_group.group's drop pass) is still reachable and "
+               "still pinned -- "
+               "that job moved to "
+               "marker_glued_to_punctuation_keeps_the_clause_a_nickname "
+               "below, which reaches a marker-led clause M3 declines. "
+               "1.4.0 cannot express a brace delimiter at "
                "all (its buckets hold the NAMES of compiled regexes "
                "and there is no brace one; measured 2026-08-03, "
                "maiden_delimiters['brace'] = ('{', '}') is accepted "
@@ -581,8 +1825,39 @@ CASES: tuple[Case, ...] = (
                "first Jane / middle 'Smith {née' / last 'Jones}' / "
                "nickname 'née Janie' -- braces as name text, the same "
                "convention maiden_marker_kyusei_delimited uses for a "
-               "knob with no v1 spelling. The nickname agreed even "
-               "there"),
+               "knob with no v1 spelling (re-measured 2026-08-26, "
+               "unchanged)"),
+    Case("marker_glued_to_punctuation_keeps_the_clause_a_nickname",
+         'Jane "née, Janie" Smith (née Jones)',
+         {"given": "Jane", "family": "Smith", "nickname": "née Janie",
+          "maiden": "Jones"},
+         classification="fix(#335)",
+         notes="M3 and the #329 drop pass ask the marker question of "
+               "different things, and this row is where the two "
+               "answers differ. M3 splits the clause on WHITESPACE and "
+               "normalizes the first word: 'née,' normalizes to "
+               "'née,' -- _normalize strips a trailing period but not "
+               "a comma -- so M3 declines and the quoted clause stays "
+               "a nickname. tokenize splits the comma off as a "
+               "separator, so the clause's first TOKEN is 'née' and "
+               "carries vocab:maiden-marker, which is exactly what "
+               "the 'role is not Role.MAIDEN' branch of "
+               "_group.group's drop pass exists to refuse. Measured 2026-08-26: with that "
+               "branch removed this reads nickname 'Janie', the "
+               "marker dropped out of a nickname. BOTH clauses are "
+               "load-bearing -- the drop pass is gated on the name "
+               "holding a MAIDEN region at all, so the same quoted "
+               "clause alone ('Jane \"née, Janie\" Smith') leaves the "
+               "branch unexercised, removing it measurably changes "
+               "nothing there. The paren clause is what opens the "
+               "block, and M3 is what makes it maiden. The comma is "
+               "absent from the nickname VALUE because tokenize "
+               "treats COMMA_CHARS as a separator inside every region "
+               "including an extracted one, which predates #335 and "
+               "is not part of it. 1.4.0 gave first Jane / last Smith "
+               "/ nickname 'née, Janie née Jones' (2026-08-26) -- "
+               "comma kept, both clauses merged into the one field, "
+               "which is the merged-nickname half of #335"),
     Case("maiden_marker_delimited_two_clauses",
          "Jane Smith (Nee) (Jones)",
          {"given": "Jane", "family": "Smith", "maiden": "Nee Jones"},
@@ -685,10 +1960,46 @@ CASES: tuple[Case, ...] = (
                "ko_honorific_period_under_strict_comma_suffixes uses "
                "for a knob with no v1 spelling. That reading is also "
                "what the differential harness sees, since it runs the "
-               "corpus under the DEFAULT policy where （） is a #273 "
-               "NICKNAME delimiter and nothing in #329 is reachable; "
-               "the diff is classified there under "
-               "fix(cjk-fullwidth-paren-nickname)"),
+               "corpus under the DEFAULT policy. What the harness does "
+               "with it changed in 2.2: through 2.1 the （） pair was a "
+               "#273 NICKNAME delimiter and nothing in #329 was "
+               "reachable, so the diff classified under "
+               "fix(cjk-fullwidth-paren-nickname). Since #335 the marker "
+               "inside the clause is enough on its own, so this name "
+               "reads maiden under the default policy too -- see "
+               "maiden_marked_fullwidth_clause_by_default below -- and "
+               "the diff classifies under fix(#335) at 2.1.0 and 2.0.0 "
+               "while at 1.4.0 it moved to fix(cjk-maiden-marker), "
+               "leaving the fullwidth-paren rule dormant in that ledger. "
+               "This row keeps its policy because M1 still governs a "
+               "configured pair and settles the role before M3 is "
+               "consulted"),
+    Case("maiden_marked_fullwidth_clause_by_default",
+         "山田 花子（旧姓 佐藤）",
+         {"given": "花子", "family": "山田", "maiden": "佐藤"},
+         classification="feat(#273) + fix(#271) + fix(#335)",
+         notes="the row above without its policy, and the one "
+               "that fences M3 across the delimiter SET rather "
+               "than at the parenthesis. Measured 2026-08-26 by "
+               "gating the swap to '(' and the double quote: this row "
+               "and its facade twin are the only two failures in the "
+               "suite, and of the gates only 1.4.0 and 2.0.0 redden "
+               "-- 2.1.0 stays green with its fix(#335) rule quietly "
+               "falling from six names to five, while the 2.0.0 "
+               "ledger catches it on the four-field rule it gives "
+               "this name. The fullwidth pair is the "
+               "one the maiden_markers docstring and the 2.2 "
+               "release note both advertise as newly working "
+               "without configuration, so it is the one that "
+               "most needs a row. Three changes compound in the "
+               "classification: #273 taught the parser the "
+               "fullwidth pair, #271 gives the wholly-Han "
+               "remainder its family-first reading, and #335 "
+               "makes the marker inside the clause enough on its "
+               "own. 1.4.0 read first 山田 / middle '花子（旧姓' / "
+               "last '佐藤）' with the brackets as name text; "
+               "2.1.0 read given 花子 / family 山田 / nickname "
+               "'旧姓 佐藤' (both measured 2026-08-26)"),
     Case("east_slavic", "Сидоров Иван Петрович",
          {"given": "Иван", "middle": "Петрович", "family": "Сидоров"},
          policy=_ES),
@@ -707,7 +2018,7 @@ CASES: tuple[Case, ...] = (
          {"given": "Иван", "family": "Петров"},
          locale="ru",
          notes="a comma is an explicit signal that suppresses the "
-               "rotation (spec §1)"),
+               "rotation (rule O1)"),
     Case("tr_az_pack_marker", "Mammadova Aygun Ali kizi",
          {"given": "Aygun", "middle": "Ali kizi", "family": "Mammadova"},
          locale="tr_az",
@@ -732,10 +2043,29 @@ CASES: tuple[Case, ...] = (
     Case("phd_split_mid_name", "Dr. John Ph. D. Smith",
          {"title": "Dr.", "given": "John", "family": "Smith",
           "suffix": "Ph. D."}),
+    Case("phd_split_leading_van_johnson", "Ph. D. Van Johnson",
+         {"title": "Ph.", "given": "D.", "family": "Van Johnson"},
+         classification="parity",
+         notes="#371's own subject: the leading pair read given "
+               "'Van Johnson' with an EMPTY family until the merge "
+               "learned to decline at the head of the input. A Case "
+               "row rather than a rules.md line because the empty "
+               "fields are the symptom -- test_case asserts the whole "
+               "dict, so `suffix` and `middle` being empty is pinned "
+               "here and nowhere else"),
+    Case("phd_split_leading_bare", "Ph. D.",
+         {"title": "Ph.", "family": "D."},
+         classification="parity",
+         notes="a bare credential yields a family name, which is "
+               "surprising and is 1.4.0's reading exactly. Pinned "
+               "because nothing else in the suite says so -- the "
+               "ledger reaches it, and the ledger is an out-of-band "
+               "tool run"),
     Case("phd_split_leading", "Ph. D. John Smith",
-         {"given": "John", "family": "Smith", "suffix": "Ph. D."},
-         classification="fix",
-         notes="v1 healed 'Ph.'+'D.' only when trailing; leading it "
+         {"title": "Ph.", "given": "D.", "middle": "John",
+          "family": "Smith"},
+         classification="parity",
+         notes="v1's fix_phd regex required a preceding space, so it "
                "split them (title 'Ph.', given 'D.', real given name "
                "pushed to middle). Surfaced by the issue-tracker "
                "corpus, which is where this shape existed at all."),
@@ -746,7 +2076,7 @@ CASES: tuple[Case, ...] = (
     Case("unbalanced_quote", 'Jon "Nick Smith',
          {"given": "Jon", "middle": '"Nick', "family": "Smith"},
          ambiguities=("unbalanced-delimiter",),
-         notes="quote char stays literal (spec §5a)"),
+         notes="quote char stays literal (rule N2)"),
     Case("suffix_stays_suffix", "Johnson PhD",
          {"given": "Johnson", "suffix": "PhD"},
          classification="fix(suffix-routing)",
@@ -754,15 +2084,482 @@ CASES: tuple[Case, ...] = (
                "(first=Johnson last=PhD); v2 keeps recognized "
                "suffixes in suffix"),
     Case("suffix_stays_suffix_title", "Mr. Johnson PhD",
-         {"title": "Mr.", "given": "Johnson", "suffix": "PhD"},
-         classification="fix(suffix-routing)",
-         notes="v1 routes a lone trailing suffix to family "
-               "(title=Mr. first=Johnson last=PhD); v2 keeps "
-               "recognized suffixes in suffix"),
+         {"title": "Mr.", "family": "Johnson", "suffix": "PhD"},
+         classification="fix(#410)",
+         notes="two fixes meet here. v1 routed a lone trailing suffix "
+               "to family (title 'Mr.', first 'Johnson', last 'PhD') "
+               "and v2 keeps recognized suffixes in `suffix` "
+               "(fix(suffix-routing)); that left 'Johnson' in `given` "
+               "with an empty family until #410 stopped counting the "
+               "suffix as a further name word"),
     Case("family_comma_lone_title", "Smith, Dr.",
          {"title": "Dr.", "family": "Smith"},
          classification="fix(comma-family)",
          notes="pre-comma is definitionally family; v1 put it in first"),
+    Case("family_comma_all_title_segment_keeps_split", "John Smith, Mr.",
+         {"title": "Mr.", "given": "John", "family": "Smith"},
+         classification="fix(comma-family)",
+         notes="a comma followed only by titles said nothing about "
+               "where the family name ends, so segment 0 keeps its "
+               "positional read instead of merging into one family "
+               "name (v1 read first 'John Smith'; 2.0 read it as the "
+               "family, the comma-precomma-family move)"),
+    Case("family_comma_all_title_segment_needs_two_pieces", "Smith, Dr.",
+         {"title": "Dr.", "family": "Smith"},
+         classification="fix(comma-family)",
+         notes="the guard on family_comma_all_title_segment_keeps_split: "
+               "one pre-comma piece has no split to keep, and the "
+               "positional read would make it a lone GIVEN"),
+    Case("family_comma_untitled_segment_still_merges", "John Smith, Jones",
+         {"given": "Jones", "family": "John Smith"},
+         notes="the non-flip: a post-comma NAME means the comma did fix "
+               "the family, so segment 0 stays wholly family (v1 parity)"),
+    # -- #296: the TITLES/suffix overlap audit. A word that is only ever
+    # a postnominal leaves TITLES, so the title peel stops claiming it
+    # first. Leading position is the price and is pinned here.
+    Case("audit_phd_leading_is_a_name", "PhD Smith",
+         {"given": "PhD", "family": "Smith"},
+         classification="fix(#296)",
+         notes="'phd' left TITLES because M.D./Ph.D. are postnominal "
+               "only; nothing is prenominal-'PhD', so the leading "
+               "position falls through to the positional read"),
+    Case("audit_jr_leading_is_a_name", "Jr Smith",
+         {"given": "Jr", "family": "Smith"},
+         classification="fix(#296)",
+         notes="same as audit_phd_leading_is_a_name: 'jr' is never "
+               "prenominal in any tradition"),
+    Case("audit_md_leading_stays_a_title", "Md Abdul Karim",
+         {"title": "Md", "given": "Abdul", "family": "Karim"},
+         notes="the one word the 2026-07-30 table got wrong: 'md' KEEPS "
+               "dual membership. Bare 'Md' before a name is the "
+               "Bengali and South Asian Muslim abbreviation of "
+               "Muhammad (#343/#345's corpus rows), a prenominal use "
+               "the 'postnominal only' disposition did not consider; "
+               "'MD' after the name is the degree. Position decides, "
+               "as for 'sr'"),
+    Case("audit_md_after_comma_is_the_degree", "Smith, MD",
+         {"family": "Smith", "suffix": "MD"},
+         classification="fix(#296)",
+         notes="the third leg of 'position decides' for 'md'"),
+    Case("audit_do_leading_is_a_name", "Do Nguyen",
+         {"given": "Do", "family": "Nguyen"},
+         ambiguities=("particle-or-given",),
+         classification="fix(#296)",
+         notes="the disposition's own argument, realized: 'Do' is a "
+               "Vietnamese name, and dropping the title membership is "
+               "what lets it be read as one -- with the fork 'Van "
+               "Johnson' reports, since 'do' is an ambiguous particle "
+               "too and the title membership had been hiding the fork"),
+    Case("audit_se_leading_is_a_name", "SE Smith",
+         {"given": "SE", "family": "Smith"},
+         classification="fix(#296)",
+         notes="Structural Engineer is a US licensure postnominal (the "
+               "PE/SE pair); no prenominal SE convention exists"),
+    Case("audit_junior_leading_is_a_name", "Junior Smith",
+         {"given": "Junior", "family": "Smith"},
+         classification="fix(#296)",
+         notes="and 'Junior' is a real given name besides"),
+    # the non-flips: trailing position was already right and must stay
+    Case("audit_phd_trailing_unchanged", "John Smith PhD",
+         {"given": "John", "family": "Smith", "suffix": "PhD"}),
+    Case("audit_jr_trailing_unchanged", "John Smith Jr.",
+         {"given": "John", "family": "Smith", "suffix": "Jr."}),
+    Case("audit_lt_leading_stays_a_title", "Lt. Smith",
+         {"title": "Lt.", "family": "Smith"},
+         notes="'lt' KEPT its dual membership -- a prenominal rank with "
+               "real retired-designation postnominal use; position "
+               "decides, so leading is untouched"),
+    Case("audit_sr_leading_stays_a_title", "Sr. Garcia",
+         {"title": "Sr.", "family": "Garcia"},
+         notes="Señor (leading) vs Senior (trailing): kept dual, and "
+               "the leading read is the peel's normal path"),
+    Case("audit_sra_leading_stays_a_title", "Sra Garcia",
+         {"title": "Sra", "family": "Garcia"},
+         notes="Señora is title-only; the SUFFIX_ACRONYMS entry was v1 "
+               "residue and is what got dropped, not this"),
+    Case("audit_dr_leading_stays_a_title", "Dr. Smith",
+         {"title": "Dr.", "family": "Smith"}),
+    Case("audit_dr_after_comma_is_a_title", "Smith, Dr.",
+         {"title": "Dr.", "family": "Smith"},
+         classification="fix(comma-family)",
+         notes="'dr' left SUFFIX_WORDS: 'Dr.' is not a postnominal in "
+               "any tradition and the entry was v1 residue. This is "
+               "what keeps the postnominal reading of a lone post-comma "
+               "suffix piece from taking it -- the vocabulary decides, "
+               "not the position"),
+    Case("audit_dr_after_two_word_comma_keeps_the_split", "John Smith, Dr.",
+         {"title": "Dr.", "given": "John", "family": "Smith"},
+         classification="fix(comma-family)",
+         notes="with 'dr' gone from the suffix sets the post-comma word "
+               "is a title only, so the no-name-word repair keeps the "
+               "pre-comma split. v1, and 2.0 through master, kept the "
+               "same split by a different route -- 'dr' was "
+               "suffix-tagged, making this a SUFFIX_COMMA -- but put "
+               "'Dr.' in suffix, not title: a change against every "
+               "baseline"),
+    Case("audit_sra_after_comma_is_a_title", "Smith, Sra",
+         {"title": "Sra", "family": "Smith"},
+         classification="fix(comma-family)",
+         notes="the same removal on the acronym side"),
+    Case("audit_ms_after_comma_is_the_degree", "Smith, MS",
+         {"family": "Smith", "suffix": "MS"},
+         classification="fix(#296)",
+         notes="'ms' is a genuine dual -- 'Ms.' leading, 'MS' the "
+               "degree trailing -- and position decides. The 2026-07-30 "
+               "table put it in the AMBIGUOUS set so bare 'MS' would "
+               "read as the honorific; measured, that gate is "
+               "position-blind: 'John Smith, MS' lost its suffix-comma "
+               "route and read title 'MS', and 'Smith, Ms.' passed the "
+               "gate on its one period anyway. The second deviation "
+               "from the table, with 'md'"),
+    Case("audit_ms_after_two_word_comma_is_the_degree", "John Smith, MS",
+         {"given": "John", "family": "Smith", "suffix": "MS"},
+         notes="the common listing, unchanged at every baseline -- "
+               "what the ambiguous gate would have cost"),
+    Case("audit_ms_leading_is_the_honorific", "Ms. Smith",
+         {"title": "Ms.", "family": "Smith"}),
+    Case("audit_perioded_ms_is_the_degree", "Smith, M.S.",
+         {"family": "Smith", "suffix": "M.S."}),
+    Case("audit_ms_honorific_spelling_after_comma_is_the_postnominal",
+         "Smith, Ms.",
+         {"family": "Smith", "suffix": "Ms."},
+         classification="fix(#296)",
+         notes="the cost of the dual, recorded: after a family comma "
+               "the slot is postnominal and the vocabulary says suffix, "
+               "whatever the period suggests -- as for 'Smith, Sr.'. "
+               "Every baseline read title 'Ms.' (the design-docs "
+               "review found the flip unrecorded). 'Smith, Ms. Jane' "
+               "still reads the title: a name word follows"),
+    Case("audit_ms_before_a_name_after_comma_is_the_title",
+         "Smith, Ms. Jane",
+         {"title": "Ms.", "given": "Jane", "family": "Smith"}),
+    Case("audit_sa_after_comma_is_the_postnominal", "Smith, SA",
+         {"family": "Smith", "suffix": "SA"},
+         classification="fix(#296)",
+         notes="the same dual: Special Agent leading, the business "
+               "form trailing"),
+    Case("audit_perioded_sa_is_the_postnominal", "Smith, S.A.",
+         {"family": "Smith", "suffix": "S.A."}),
+    Case("audit_bare_do_after_comma_is_a_name", "Smith, DO",
+         {"given": "DO", "family": "Smith"},
+         classification="fix(#296)",
+         notes="'do' left TITLES but was already AMBIGUOUS, so the bare "
+               "spelling is neither title nor suffix and falls to the "
+               "given position -- the period gate handles the real "
+               "collision, which is that 'Do' is a name"),
+    Case("audit_perioded_do_after_comma_is_a_suffix", "Smith, D.O.",
+         {"family": "Smith", "suffix": "D.O."}),
+    # -- the TRAILING half of the same two removals. `dr` and `sra` are
+    # the ONLY audit words that lose SUFFIX membership; every other
+    # audit word keeps its suffix membership, so trailing position is
+    # untouched for them.
+    Case("audit_dr_trailing_joins_the_title_word_gap", "John Smith Dr.",
+         {"given": "John", "middle": "Smith", "family": "Dr."},
+         classification="fix(#296)",
+         notes="'dr' left SUFFIX_WORDS, so a trailing 'Dr.' is no "
+               "longer suffix vocabulary and falls to the positional "
+               "read, taking the family name with it. NOT a new defect "
+               "class -- no trailing title word routes to title on the "
+               "no-comma path, so 'John Smith Prof.' and 'John Smith "
+               "Mr.' already read this way (both pinned below; #316 is "
+               "the open question). The v1-residue suffix entry was the "
+               "only thing making 'dr' behave unlike every other "
+               "title-only word. This row records that 'dr' JOINED the "
+               "existing behavior, not that the behavior is right"),
+    Case("audit_sra_trailing_joins_the_title_word_gap", "John Smith Sra",
+         {"given": "John", "middle": "Smith", "family": "Sra"},
+         classification="fix(#296)",
+         notes="the same move for the other word losing suffix "
+               "membership"),
+    Case("family_comma_lone_generational_suffix", "Smith, Jr.",
+         {"family": "Smith", "suffix": "Jr."},
+         classification="fix(#296)",
+         notes="the issue as filed: the peel's whole-segment exception "
+               "claimed 'Jr.' through the period-abbreviation inference "
+               "even after the audit, so the ordering change is what "
+               "actually reaches this input"),
+    Case("family_comma_lone_generational_suffix_bare", "Smith, Jr",
+         {"family": "Smith", "suffix": "Jr"},
+         classification="fix(#296)"),
+    Case("family_comma_lone_degree", "Smith, PhD",
+         {"family": "Smith", "suffix": "PhD"},
+         classification="fix(#296)"),
+    Case("family_comma_dual_word_reads_postnominal", "Smith, Sr.",
+         {"family": "Smith", "suffix": "Sr."},
+         classification="fix(#296)",
+         notes="Señor vs Senior: 'sr' keeps both memberships and this "
+               "is the position that picks Senior"),
+    Case("family_comma_dual_rank_reads_postnominal", "Smith, CPT",
+         {"family": "Smith", "suffix": "CPT"},
+         classification="fix(#296)",
+         notes="the retired-designation reading of a prenominal rank"),
+    Case("family_comma_lone_esquire_is_the_postnominal", "Smith, Esq.",
+         {"family": "Smith", "suffix": "Esq."},
+         classification="fix(#296)",
+         notes="H2's period-abbreviation inference reads a LEADING "
+               "'Esq.' as a title ('Esq. Smith'); after a family comma "
+               "the slot is postnominal and the vocabulary says "
+               "suffix, so the inference does not run"),
+    # -- #325: the whole credential run, not the lone piece
+    Case("family_comma_split_credential_run", "Smith, Ph. D. Jr.",
+         {"family": "Smith", "suffix": "Ph. D. Jr."},
+         classification="fix(#325) + fix(#429)",
+         notes="one word before the comma, the space-split 'Ph. D.' "
+               "and a suffix after it: the lone-piece route did not "
+               "apply and the merged credential fell through to the "
+               "given name (a 1.4.0 regression -- v1 read suffix 'Ph. "
+               "D.', title 'Jr.'). A run that is nothing but suffix "
+               "pieces is the credential run C1 describes, whole -- "
+               "and #429 made it render whole too, where #325 shipped "
+               "it as 'Ph. D., Jr.' with a comma the writer never "
+               "typed. The full-name 'John Smith, Ph. D. Jr.' rendered "
+               "it unjoined at 2.0.0 and after -- 1.4.0 rendered "
+               "'Ph. D., Jr.' there too -- so this row now agrees with "
+               "the form it has agreed with since 2.0"),
+    Case("family_comma_credential_run_then_numeral", "Smith, Ph. D. III",
+         {"family": "Smith", "suffix": "Ph. D. III"},
+         classification="fix(#325) + fix(#429)",
+         notes="the numeral does not end the run; the render lost its "
+               "inserted comma with the rest (#429)"),
+    Case("family_comma_two_credentials", "Smith, PhD Jr.",
+         {"family": "Smith", "suffix": "PhD Jr."},
+         classification="fix(#325) + fix(#429)",
+         notes="'PhD' led the run as a title until the audit; the audit "
+               "alone would have made it the given name, which is why "
+               "the ordering shipped in the same commit. The run is "
+               "suffixes, and since #429 renders as one entry rather "
+               "than 'PhD, Jr.'"),
+    Case("family_comma_title_led_credential_run", "Smith, Dr. MD PhD",
+         {"title": "Dr.", "family": "Smith", "suffix": "MD PhD"},
+         classification="fix(#429)",
+         notes="the title-led run: assign routes Dr. to TITLE and the "
+               "two credentials to SUFFIX, so the ENTRY is the "
+               "credential run, not the whole segment. 384 inputs of "
+               "this shape moved with #429 and none was pinned until "
+               "the review said so"),
+    Case("family_comma_title_between_credentials", "Smith, MD Dr. PhD",
+         {"title": "Dr.", "family": "Smith", "suffix": "MD PhD"},
+         classification="fix(#429)",
+         notes="the entry is sticky across a piece that is not in it: "
+               "an interleaved title must not split the run it sits "
+               "in, or the render inserts the very comma #429 removes"),
+    Case("family_comma_title_led_run_keeps_the_written_comma",
+         "Smith Jr., Mr. Jr.",
+         {"title": "Mr.", "family": "Smith", "suffix": "Jr., Jr."},
+         notes="THE #429 REGRESSION GUARD, and unchanged since 1.4.0. "
+               "The pre-comma name leaves a suffix, and the segment "
+               "after the comma is title-led. #429's first draft let "
+               "the title piece OPEN the entry, so the following Jr. "
+               "was tagged as a continuation and the view joined it "
+               "backward across the writer's own comma -- suffix "
+               "'Jr. Jr.', the exact inverse of the bug #429 fixes. "
+               "Only a piece that renders into the same run may "
+               "continue an entry"),
+    Case("family_comma_written_commas_are_kept", "Smith, MD, PhD",
+         {"family": "Smith", "suffix": "MD, PhD"},
+         notes="the negative control for #429, and the distinction the "
+               "whole change rests on: the parser renders the run as "
+               "the writer spaced it, and never stops emitting a comma "
+               "the writer typed. Parity at every baseline"),
+    Case("family_comma_run_matches_the_full_name_form", "John Smith, MD PhD",
+         {"given": "John", "family": "Smith", "suffix": "MD PhD"},
+         notes="the full-name twin of family_comma_suffix_run_renders_"
+               "unjoined, and the reference #429 brought the one-word "
+               "form into line with. Unchanged since 1.4.0, so this row "
+               "fails if a future change fixes one form by breaking the "
+               "other"),
+    Case("family_comma_segment_zero_is_not_the_run", "MD PhD Jr., John",
+         {"given": "John", "family": "MD", "suffix": "PhD, Jr."},
+         notes="segment 0 is the family segment even when it is wholly "
+               "credential-shaped, so the one-entry join is asked of "
+               "segment 1 alone. Dropping that conjunct left the whole "
+               "suite green while this shape's suffix silently became "
+               "'PhD Jr.' (the mutation matrix found it)"),
+    Case("family_comma_run_ending_in_a_numeral", "Smith, PSM I",
+         {"family": "Smith", "suffix": "PSM I"},
+         classification="fix(#430)",
+         notes="the credential run does not end because its last word "
+               "is a roman numeral: PSM I is Professional Scrum Master "
+               "level I, and the numeral describes the credential "
+               "rather than the person's generation. The run read as "
+               "given 'PSM' + suffix 'I' because the initial veto in "
+               "is_suffix_piece keeps a numeral out of a credential "
+               "run, so the segment did not look like one"),
+    Case("family_comma_run_numeral_ignores_the_period", "Smith, PSM I.",
+         {"family": "Smith", "suffix": "PSM I."},
+         classification="fix(#430)",
+         notes="and the period does not end it either. After a suffix "
+               "word the numeral is describing that suffix, and an "
+               "initial in that position is not a name shape anyone "
+               "writes -- so the abbreviation reading that governs "
+               "#432 does not reach here. The full-name 'John Smith, "
+               "PSM I.' has read it this way all along"),
+    Case("family_comma_run_numeral_after_a_dual_word", "Smith, MD I",
+         {"family": "Smith", "suffix": "MD I"},
+         classification="fix(#430)",
+         notes="the same shape reached through the leading-title peel "
+               "instead: md is TITLES vocabulary too (the #296 "
+               "deviation), so this read title 'MD' + given 'I' where "
+               "'Smith, PSM I' read given 'PSM' + suffix 'I'. Two "
+               "wrong answers, one cause -- a fix verified on PSM "
+               "alone would leave this one broken and look green. "
+               "'Smith, Jr. I' is the same story by the other route, "
+               "reaching the peel through the period-abbreviation "
+               "inference rather than TITLES membership, and is the "
+               "spelling a writer actually produces; it had a row of "
+               "its own until the mutation matrix showed the two trace "
+               "identically once fixed -- both heads are suffix pieces "
+               "now, so is_leading_title is never consulted for either"),
+    Case("family_comma_numeral_after_a_name_is_an_initial",
+         "Smith, John V.",
+         {"given": "John", "middle": "V.", "family": "Smith"},
+         classification="fix(#432)",
+         notes="the other half of the boundary: after a NAME word the "
+               "period is decisive, because it marks an abbreviation "
+               "and an abbreviation is name material. 'Smith, John B.' "
+               "has always read middle 'B.'; the only thing that made "
+               "V. different is that V is also suffix vocabulary"),
+    Case("family_comma_bare_numeral_after_a_name_is_the_suffix",
+         "Smith, John V",
+         {"given": "John", "family": "Smith", "suffix": "V"},
+         notes="THE BOUNDARY, and v1 parity (#144): with no period "
+               "there is no abbreviation, so the numeral is the "
+               "generation it looks like. This row is what makes "
+               "#432's fix a period test rather than a numeral test"),
+    Case("family_comma_title_resets_the_credential_run", "Smith, PSM Dr. I",
+         {"given": "PSM", "middle": "Dr.", "family": "Smith",
+          "suffix": "I"},
+         notes="THE RESET, and unchanged since 1.4.0. A title ends the "
+               "run: what follows a bare title is not continuing a "
+               "credential, so the numeral behind it does not join and "
+               "the segment is no run at all. Removing that one line "
+               "left the whole suite green while this became title "
+               "'Dr.' + suffix 'PSM I' -- the reset fires 60 times "
+               "across the suite and until this row no input observed "
+               "it, which is the inert-measurement shape"),
+    Case("family_comma_run_numeral_after_a_split_credential",
+         "Smith, Ph. D. I",
+         {"family": "Smith", "suffix": "Ph. D. I"},
+         classification="fix(#430)",
+         notes="the numeral continues a run whose head is a MERGED "
+               "piece -- the Ph./D. pair the #325 split-credential "
+               "merge builds, which carries 'suffix' in its piece tags "
+               "rather than on a single token. A structurally different "
+               "pin on the same three readers as the PSM rows, so an "
+               "edit to those cannot quietly unpin the render join"),
+    Case("family_comma_numeral_behind_a_suffix_is_not_an_initial",
+         "Smith, John PhD I.",
+         {"given": "John", "family": "Smith", "suffix": "PhD, I."},
+         notes="THE OTHER BOUNDARY, and parity at every baseline. The "
+               "period makes a numeral name material only behind a NAME "
+               "word; behind a suffix the run owns it, and the first "
+               "draft of #432 read the piece alone and made this middle "
+               "'I.'. Rendered with the comma because the writer typed "
+               "no run here -- the segment holds a name, so it is the "
+               "walk, not the one-entry join"),
+    Case("family_comma_strict_keeps_the_initial_veto",
+         "Smith, PSM I.",
+         {"given": "PSM", "family": "Smith", "suffix": "I."},
+         policy=Policy(lenient_comma_suffixes=False),
+         notes="C1's strict knob still vetoes initial-shaped words, so "
+               "the run ends at the numeral where lenient continues "
+               "through it. #430's first draft read no policy at all "
+               "and silently overrode the one knob a caller sets to "
+               "prevent exactly this; nothing in the suite saw it"),
+    Case("family_comma_run_with_a_name_is_not_a_run", "Smith, John Jr.",
+         {"given": "John", "family": "Smith", "suffix": "Jr."},
+         notes="the non-flip: a name word in the run makes it the "
+               "given-and-suffix walk v1 had"),
+    Case("family_comma_title_then_suffix", "Smith, Dr. Jr.",
+         {"title": "Dr.", "family": "Smith", "suffix": "Jr."},
+         classification="fix(comma-family)",
+         notes="a title and a postnominal, each read where it stands "
+               "-- the 2.0 deviation's other case (v1 read first "
+               "'Jr.'), and what keeps the no-name-word test from "
+               "reading 'Dr. Jr.' as one title run"),
+    Case("family_comma_title_then_suffix_mr", "Smith, Mr. Jr.",
+         {"title": "Mr.", "family": "Smith", "suffix": "Jr."},
+         classification="fix(comma-family)"),
+    Case("family_comma_title_then_suffix_keeps_the_split",
+         "John Smith, Mr. Jr.",
+         {"title": "Mr.", "given": "John", "family": "Smith",
+          "suffix": "Jr."},
+         classification="fix(#296)",
+         notes="no name word after the comma, so it fixed no family "
+               "boundary -- the same reasoning as 'John Smith, Mr.'; "
+               "v1 read first 'Jr.', last 'John Smith', and 2.0 through "
+               "master family 'John Smith' (the design-docs review "
+               "found C1 silent on the shape)"),
+    Case("family_comma_title_run_keeps_the_split", "John Smith, Mr. Dr.",
+         {"title": "Mr. Dr.", "given": "John", "family": "Smith"},
+         classification="fix(#296)"),
+    Case("family_comma_title_run_one_word", "Smith, Mr. Dr.",
+         {"title": "Mr. Dr.", "family": "Smith"},
+         classification="fix(#296)",
+         notes="one pre-comma piece, no split to keep; the run is "
+               "titles (master read suffix 'Dr.')"),
+    Case("family_comma_three_segments_credential_run", "Smith, Jr., PhD",
+         {"family": "Smith", "suffix": "Jr., PhD"},
+         classification="fix(#325)",
+         notes="segments 2+ compose with the credential run"),
+    Case("family_comma_suffixed_family_before_a_title", "Smith Jr., Dr.",
+         {"title": "Dr.", "family": "Smith", "suffix": "Jr."},
+         classification="fix(#296)",
+         notes="two pre-comma pieces but ONE name piece: the positional "
+               "read peels the suffix first and would have left a lone "
+               "given and no family (the code review found 'Smith Jr., "
+               "Mr.' reading so), so the guard counts name pieces and "
+               "the family stays. v1 read first 'Smith', last 'Jr.', "
+               "suffix 'Dr.'; 2.0 through master family 'Smith', "
+               "suffix 'Jr.', title 'Mr.' for the Mr. spelling"),
+    Case("family_comma_suffixed_family_before_a_title_mr", "Smith Jr., Mr.",
+         {"title": "Mr.", "family": "Smith", "suffix": "Jr."},
+         notes="unchanged at every baseline -- the shape the guard "
+               "protects"),
+    Case("family_comma_suffixed_two_word_family_before_a_title",
+         "John Smith Jr., Mr.",
+         {"title": "Mr.", "given": "John", "family": "Smith",
+          "suffix": "Jr."},
+         classification="fix(#296)",
+         notes="two name pieces, so the split is kept"),
+    # -- the positional read keeps its ORDER, so the family-first fold
+    # (P1) reaches a particle-led pre-comma name as it does without
+    # the comma (the test review found it reading family 'de')
+    Case("family_comma_no_name_word_family_first", "de Mesnil Jean, Dr.",
+         {"title": "Dr.", "given": "Jean", "family": "de Mesnil"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         notes="as 'de Mesnil Jean' reads under the same order; master "
+               "read it through the suffix-comma route ('dr' was "
+               "suffix vocabulary) and got the fold that way"),
+    Case("family_comma_no_name_word_family_first_given_last",
+         "de la Cruz Juan Carlos, Dr.",
+         {"title": "Dr.", "given": "Carlos", "middle": "Juan",
+          "family": "de la Cruz"},
+         policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST)),
+    Case("family_comma_no_name_word_family_first_plain", "John Smith, Dr.",
+         {"title": "Dr.", "given": "Smith", "family": "John"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         notes="the declared order applies to the pre-comma name as it "
+               "does to 'John Smith' alone -- deliberate"),
+    Case("title_word_trailing_is_not_a_title", "John Smith Prof.",
+         {"given": "John", "middle": "Smith", "family": "Prof."},
+         notes="the pre-existing behavior the audit_dr_trailing and "
+               "audit_sra_trailing rows join, pinned so the pair reads "
+               "as consistency rather than as damage -- and so the "
+               "general fix (#316) has a row to flip when it lands. "
+               "Contrast 'Smith, Prof.', which the comma path DOES "
+               "route to title: the two paths disagree today"),
+    Case("ja_honorific_glued_family_comma_title_only", "田中さん, Dr.",
+         {"title": "Dr.", "family": "田中さん"},
+         classification="fix(#296)",
+         notes="Accepted (C1): with 'dr' out of the suffix sets the "
+               "comma is a family comma, and the honorific peel runs "
+               "in script_segment on the other structures only, before "
+               "group or assign can say this comma fixed nothing -- so "
+               "the honorific stays glued, joining master's '田中さん, "
+               "Mr.'. Master peeled it through the suffix-comma route"),
+    Case("title_word_trailing_is_not_a_title_mr", "John Smith Mr.",
+         {"given": "John", "middle": "Smith", "family": "Mr."}),
 
     # -- #271: script-scoped order + segmentation (amendment 2026-07-27)
     Case("ko_unspaced_default", "김민준",
@@ -959,7 +2756,7 @@ CASES: tuple[Case, ...] = (
          notes="the SAME transcription typed with the Japanese "
                "nakaguro reads as the dot's own typography says -- a "
                "姓・名 roster pair, family-first (#272) -- because the "
-               "nakaguro records nothing (spec 2026-07-30 decision 5: "
+               "nakaguro records nothing (per decisions.md#T3, "
                "codepoint-scoped; only the Chinese B7 marks a "
                "transcription). A limitation row: chosen, not "
                "accidental -- cross-convention input reads by the "
@@ -1003,34 +2800,34 @@ CASES: tuple[Case, ...] = (
                "the word -- declining, not deciding"),
     Case("zh_honorific_suffix_spaced", "王小明 先生",
          {"family": "王小明", "suffix": "先生"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="CJK honorifics FOLLOW the name; a spaced 先生 (Mr.) is "
                "a suffix, and recognizing it must come before the "
                "family-first order hands it a role -- unrecognized it "
                "read as the GIVEN name under the 2.1 defaults"),
     Case("ko_honorific_ssi", "김민준 씨",
          {"family": "김", "given": "민준", "suffix": "씨"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="Korean orthography standardly SPACES 씨, so the "
                "whole-token suffix machinery reaches it; the name "
                "still segments (suffix classification runs after the "
                "script_segment stage, which only ever saw 김민준)"),
     Case("ko_degree_baksa", "김민준 박사",
          {"family": "김", "given": "민준", "suffix": "박사"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="박사 (doctorate) is the ko analogue of a trailing "
                "PhD: fix(suffix-routing)'s two-token shape, one "
                "script over"),
     Case("ja_sama_spaced", "田中 太郎 様",
          {"family": "田中", "given": "太郎", "suffix": "様"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="the spaced 様 of forms and databases, which whole-token "
                "matching reaches on its own; the glued "
                "mail-addressing form is ja_sama_glued below, reached "
                "by #308's peel instead"),
     Case("ja_san_spaced", "田中 さん",
          {"family": "田中", "suffix": "さん"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the kana honorifics ship as suffix vocabulary so the "
                "glued peel has somewhere to hand its tail; spaced "
                "recognition falls out of the same entry -- until this "
@@ -1038,7 +2835,7 @@ CASES: tuple[Case, ...] = (
                "family-first default"),
     Case("ja_san_glued", "田中さん",
          {"family": "田中", "suffix": "さん"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the everyday glued form, and the one that also "
                "corrupted classification: 田中さん is Han plus "
                "hiragana, so the kana license read the whole string "
@@ -1046,7 +2843,7 @@ CASES: tuple[Case, ...] = (
                "is consulted, so it now sees 田中 alone"),
     Case("ja_honorific_glued_before_a_roman_suffix", "田中さん II",
          {"family": "田中", "suffix": "さん, II"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="an unrelated trailing suffix does not hide the peel "
                "site: the scan-back steps over II and peels さん off "
                "the token behind it. Half of the pair that pins "
@@ -1141,7 +2938,7 @@ CASES: tuple[Case, ...] = (
                "parity until #320 moved it"),
     Case("ja_sama_glued", "山田太郎様",
          {"family": "山田太郎", "suffix": "様"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the mail-addressing form. Undivided without a "
                "segmenter -- no surname list divides a kanji name -- "
                "so the family name is the whole 山田太郎; "
@@ -1149,7 +2946,7 @@ CASES: tuple[Case, ...] = (
                "locales.JA"),
     Case("ko_honorific_nim_glued", "김민준님",
          {"family": "김", "given": "민준", "suffix": "님"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the online/formal glued address form, 씨's twin"),
     Case("ko_honorific_written_with_a_period", "김민준, 씨.",
          {"family": "김민준", "suffix": "씨."},
@@ -1161,7 +2958,7 @@ CASES: tuple[Case, ...] = (
                "_normalize strips the trailing period, "
                "so the vocabulary sees 씨 either way -- the initial "
                "veto was the only thing rejecting the written form, "
-               "and literally the veto: _is_suffix_piece is "
+               "and literally the veto: is_suffix_piece is "
                "'vocab:suffix' in tags and 'initial' not in tags, and "
                "'씨.' carried both, so the suffix-shaped piece went to "
                "the given. 1.4.0 read this first '씨.' / last 김민준 -- "
@@ -1219,7 +3016,7 @@ CASES: tuple[Case, ...] = (
                "naming the same segmentation it also depends on"),
     Case("ko_honorific_glued_teacher", "김선생님",
          {"family": "김", "suffix": "선생님"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="longest-first, end to end: 선생님 peels whole where "
                "님 alone would have left 김선생 to segment into a "
                "family 김 and a given 선생. Classified to #307 "
@@ -1232,7 +3029,11 @@ CASES: tuple[Case, ...] = (
          classification="fix(#308)",
          notes="no script precondition on the remainder -- the tail "
                "is the license. Japanese text about a foreigner, and "
-               "the Latin remainder keeps the positional default"),
+               "the Latin remainder keeps the positional default. "
+               "Single-issue on purpose where the block around it is "
+               "compound: measured, disabling script_orders and "
+               "segment_scripts leaves this row unchanged, because a "
+               "Latin remainder never reaches either"),
     Case("latin_stem_glued_hangul_honorific", "Anderson선생님",
          {"given": "Anderson", "suffix": "선생님"},
          classification="fix(#308)",
@@ -1241,10 +3042,12 @@ CASES: tuple[Case, ...] = (
                "surname site: 선 is a listed census surname, so the "
                "peeled 선생님 would otherwise be split into 선 + 생님 "
                "-- the stage dissecting the honorific it had just "
-               "manufactured"),
+               "manufactured. Single-issue for the same reason as its "
+               "kana twin: the remainder is Latin, so #271 never "
+               "applies"),
     Case("ko_honorific_glued_doctor", "김민준박사님",
          {"family": "김", "given": "민준", "suffix": "박사님"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="박사님 is one honorific, not 박사 plus 님, and ships "
                "as one entry: 선생님, 교수님 and 박사님 are the three "
                "standard -님 professional honorifics and the first two "
@@ -1258,7 +3061,7 @@ CASES: tuple[Case, ...] = (
                "test_one_peel_never_a_stack"),
     Case("ko_honorific_glued_doctor_spaced", "김민준 박사님",
          {"family": "김", "given": "민준", "suffix": "박사님"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the spaced twin, and the second half of the same gap: "
                "without a 박사님 entry the peel cut this token too -- "
                "it is not a whole-token suffix word, so 박사 + 님 came "
@@ -1274,7 +3077,7 @@ CASES: tuple[Case, ...] = (
                "to family; the row exists for the guard"),
     Case("ko_honorific_token_alone_stays_whole", "선생님",
          {"family": "선생님"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="a lone honorific is not a name to be taken apart: it "
                "is not a peel site (every tail is a suffix word) and "
                "not a surname site, though 선 is listed and the "
@@ -1326,7 +3129,7 @@ CASES: tuple[Case, ...] = (
                "order flip that makes the one token a family name"),
     Case("ja_dono_spaced", "田中 殿",
          {"family": "田中", "suffix": "殿"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="殿 waited on an argument in #307 and gets one here: "
                "spaced it is safe for the reason 양/군 are -- a "
                "殿-surnamed person's name LEADS, and the suffix gate "
@@ -1334,7 +3137,7 @@ CASES: tuple[Case, ...] = (
                "真殿 in two, so it ships spaced only"),
     Case("ko_honorific_nim_spaced", "김민준 님",
          {"family": "김", "given": "민준", "suffix": "님"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="님 is new in both sets -- #307 shipped only the -님 "
                "compounds 선생님/교수님. Standardly glued in online "
                "address, spaced too, and never the end of a Korean "
@@ -1342,7 +3145,7 @@ CASES: tuple[Case, ...] = (
                "harsher glued vetting as well"),
     Case("ko_honorific_glued_via_segmentation", "김씨",
          {"family": "김", "suffix": "씨"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="the one glued shape that was already reachable before "
                "#308, which is why this row stays fix(#307) where its "
                "neighbours are fix(#308): stage order alone delivered "
@@ -1357,15 +3160,19 @@ CASES: tuple[Case, ...] = (
          classification="fix(#307)",
          notes="the post-comma run is normally the given name -- "
                "'김민준, 태호' gives given 태호 -- and group's "
-               "_is_suffix_piece diverts this one because 씨 is a "
+               "is_suffix_piece diverts this one because 씨 is a "
                "single-token piece carrying vocab:suffix. NOT the "
                "lenient comma gate, which an earlier note named: "
                "measured, lenient_comma_suffixes=False leaves this "
                "row unchanged. The comma disables segmentation per "
-               "the comma doctrine, so 김민준 stays whole"),
+               "the comma doctrine, so 김민준 stays whole -- which is "
+               "also why this row stays single-issue while the rest of "
+               "the block is compound with fix(#271): measured, the "
+               "order table and the segmenter both leave it alone, "
+               "because the comma already decided the family"),
     Case("ko_honorific_glued_given", "김민준씨",
          {"family": "김", "given": "민준", "suffix": "씨"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the common full-name glued shape, and the row this "
                "replaces (ko_honorific_glued_given_stays) pinned the "
                "old boundary: 씨 peels off the last token first, and "
@@ -1373,7 +3180,7 @@ CASES: tuple[Case, ...] = (
                "and split compose, in that order"),
     Case("ko_honorific_glued_given_trailing_suffix", "김민준씨 Jr.",
          {"family": "김", "given": "민준", "suffix": "씨, Jr."},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the peel site is the last token that is not itself a "
                "post-nominal, so an unrelated trailing suffix cannot "
                "hide it -- this now agrees with the comma-written "
@@ -1382,7 +3189,7 @@ CASES: tuple[Case, ...] = (
     Case("ko_honorific_glued_given_suffix_comma", "Dr 김민준씨, Jr.",
          {"title": "Dr", "family": "김", "given": "민준",
           "suffix": "씨, Jr."},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the peel scans the NAME's runs, not the token stream: "
                "under a suffix comma that is segments[0] alone, a "
                "strict subset, and the peel site is found within it "
@@ -1394,7 +3201,7 @@ CASES: tuple[Case, ...] = (
     Case("ko_honorific_glued_given_nickname", "김민준씨 (Jimmy)",
          {"family": "김", "given": "민준", "suffix": "씨",
           "nickname": "Jimmy"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the other half of scanning the NAME's runs: extracted "
                "content is still in the token stream at this stage but "
                "in NO segment, so the scan-back never reaches "
@@ -1416,30 +3223,17 @@ CASES: tuple[Case, ...] = (
                "extract_delimited claimed something passes the row "
                "above and fails only here"),
     Case("ja_honorific_glued_family_comma", "田中さん, PhD",
-         {"title": "PhD", "family": "田中", "suffix": "さん"},
+         {"family": "田中", "suffix": "さん, PhD"},
          classification="fix(#312)",
          notes="the peel reaches 田中さん across the comma, though no "
                "longer by crossing it: since #319 is_wholly_suffix "
                "declines the post-comma run outright (PhD is suffix "
                "vocabulary and it is the whole run), so the scan never "
-               "leaves segments[0] and never examines PhD at all. It "
-               "did cross before, stepping OVER PhD because that "
-               "spelling satisfies _is_post_nominal's strict test -- "
-               "the same fields by the older route. The spaced "
-               "田中さん PhD still peels that way, its single run "
-               "holding both tokens, so the two spellings now agree on "
-               "the outcome through DIFFERENT mechanisms; "
-               "ja_honorific_glued_family_comma_suffixy_second_run "
-               "cites this row for the outcome, not the route. Where "
-               "PhD itself lands still differs "
-               "between the two spellings -- suffix spaced, title "
-               "post-comma -- and that is fix(comma-family)'s, not "
-               "the peel's. The expectation bakes in TWO deviations "
-               "from 1.4.0 and only one of them is #312's: the peel "
-               "is, while first -> family is comma-family's, witnessed "
-               "on pure Latin by family_comma_lone_title (1.4.0 first "
-               "Smith, here family Smith) -- so no script-conditional "
-               "rule is reaching that half"),
+               "meets the comma. PhD reads as the postnominal it is "
+               "since #296's audit took 'phd' out of TITLES -- this row "
+               "carried title 'PhD' until then, which was the title "
+               "peel claiming a credential because v1's lists put it "
+               "where v1's parser needed it"),
     Case("ja_honorific_glued_family_comma_suffixy_second_run",
          "田中さん, V.",
          {"given": "V.", "family": "田中", "suffix": "さん"},
@@ -1688,7 +3482,7 @@ CASES: tuple[Case, ...] = (
     Case("ko_honorific_glued_given_suffix_comma_initial", "Dr 김민준씨, V.",
          {"title": "Dr", "family": "김", "given": "민준",
           "suffix": "씨, V."},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="fix(#308) rather than fix(#312) because the fields do "
                "not move in this change -- a SUFFIX comma keeps the "
                "whole name in segments[0], which is what the peel "
@@ -1716,20 +3510,20 @@ CASES: tuple[Case, ...] = (
     Case("zh_honorific_glued_surname", "王先生",
          {"family": "王", "suffix": "先生"},
          locale="zh",
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="the Han twin of 김씨: the zh pack's segmentation "
                "splits off the surname and the remaining 先生 is the "
                "honorific token"),
     Case("zh_honorific_glued_given", "王小明先生",
          {"family": "王", "given": "小明", "suffix": "先生"},
          locale="zh",
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the Han twin, replacing zh_honorific_glued_given_stays: "
                "先生 peels, and the zh pack's surname vocabulary then "
                "divides the remainder 王小明"),
     Case("zh_honorific_glued_given_default", "王小明先生",
          {"family": "王小明", "suffix": "先生"},
-         classification="fix(#308)",
+         classification="fix(#308) + fix(#271)",
          notes="the same input WITHOUT the pack: the peel is default-on "
                "and script-independent, so the honorific still routes "
                "to suffix -- only the surname split needs the opt-in, "
@@ -1757,7 +3551,7 @@ CASES: tuple[Case, ...] = (
                "them"),
     Case("ko_honorific_yang_trails", "김민준 양",
          {"family": "김", "given": "민준", "suffix": "양"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="the other side of ko_surname_yang_leads: the same "
                "token trailing a name is 'Miss', and that is the whole "
                "argument shipping it -- suffixes.py singles 양 out "
@@ -1800,7 +3594,7 @@ CASES: tuple[Case, ...] = (
                "in family -- nothing in #308 moves these fields"),
     Case("ko_honorific_stack", "김민준 박사 씨",
          {"family": "김", "given": "민준", "suffix": "박사, 씨"},
-         classification="fix(#307)",
+         classification="fix(#307) + fix(#271)",
          notes="a trailing RUN of honorifics peels whole, like "
                "'Smith PhD MD' -- the multi-suffix loop the peel "
                "shares with Latin suffixes"),

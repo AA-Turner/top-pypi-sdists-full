@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nocasedict
-Version: 2.2.0
+Version: 2.2.1
 Summary: A case-insensitive list for Python
 Author-email: Andreas Maier <maiera@de.ibm.com>
 Maintainer-email: Andreas Maier <maiera@de.ibm.com>

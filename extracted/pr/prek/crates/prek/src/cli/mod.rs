@@ -20,6 +20,7 @@ mod completion;
 mod exec;
 mod hook_impl;
 mod identify;
+mod init;
 mod install;
 mod list;
 mod list_builtins;
@@ -40,6 +41,7 @@ use completion::selector_completer;
 pub(crate) use exec::exec;
 pub(crate) use hook_impl::hook_impl;
 pub(crate) use identify::identify;
+pub(crate) use init::init;
 pub(crate) use install::{init_template_dir, install, prepare_hooks, uninstall};
 pub(crate) use list::list;
 pub(crate) use list_builtins::list_builtins;
@@ -235,6 +237,8 @@ pub(crate) struct GlobalArgs {
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
+    /// Create a prek configuration and install Git hook shims.
+    Init(InitArgs),
     /// Install prek Git hook shims.
     ///
     /// The effective hooks directory defaults to `.git/hooks/`, but repo-local
@@ -266,6 +270,7 @@ pub(crate) enum Command {
     /// Validate pre-commit hook manifests (`.pre-commit-hooks.yaml`).
     ValidateManifest(ValidateManifestArgs),
     /// Generate a sample prek configuration file.
+    #[command(hide = true)]
     SampleConfig(SampleConfigArgs),
     /// Update configured repositories.
     #[command(alias = "autoupdate")]
@@ -291,6 +296,29 @@ pub(crate) enum Command {
     /// Manage the prek installation.
     #[command(name = "self")]
     Self_(SelfNamespace),
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct InitArgs {
+    /// Existing directory to initialize.
+    ///
+    /// Defaults to the current Git worktree root. Relative paths are resolved
+    /// from the current directory after applying `--cd`, and the resolved path
+    /// must be inside the current Git worktree.
+    #[arg(
+        value_name = "PATH",
+        value_hint = ValueHint::DirPath,
+        value_parser = PathBufValueParser::new().map(expand_tilde),
+    )]
+    pub(crate) path: Option<PathBuf>,
+
+    /// Select the configuration format to create.
+    #[arg(long, value_enum, default_value_t = SampleConfigFormat::Toml)]
+    pub(crate) format: SampleConfigFormat,
+
+    /// Do not install Git hook shims.
+    #[arg(long)]
+    pub(crate) no_install: bool,
 }
 
 #[derive(Debug, Args)]
@@ -653,6 +681,19 @@ pub(crate) struct RunOptions {
     /// Do not run the hooks, but print the hooks that would have been run.
     #[arg(long, help_heading = "Run options")]
     pub(crate) dry_run: bool,
+
+    /// Hide hook reports with the specified final status.
+    ///
+    /// Can be specified multiple times or as a comma-separated list. This does
+    /// not change hook execution or exit codes.
+    #[arg(
+        long,
+        value_name = "STATUS",
+        value_enum,
+        value_delimiter = ',',
+        help_heading = "Run options"
+    )]
+    pub(crate) hide_status: Vec<run::HideStatus>,
 
     #[command(flatten)]
     pub(crate) extra: RunExtraArgs,
@@ -1264,6 +1305,17 @@ mod _gen {
         let mut parents = Vec::new();
 
         output.push_str("# CLI Reference\n\n");
+        output.push_str(concat!(
+            "Running `prek` without a subcommand is equivalent to running `prek run`.\n\n",
+            "## Exit status\n\n",
+            "| Code | Meaning |\n",
+            "| -- | -- |\n",
+            "| `0` | The command succeeded. |\n",
+            "| `1` | A hook, validation, or other expected user-level check failed. |\n",
+            "| `2` | Command-line input, configuration, or an operational error prevented the command from completing. |\n",
+            "| `130` | The command was interrupted. |\n\n",
+            "`prek exec` propagates the exit code of the external command it runs.\n\n",
+        ));
         generate_command(&mut output, &cmd, &mut parents);
 
         let mut output = output.replace("\r\n", "\n");

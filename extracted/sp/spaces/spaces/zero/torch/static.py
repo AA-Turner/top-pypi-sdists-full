@@ -36,6 +36,7 @@ if _torch.version.cuda.startswith(("12.", "13.")): # pyright: ignore [reportAttr
         "num_sync_all_streams": 0,
         "num_device_alloc": 0,
         "num_device_free": 0,
+        'num_oom_rejections': 0,
         "allocation": {
             "all": {"current": 0, "peak": 0, "allocated": 0, "freed": 0},
             "small_pool": {"current": 0, "peak": 0, "allocated": 0, "freed": 0},

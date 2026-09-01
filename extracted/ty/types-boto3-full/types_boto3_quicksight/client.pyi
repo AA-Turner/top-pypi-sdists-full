@@ -32,6 +32,7 @@ from .paginator import (
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListApprovalPoliciesPaginator,
+    ListAppsPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
     ListBrandsPaginator,
@@ -65,6 +66,7 @@ from .paginator import (
     ListUsersPaginator,
     SearchActionConnectorsPaginator,
     SearchAnalysesPaginator,
+    SearchAppsPaginator,
     SearchDashboardsPaginator,
     SearchDataSetsPaginator,
     SearchDataSourcesPaginator,
@@ -166,6 +168,8 @@ from .type_defs import (
     DeleteAgentResponseTypeDef,
     DeleteAnalysisRequestTypeDef,
     DeleteAnalysisResponseTypeDef,
+    DeleteAppRequestTypeDef,
+    DeleteAppResponseTypeDef,
     DeleteApprovalPolicyRequestTypeDef,
     DeleteBrandAssignmentRequestTypeDef,
     DeleteBrandAssignmentResponseTypeDef,
@@ -259,6 +263,10 @@ from .type_defs import (
     DescribeAnalysisPermissionsResponseTypeDef,
     DescribeAnalysisRequestTypeDef,
     DescribeAnalysisResponseTypeDef,
+    DescribeAppPermissionsRequestTypeDef,
+    DescribeAppPermissionsResponseTypeDef,
+    DescribeAppRequestTypeDef,
+    DescribeAppResponseTypeDef,
     DescribeApprovalPolicyRequestTypeDef,
     DescribeApprovalPolicyResponseTypeDef,
     DescribeAssetBundleExportJobRequestTypeDef,
@@ -399,6 +407,8 @@ from .type_defs import (
     ListAnalysesResponseTypeDef,
     ListApprovalPoliciesRequestTypeDef,
     ListApprovalPoliciesResponseTypeDef,
+    ListAppsRequestTypeDef,
+    ListAppsResponseTypeDef,
     ListAssetBundleExportJobsRequestTypeDef,
     ListAssetBundleExportJobsResponseTypeDef,
     ListAssetBundleImportJobsRequestTypeDef,
@@ -499,6 +509,8 @@ from .type_defs import (
     SearchAgentsResponseTypeDef,
     SearchAnalysesRequestTypeDef,
     SearchAnalysesResponseTypeDef,
+    SearchAppsRequestTypeDef,
+    SearchAppsResponseTypeDef,
     SearchDashboardsRequestTypeDef,
     SearchDashboardsResponseTypeDef,
     SearchDataSetsRequestTypeDef,
@@ -553,6 +565,8 @@ from .type_defs import (
     UpdateAnalysisResponseTypeDef,
     UpdateApplicationWithTokenExchangeGrantRequestTypeDef,
     UpdateApplicationWithTokenExchangeGrantResponseTypeDef,
+    UpdateAppPermissionsRequestTypeDef,
+    UpdateAppPermissionsResponseTypeDef,
     UpdateApprovalPolicyRequestTypeDef,
     UpdateApprovalPolicyResponseTypeDef,
     UpdateBrandAssignmentRequestTypeDef,
@@ -1191,6 +1205,14 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_analysis)
         """
 
+    def delete_app(self, **kwargs: Unpack[DeleteAppRequestTypeDef]) -> DeleteAppResponseTypeDef:
+        """
+        Deletes an app.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_app.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_app)
+        """
+
     def delete_approval_policy(
         self, **kwargs: Unpack[DeleteApprovalPolicyRequestTypeDef]
     ) -> dict[str, Any]:
@@ -1663,6 +1685,26 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_analysis_permissions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_analysis_permissions)
+        """
+
+    def describe_app(
+        self, **kwargs: Unpack[DescribeAppRequestTypeDef]
+    ) -> DescribeAppResponseTypeDef:
+        """
+        Describes an app.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_app.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_app)
+        """
+
+    def describe_app_permissions(
+        self, **kwargs: Unpack[DescribeAppPermissionsRequestTypeDef]
+    ) -> DescribeAppPermissionsResponseTypeDef:
+        """
+        Describes the resource permissions for an app.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_app_permissions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_app_permissions)
         """
 
     def describe_approval_policy(
@@ -2380,6 +2422,14 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_approval_policies)
         """
 
+    def list_apps(self, **kwargs: Unpack[ListAppsRequestTypeDef]) -> ListAppsResponseTypeDef:
+        """
+        Lists the apps in an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_apps.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_apps)
+        """
+
     def list_asset_bundle_export_jobs(
         self, **kwargs: Unpack[ListAssetBundleExportJobsRequestTypeDef]
     ) -> ListAssetBundleExportJobsResponseTypeDef:
@@ -2880,6 +2930,14 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#search_analyses)
         """
 
+    def search_apps(self, **kwargs: Unpack[SearchAppsRequestTypeDef]) -> SearchAppsResponseTypeDef:
+        """
+        Searches for apps in an Amazon Web Services account using the specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_apps.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#search_apps)
+        """
+
     def search_dashboards(
         self, **kwargs: Unpack[SearchDashboardsRequestTypeDef]
     ) -> SearchDashboardsResponseTypeDef:
@@ -3143,6 +3201,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_analysis_permissions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_analysis_permissions)
+        """
+
+    def update_app_permissions(
+        self, **kwargs: Unpack[UpdateAppPermissionsRequestTypeDef]
+    ) -> UpdateAppPermissionsResponseTypeDef:
+        """
+        Updates the resource permissions for an app.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_app_permissions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_app_permissions)
         """
 
     def update_application_with_token_exchange_grant(
@@ -3752,6 +3820,17 @@ class QuickSightClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_apps"]
+    ) -> ListAppsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_asset_bundle_export_jobs"]
     ) -> ListAssetBundleExportJobsPaginator:
         """
@@ -4106,6 +4185,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_analyses"]
     ) -> SearchAnalysesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_apps"]
+    ) -> SearchAppsPaginator:
         """
         Create a paginator for an operation.
 

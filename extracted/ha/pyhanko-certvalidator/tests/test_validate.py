@@ -327,7 +327,7 @@ class OCSPTestCase:
 
 def read_openssl_ocsp_test_params():
     data_path = os.path.join(FIXTURES_DIR, 'openssl-ocsp', 'openssl-ocsp.json')
-    with open(data_path, 'r') as inf:
+    with open(data_path, 'r', encoding='utf-8') as inf:
         cases = json.load(inf)
     return [OCSPTestCase.from_json(obj) for obj in cases]
 
@@ -442,7 +442,7 @@ class PKITSTestCase:
 
 def read_pkits_test_params():
     data_path = os.path.join(FIXTURES_DIR, 'nist_pkits', 'pkits.json')
-    with open(data_path, 'r') as inf:
+    with open(data_path, 'r', encoding='utf-8') as inf:
         cases = json.load(inf)
     return [PKITSTestCase.from_json(obj) for obj in cases]
 
@@ -607,7 +607,7 @@ def read_pkits_user_notice_test_params():
     data_path = os.path.join(
         FIXTURES_DIR, 'nist_pkits', 'pkits-user-notice.json'
     )
-    with open(data_path, 'r') as inf:
+    with open(data_path, 'r', encoding='utf-8') as inf:
         cases = json.load(inf)
     return [PKITSUserNoticeTestCase.from_json(obj) for obj in cases]
 
@@ -951,5 +951,20 @@ async def test_basic_certificate_validator_root_expiration_unquestioned(moment):
         trust_manager=SimpleTrustManager.build([anchor]), moment=moment
     )
     path = ValidationPath(trust_anchor=anchor, interm=[], leaf=None)
+
+    await async_validate_path(context, path)
+
+
+@pytest.mark.asyncio
+async def test_extreme_not_after():
+    moment = datetime(3124, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    cert = load_cert_object('testing-ca-ed25519', 'signer1-indefinite.cert.pem')
+    ca = load_cert_object('testing-ca-ed25519', 'interm.cert.pem')
+    anchor = CertTrustAnchor(cert=ca)
+
+    context = ValidationContext(
+        trust_manager=SimpleTrustManager.build([anchor]), moment=moment
+    )
+    path = ValidationPath(trust_anchor=anchor, interm=[], leaf=cert)
 
     await async_validate_path(context, path)

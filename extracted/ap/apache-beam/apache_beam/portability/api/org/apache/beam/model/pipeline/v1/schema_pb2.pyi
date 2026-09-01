@@ -31,28 +31,49 @@ class _AtomicType:
 class _AtomicTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_AtomicType.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     UNSPECIFIED: _AtomicType.ValueType  # 0
+    """Unspecified type; used as the default/placeholder value."""
     BYTE: _AtomicType.ValueType  # 1
+    """A single signed byte (8-bit integer)."""
     INT16: _AtomicType.ValueType  # 2
+    """A 16-bit signed integer."""
     INT32: _AtomicType.ValueType  # 3
+    """A 32-bit signed integer."""
     INT64: _AtomicType.ValueType  # 4
+    """A 64-bit signed integer."""
     FLOAT: _AtomicType.ValueType  # 5
+    """A single-precision (32-bit) IEEE 754 floating-point number."""
     DOUBLE: _AtomicType.ValueType  # 6
+    """A double-precision (64-bit) IEEE 754 floating-point number."""
     STRING: _AtomicType.ValueType  # 7
+    """A UTF-8 encoded string."""
     BOOLEAN: _AtomicType.ValueType  # 8
+    """A boolean (true/false) value."""
     BYTES: _AtomicType.ValueType  # 9
+    """A sequence of bytes."""
 
-class AtomicType(_AtomicType, metaclass=_AtomicTypeEnumTypeWrapper): ...
+class AtomicType(_AtomicType, metaclass=_AtomicTypeEnumTypeWrapper):
+    """The set of primitive (atomic) types supported by Beam Schemas."""
 
 UNSPECIFIED: AtomicType.ValueType  # 0
+"""Unspecified type; used as the default/placeholder value."""
 BYTE: AtomicType.ValueType  # 1
+"""A single signed byte (8-bit integer)."""
 INT16: AtomicType.ValueType  # 2
+"""A 16-bit signed integer."""
 INT32: AtomicType.ValueType  # 3
+"""A 32-bit signed integer."""
 INT64: AtomicType.ValueType  # 4
+"""A 64-bit signed integer."""
 FLOAT: AtomicType.ValueType  # 5
+"""A single-precision (32-bit) IEEE 754 floating-point number."""
 DOUBLE: AtomicType.ValueType  # 6
+"""A double-precision (64-bit) IEEE 754 floating-point number."""
 STRING: AtomicType.ValueType  # 7
+"""A UTF-8 encoded string."""
 BOOLEAN: AtomicType.ValueType  # 8
+"""A boolean (true/false) value."""
 BYTES: AtomicType.ValueType  # 9
+"""A sequence of bytes."""
 global___AtomicType = AtomicType
 
 @typing_extensions.final
@@ -69,7 +90,10 @@ class Schema(google.protobuf.message.Message):
     id: builtins.str
     """REQUIRED. An RFC 4122 UUID."""
     @property
-    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Option]: ...
+    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Option]:
+        """(Optional) Schema-level options that provide additional metadata
+        or configuration for this schema.
+        """
     encoding_positions_set: builtins.bool
     """Indicates that encoding positions have been overridden."""
     def __init__(
@@ -99,8 +123,12 @@ class Field(google.protobuf.message.Message):
     description: builtins.str
     """OPTIONAL. Human readable description of this field, such as the query that generated it."""
     @property
-    def type(self) -> global___FieldType: ...
+    def type(self) -> global___FieldType:
+        """(Required) The type of this field."""
     id: builtins.int
+    """(Optional) An integer identifier for this field. Used for schema evolution
+    to track fields across schema changes even when field names or positions change.
+    """
     encoding_position: builtins.int
     """OPTIONAL. The position of this field's data when encoded, e.g. with beam:coder:row:v1.
     Either no fields in a given row are have encoding position populated,
@@ -111,7 +139,10 @@ class Field(google.protobuf.message.Message):
     defined, otherwise this field is ignored.
     """
     @property
-    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Option]: ...
+    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Option]:
+        """(Optional) Field-level options that provide additional metadata
+        or configuration for this field.
+        """
     def __init__(
         self,
         *,
@@ -129,6 +160,12 @@ global___Field = Field
 
 @typing_extensions.final
 class FieldType(google.protobuf.message.Message):
+    """Represents the type of a field in a Beam Schema. A field type can be one of
+    several categories: atomic types (primitives like INT32, STRING, etc.),
+    collection types (arrays, iterables, maps), row types (nested schemas),
+    or logical types (custom types with a URN-based representation).
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     NULLABLE_FIELD_NUMBER: builtins.int
@@ -139,17 +176,24 @@ class FieldType(google.protobuf.message.Message):
     ROW_TYPE_FIELD_NUMBER: builtins.int
     LOGICAL_TYPE_FIELD_NUMBER: builtins.int
     nullable: builtins.bool
+    """Whether this field can hold null values."""
     atomic_type: global___AtomicType.ValueType
+    """A primitive (atomic) type such as INT32, STRING, BYTES, etc."""
     @property
-    def array_type(self) -> global___ArrayType: ...
+    def array_type(self) -> global___ArrayType:
+        """An ordered array of elements of a uniform element type."""
     @property
-    def iterable_type(self) -> global___IterableType: ...
+    def iterable_type(self) -> global___IterableType:
+        """An unordered iterable of elements of a uniform element type."""
     @property
-    def map_type(self) -> global___MapType: ...
+    def map_type(self) -> global___MapType:
+        """A map with typed keys and typed values."""
     @property
-    def row_type(self) -> global___RowType: ...
+    def row_type(self) -> global___RowType:
+        """A nested row with its own schema."""
     @property
-    def logical_type(self) -> global___LogicalType: ...
+    def logical_type(self) -> global___LogicalType:
+        """A user-defined logical type, identified by URN."""
     def __init__(
         self,
         *,
@@ -169,11 +213,16 @@ global___FieldType = FieldType
 
 @typing_extensions.final
 class ArrayType(google.protobuf.message.Message):
+    """Represents an ordered, variable-length array type. All elements share
+    the same element type.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ELEMENT_TYPE_FIELD_NUMBER: builtins.int
     @property
-    def element_type(self) -> global___FieldType: ...
+    def element_type(self) -> global___FieldType:
+        """The type of elements in this array."""
     def __init__(
         self,
         *,
@@ -186,11 +235,16 @@ global___ArrayType = ArrayType
 
 @typing_extensions.final
 class IterableType(google.protobuf.message.Message):
+    """Represents an unordered, variable-length iterable type. Similar to ArrayType
+    but without guaranteed ordering of elements.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ELEMENT_TYPE_FIELD_NUMBER: builtins.int
     @property
-    def element_type(self) -> global___FieldType: ...
+    def element_type(self) -> global___FieldType:
+        """The type of elements in this iterable."""
     def __init__(
         self,
         *,
@@ -203,14 +257,20 @@ global___IterableType = IterableType
 
 @typing_extensions.final
 class MapType(google.protobuf.message.Message):
+    """Represents a map (key-value association) type. Keys and values may each
+    have their own distinct types.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     KEY_TYPE_FIELD_NUMBER: builtins.int
     VALUE_TYPE_FIELD_NUMBER: builtins.int
     @property
-    def key_type(self) -> global___FieldType: ...
+    def key_type(self) -> global___FieldType:
+        """The type of the map keys."""
     @property
-    def value_type(self) -> global___FieldType: ...
+    def value_type(self) -> global___FieldType:
+        """The type of the map values."""
     def __init__(
         self,
         *,
@@ -224,11 +284,16 @@ global___MapType = MapType
 
 @typing_extensions.final
 class RowType(google.protobuf.message.Message):
+    """Represents a nested row type, which contains its own Schema. This enables
+    hierarchical/structured data within a single schema field.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SCHEMA_FIELD_NUMBER: builtins.int
     @property
-    def schema(self) -> global___Schema: ...
+    def schema(self) -> global___Schema:
+        """The schema describing the structure of nested rows."""
     def __init__(
         self,
         *,
@@ -241,6 +306,12 @@ global___RowType = RowType
 
 @typing_extensions.final
 class LogicalType(google.protobuf.message.Message):
+    """Represents a user-defined logical type. Logical types extend the type system
+    by mapping a URN-identified type to an underlying representation type.
+    This allows SDKs to define custom types (e.g. Decimal, Date) while encoding
+    them using one of the built-in atomic or collection types.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     URN_FIELD_NUMBER: builtins.int
@@ -249,13 +320,22 @@ class LogicalType(google.protobuf.message.Message):
     ARGUMENT_TYPE_FIELD_NUMBER: builtins.int
     ARGUMENT_FIELD_NUMBER: builtins.int
     urn: builtins.str
+    """(Required) URN uniquely identifying this logical type."""
     payload: builtins.bytes
+    """(Optional) Payload providing additional configuration for this logical type."""
     @property
-    def representation(self) -> global___FieldType: ...
+    def representation(self) -> global___FieldType:
+        """(Required) The underlying FieldType used to encode/decode values of this
+        logical type on the wire.
+        """
     @property
-    def argument_type(self) -> global___FieldType: ...
+    def argument_type(self) -> global___FieldType:
+        """(Optional) The type of the argument passed when constructing an instance
+        of this logical type (e.g. the length argument for FixedBytes).
+        """
     @property
-    def argument(self) -> global___FieldValue: ...
+    def argument(self) -> global___FieldValue:
+        """(Optional) The actual argument value for this logical type instance."""
     def __init__(
         self,
         *,
@@ -342,6 +422,18 @@ class LogicalTypes(google.protobuf.message.Message):
           - A date without a timezone, represented by the number of days
             since the epoch.
         """
+        TIMESTAMP: LogicalTypes._Enum.ValueType  # 9
+        """A URN for Timestamp type
+          - Representation type: ROW<seconds: INT64, subseconds: INT16> for
+            precision < 5, otherwise ROW<seconds: INT64, subseconds: INT32>
+          - Argument type: INT32.
+            A timestamp without a timezone, represented as seconds since the
+            epoch plus a non-negative fraction of a second. The argument is
+            the precision: the number of decimal digits of the subseconds
+            field (e.g. 3 for milliseconds, 6 for micros, 9 for nanos).
+            subseconds stays non-negative even for timestamps before the epoch,
+            e.g. -1.5s at precision 6 is {seconds: -2, subseconds: 500000}.
+        """
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     PYTHON_CALLABLE: LogicalTypes.Enum.ValueType  # 0
@@ -402,6 +494,18 @@ class LogicalTypes(google.protobuf.message.Message):
       - A date without a timezone, represented by the number of days
         since the epoch.
     """
+    TIMESTAMP: LogicalTypes.Enum.ValueType  # 9
+    """A URN for Timestamp type
+      - Representation type: ROW<seconds: INT64, subseconds: INT16> for
+        precision < 5, otherwise ROW<seconds: INT64, subseconds: INT32>
+      - Argument type: INT32.
+        A timestamp without a timezone, represented as seconds since the
+        epoch plus a non-negative fraction of a second. The argument is
+        the precision: the number of decimal digits of the subseconds
+        field (e.g. 3 for milliseconds, 6 for micros, 9 for nanos).
+        subseconds stays non-negative even for timestamps before the epoch,
+        e.g. -1.5s at precision 6 is {seconds: -2, subseconds: 500000}.
+    """
 
     def __init__(
         self,
@@ -411,6 +515,11 @@ global___LogicalTypes = LogicalTypes
 
 @typing_extensions.final
 class Option(google.protobuf.message.Message):
+    """Represents a schema option, which is a named, typed value attached to a
+    Schema or Field. Options provide additional metadata or configuration
+    that is not part of the core type system.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     NAME_FIELD_NUMBER: builtins.int
@@ -425,7 +534,8 @@ class Option(google.protobuf.message.Message):
         use a boolean type, with the value set to true.
         """
     @property
-    def value(self) -> global___FieldValue: ...
+    def value(self) -> global___FieldValue:
+        """The typed value of this option."""
     def __init__(
         self,
         *,
@@ -440,11 +550,17 @@ global___Option = Option
 
 @typing_extensions.final
 class Row(google.protobuf.message.Message):
+    """A concrete instance of a row, containing the values for each field as defined
+    by the associated Schema. The order of values matches the field order in the
+    Schema.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     VALUES_FIELD_NUMBER: builtins.int
     @property
-    def values(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldValue]: ...
+    def values(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldValue]:
+        """The values for each field in the row, in schema field order."""
     def __init__(
         self,
         *,
@@ -456,6 +572,10 @@ global___Row = Row
 
 @typing_extensions.final
 class FieldValue(google.protobuf.message.Message):
+    """Represents the value of a single field within a Row. The oneof corresponds
+    to the FieldType categories: atomic, array, iterable, map, row, or logical.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ATOMIC_VALUE_FIELD_NUMBER: builtins.int
@@ -465,17 +585,23 @@ class FieldValue(google.protobuf.message.Message):
     ROW_VALUE_FIELD_NUMBER: builtins.int
     LOGICAL_TYPE_VALUE_FIELD_NUMBER: builtins.int
     @property
-    def atomic_value(self) -> global___AtomicTypeValue: ...
+    def atomic_value(self) -> global___AtomicTypeValue:
+        """The value for an atomic (primitive) field type."""
     @property
-    def array_value(self) -> global___ArrayTypeValue: ...
+    def array_value(self) -> global___ArrayTypeValue:
+        """The value for an array field type."""
     @property
-    def iterable_value(self) -> global___IterableTypeValue: ...
+    def iterable_value(self) -> global___IterableTypeValue:
+        """The value for an iterable field type."""
     @property
-    def map_value(self) -> global___MapTypeValue: ...
+    def map_value(self) -> global___MapTypeValue:
+        """The value for a map field type."""
     @property
-    def row_value(self) -> global___Row: ...
+    def row_value(self) -> global___Row:
+        """The value for a nested row field type."""
     @property
-    def logical_type_value(self) -> global___LogicalTypeValue: ...
+    def logical_type_value(self) -> global___LogicalTypeValue:
+        """The value for a logical type field."""
     def __init__(
         self,
         *,
@@ -494,6 +620,10 @@ global___FieldValue = FieldValue
 
 @typing_extensions.final
 class AtomicTypeValue(google.protobuf.message.Message):
+    """The concrete value of an atomic (primitive) field. The oneof member must
+    correspond to the AtomicType of the field's FieldType.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     BYTE_FIELD_NUMBER: builtins.int
@@ -506,14 +636,23 @@ class AtomicTypeValue(google.protobuf.message.Message):
     BOOLEAN_FIELD_NUMBER: builtins.int
     BYTES_FIELD_NUMBER: builtins.int
     byte: builtins.int
+    """Value for AtomicType.BYTE."""
     int16: builtins.int
+    """Value for AtomicType.INT16."""
     int32: builtins.int
+    """Value for AtomicType.INT32."""
     int64: builtins.int
+    """Value for AtomicType.INT64."""
     float: builtins.float
+    """Value for AtomicType.FLOAT."""
     double: builtins.float
+    """Value for AtomicType.DOUBLE."""
     string: builtins.str
+    """Value for AtomicType.STRING."""
     boolean: builtins.bool
+    """Value for AtomicType.BOOLEAN."""
     bytes: builtins.bytes
+    """Value for AtomicType.BYTES."""
     def __init__(
         self,
         *,
@@ -535,11 +674,14 @@ global___AtomicTypeValue = AtomicTypeValue
 
 @typing_extensions.final
 class ArrayTypeValue(google.protobuf.message.Message):
+    """The concrete value of an array field, containing a list of element values."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ELEMENT_FIELD_NUMBER: builtins.int
     @property
-    def element(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldValue]: ...
+    def element(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldValue]:
+        """The element values in this array, in order."""
     def __init__(
         self,
         *,
@@ -551,11 +693,14 @@ global___ArrayTypeValue = ArrayTypeValue
 
 @typing_extensions.final
 class IterableTypeValue(google.protobuf.message.Message):
+    """The concrete value of an iterable field, containing a list of element values."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ELEMENT_FIELD_NUMBER: builtins.int
     @property
-    def element(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldValue]: ...
+    def element(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldValue]:
+        """The element values in this iterable."""
     def __init__(
         self,
         *,
@@ -567,11 +712,14 @@ global___IterableTypeValue = IterableTypeValue
 
 @typing_extensions.final
 class MapTypeValue(google.protobuf.message.Message):
+    """The concrete value of a map field, represented as a list of key-value entries."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ENTRIES_FIELD_NUMBER: builtins.int
     @property
-    def entries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___MapTypeEntry]: ...
+    def entries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___MapTypeEntry]:
+        """The key-value entries in this map."""
     def __init__(
         self,
         *,
@@ -583,14 +731,18 @@ global___MapTypeValue = MapTypeValue
 
 @typing_extensions.final
 class MapTypeEntry(google.protobuf.message.Message):
+    """A single key-value entry within a MapTypeValue."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     KEY_FIELD_NUMBER: builtins.int
     VALUE_FIELD_NUMBER: builtins.int
     @property
-    def key(self) -> global___FieldValue: ...
+    def key(self) -> global___FieldValue:
+        """The key of this map entry."""
     @property
-    def value(self) -> global___FieldValue: ...
+    def value(self) -> global___FieldValue:
+        """The value of this map entry."""
     def __init__(
         self,
         *,
@@ -604,11 +756,16 @@ global___MapTypeEntry = MapTypeEntry
 
 @typing_extensions.final
 class LogicalTypeValue(google.protobuf.message.Message):
+    """The concrete value of a logical type field. Contains the underlying
+    representation value that encodes the logical type's data.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     VALUE_FIELD_NUMBER: builtins.int
     @property
-    def value(self) -> global___FieldValue: ...
+    def value(self) -> global___FieldValue:
+        """The underlying representation value for this logical type."""
     def __init__(
         self,
         *,
@@ -632,7 +789,9 @@ class SchemaCoderPayload(google.protobuf.message.Message):
         URN_FIELD_NUMBER: builtins.int
         PAYLOAD_FIELD_NUMBER: builtins.int
         urn: builtins.str
+        """URN identifying the additional coder information."""
         payload: builtins.bytes
+        """Payload for the additional coder information."""
         def __init__(
             self,
             *,

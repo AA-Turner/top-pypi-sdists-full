@@ -32,10 +32,14 @@ from .type_defs import (
     AddAttachmentsToSetResponseTypeDef,
     AddCommunicationToCaseRequestTypeDef,
     AddCommunicationToCaseResponseTypeDef,
+    CompleteAttachmentUploadRequestTypeDef,
+    CompleteAttachmentUploadResponseTypeDef,
     CreateCaseRequestTypeDef,
     CreateCaseResponseTypeDef,
     DescribeAttachmentRequestTypeDef,
     DescribeAttachmentResponseTypeDef,
+    DescribeAttachmentUploadStatusRequestTypeDef,
+    DescribeAttachmentUploadStatusResponseTypeDef,
     DescribeCasesRequestTypeDef,
     DescribeCasesResponseTypeDef,
     DescribeCommunicationsRequestTypeDef,
@@ -56,6 +60,10 @@ from .type_defs import (
     DescribeTrustedAdvisorChecksResponseTypeDef,
     DescribeTrustedAdvisorCheckSummariesRequestTypeDef,
     DescribeTrustedAdvisorCheckSummariesResponseTypeDef,
+    GetAttachmentDownloadLinkRequestTypeDef,
+    GetAttachmentDownloadLinkResponseTypeDef,
+    GetAttachmentUploadLinksRequestTypeDef,
+    GetAttachmentUploadLinksResponseTypeDef,
     RefreshTrustedAdvisorCheckRequestTypeDef,
     RefreshTrustedAdvisorCheckResponseTypeDef,
     ResolveCaseRequestTypeDef,
@@ -79,8 +87,10 @@ class Exceptions(BaseClientExceptions):
     CaseIdNotFound: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     DescribeAttachmentLimitExceeded: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
     InternalServerError: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
+    UploadIdNotFound: type[BotocoreClientError]
 
 class SupportClient(BaseClient):
     """
@@ -131,10 +141,21 @@ class SupportClient(BaseClient):
         self, **kwargs: Unpack[AddCommunicationToCaseRequestTypeDef]
     ) -> AddCommunicationToCaseResponseTypeDef:
         """
-        Adds additional customer communication to an Amazon Web Services Support case.
+        Adds additional customer communication to a Amazon Web Services Support case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/add_communication_to_case.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#add_communication_to_case)
+        """
+
+    def complete_attachment_upload(
+        self, **kwargs: Unpack[CompleteAttachmentUploadRequestTypeDef]
+    ) -> CompleteAttachmentUploadResponseTypeDef:
+        """
+        Completes an attachment upload that was started with
+        <a>GetAttachmentUploadLinks</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/complete_attachment_upload.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#complete_attachment_upload)
         """
 
     def create_case(self, **kwargs: Unpack[CreateCaseRequestTypeDef]) -> CreateCaseResponseTypeDef:
@@ -153,6 +174,17 @@ class SupportClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/describe_attachment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#describe_attachment)
+        """
+
+    def describe_attachment_upload_status(
+        self, **kwargs: Unpack[DescribeAttachmentUploadStatusRequestTypeDef]
+    ) -> DescribeAttachmentUploadStatusResponseTypeDef:
+        """
+        Returns the current status, file name, and progress of a multipart attachment
+        upload that was started with <a>GetAttachmentUploadLinks</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/describe_attachment_upload_status.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#describe_attachment_upload_status)
         """
 
     def describe_cases(
@@ -260,6 +292,28 @@ class SupportClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/describe_trusted_advisor_checks.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#describe_trusted_advisor_checks)
+        """
+
+    def get_attachment_download_link(
+        self, **kwargs: Unpack[GetAttachmentDownloadLinkRequestTypeDef]
+    ) -> GetAttachmentDownloadLinkResponseTypeDef:
+        """
+        Returns a presigned download URL for an attachment that is associated with a
+        case communication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/get_attachment_download_link.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#get_attachment_download_link)
+        """
+
+    def get_attachment_upload_links(
+        self, **kwargs: Unpack[GetAttachmentUploadLinksRequestTypeDef]
+    ) -> GetAttachmentUploadLinksResponseTypeDef:
+        """
+        Returns one or more presigned upload URLs for uploading a large file attachment
+        to a support case by using a multipart upload workflow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support/client/get_attachment_upload_links.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support/client/#get_attachment_upload_links)
         """
 
     def refresh_trusted_advisor_check(

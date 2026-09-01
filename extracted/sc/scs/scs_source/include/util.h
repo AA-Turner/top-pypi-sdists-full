@@ -5,8 +5,11 @@
 extern "C" {
 #endif
 
+#include "cones.h"
 #include "scs.h"
-#include "glbopts.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* timing code courtesy of A. Domahidi */
 #if (defined NO_TIMER)
@@ -43,8 +46,8 @@ typedef struct SCS(timer) {
 void SCS(tic)(SCS(timer) * t);
 scs_float SCS(tocq)(SCS(timer) * t);
 void SCS(free_sol)(ScsSolution *sol);
-scs_int SCS(deep_copy_data)(ScsData *dest, const ScsData *src);
-scs_int SCS(deep_copy_stgs)(ScsSettings *dest, const ScsSettings *src);
+void SCS(deep_copy_data)(ScsData *dest, const ScsData *src);
+void SCS(deep_copy_stgs)(ScsSettings *dest, const ScsSettings *src);
 void SCS(free_data)(ScsData *d);
 
 #ifdef __cplusplus

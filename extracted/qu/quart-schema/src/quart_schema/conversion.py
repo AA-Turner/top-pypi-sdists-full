@@ -3,14 +3,14 @@ from __future__ import annotations
 import sys
 from dataclasses import fields, is_dataclass
 from inspect import isclass
-from typing import Any, Literal, TypeGuard, TypeVar
+from typing import Any, get_origin, Literal, TypeGuard, TypeVar
 
-import humps
 from quart import current_app
 from quart.typing import HeadersValue, ResponseReturnValue as QuartResponseReturnValue, StatusCode
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
 
+from .casing import camel_to_snake, kebab_to_snake, snake_to_camel, snake_to_kebab
 from .typing import Model, PydanticDumpOptions, ResponseReturnValue, ResponseValue
 
 if sys.version_info >= (3, 12):
@@ -165,9 +165,9 @@ def model_dump(
         return raw
 
     if camelize:
-        return humps.camelize(value)
+        return snake_to_camel(value)
     elif kebabize:
-        return humps.kebabize(value)
+        return snake_to_kebab(value)
     else:
         return value
 
@@ -181,7 +181,7 @@ def model_load(
     preference: str | None = None,
 ) -> T:
     if decamelize:
-        data = humps.decamelize(data)
+        data = camel_to_snake(data)
 
     try:
         if _use_pydantic(model_class, preference):
@@ -237,7 +237,7 @@ def convert_headers(
 
     result = {}
     for raw_key in raw.keys():
-        key = humps.dekebabize(raw_key).lower()
+        key = kebab_to_snake(raw_key).lower()
         if key in fields_:
             if isinstance(raw, Headers):
                 result[key] = ",".join(raw.get_all(raw_key))
@@ -255,18 +255,30 @@ def _is_list_or_dict(type_: type) -> bool:
     return origin in (dict, dict, list, list)
 
 
+def _valid_model_class(model_class: type) -> bool:
+    """Validate if a type can be used as a schema class.
+
+    Returns True for types that don't require conversion:
+    - TypedDict, dataclasses, and attrs classes
+    - Built-in dict/list and their generic aliases (e.g., dict[str, int])
+    """
+    if (
+        _is_list_or_dict(model_class)
+        or is_dataclass(model_class)
+        or is_typeddict(model_class)
+        # Generic aliases: https://github.com/python/cpython/issues/149574
+        or is_dataclass(get_origin(model_class))
+        or is_typeddict(get_origin(model_class))
+    ):
+        return True
+    return False
+
+
 def _use_pydantic(model_class: type, preference: str | None) -> bool:
     return PYDANTIC_INSTALLED and (
         is_pydantic_dataclass(model_class)
         or (isclass(model_class) and issubclass(model_class, BaseModel))
-        or (
-            (
-                _is_list_or_dict(model_class)
-                or is_dataclass(model_class)
-                or is_typeddict(model_class)
-            )
-            and preference != "msgspec"
-        )
+        or (_valid_model_class(model_class) and preference != "msgspec")
     )
 
 
@@ -274,12 +286,5 @@ def _use_msgspec(model_class: type, preference: str | None) -> bool:
     return MSGSPEC_INSTALLED and (
         (isclass(model_class) and issubclass(model_class, Struct))
         or is_attrs(model_class)
-        or (
-            (
-                _is_list_or_dict(model_class)
-                or is_dataclass(model_class)
-                or is_typeddict(model_class)
-            )
-            and preference != "pydantic"
-        )
+        or (_valid_model_class(model_class) and preference != "pydantic")
     )

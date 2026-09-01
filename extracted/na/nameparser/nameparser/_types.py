@@ -34,7 +34,7 @@ class Role(StrEnum):
     ``sorted()`` yields alphabetical order -- iterate ``Role`` itself
     for the canonical order."""
 
-    # Declaration order IS the canonical field order (conventions §3):
+    # Declaration order IS the canonical field order:
     # every listing of the seven fields anywhere derives from this.
 
     #: Pre-nominal titles and honorifics ("Dr.", "Sir", "Capt.").
@@ -80,8 +80,11 @@ class Span(NamedTuple):
 #: The four :attr:`Token.tags` values that are stable API.
 #: "particle" marks a word from the particle vocabulary ("de", "van")
 #: wherever it lands -- including a given-name "Van" -- so combine it
-#: with Role.FAMILY (as family_particles does) to get actual family
-#: particles; "conjunction" a joining word ("and", "y"); "initial" an
+#: with Role.FAMILY to get particle-vocabulary family words -- but
+#: NOT to reproduce `family_particles`, which since #404 also consults
+#: UNJOINED_TAG and excludes a particle standing alone in its part
+#: ("Anh Do" has a particle-tagged family word and no family
+#: particles); "conjunction" a joining word ("and", "y"); "initial" an
 #: initial-shaped word in a script that HAS initials -- "J." or "А.",
 #: never "씨." (#320);
 #: "joined" a continuation of the previous token within one merged
@@ -93,13 +96,43 @@ class Span(NamedTuple):
 #: test only compares the frozenset), so edit both or neither.
 STABLE_TAGS = frozenset({"particle", "conjunction", "initial", "joined"})
 
+#: A name part whose every word is particle vocabulary is a part
+#: where none of them is doing a particle's work -- nothing joins them
+#: to a name -- so FOUR views read them as ordinary name words: they
+#: anchor `family_base`, drop out of `family_particles`, contribute
+#: initials (rules.md#R2), and capitalize like any other name word
+#: rather than being lowercased as particles (#407).
+#: MARKED rather than untagged: `particle` is stable API and says the
+#: word IS particle vocabulary wherever it lands, which stays true, and
+#: keeping it leaves a later rule free to report the fork this decides.
+UNJOINED_TAG = "vocab:unjoined-particle"
+
 #: The one sanctioned view-reorder marker (namespaced = unstable API).
 #: Tokens cannot reorder (span order is validated), so a role fold that
 #: must render BEFORE the role's original tokens tags them with this;
-#: _text_for and the facade lists prepend carriers. Single-sourced here
-#: so the emitter (_pipeline/_post_rules) and the consumers cannot
-#: drift.
+#: _text_for, _render.initials and the facade lists all prepend the
+#: carriers. Single-sourced here so the emitter (_pipeline/_post_rules)
+#: and the consumers cannot drift -- initials() was the consumer that
+#: did drift, walking written order until #408.
 FOLDED_TAG = "vocab:folded-middle"
+
+#: Raw text spliced into a field after the parse, which no parse ever
+#: read: `ParsedName.replace()` stamps it, and so does the facade's
+#: v1 pickle load, which rebuilds a name from `*_list` strings alone.
+#: A view that is HANDED a vocabulary falls back to it for a token
+#: carrying this -- there is no decision to honor -- and reads every
+#: other token by its tags (mechanisms.md#RENDER-HONORS-THE-PARSE).
+#: `capitalized(lexicon=...)` is the one such view; `initials()` takes
+#: no lexicon and so honors tags alone, marked or not.
+#: The absence of a SPAN is not that signal and was tried as one: a
+#: span-less token is SYNTHETIC, which `Parser.revise()` also builds,
+#: from a full sub-parse whose tags it deliberately keeps. Keying the
+#: fallback on the span overrode exactly those tags. Absence of TAGS is
+#: not the signal either -- an ordinary parsed name word carries none.
+UNCLASSIFIED_TAG = "vocab:unclassified"
+
+#: The one-element tag set its two producers stamp, built once.
+_UNCLASSIFIED = frozenset({UNCLASSIFIED_TAG})
 
 _E = TypeVar("_E", bound=Enum)
 
@@ -353,13 +386,39 @@ class AmbiguityKind(StrEnum):
     #: family name remains; "Jack MA" keeps it as the name because none
     #: would) and a trailing roman numeral, which is a suffix where any
     #: other single letter would be a name ("John Smith V" vs "John
-    #: Smith B"). Which name part was declined depends on position and
+    #: Smith B"). It also covers a family-comma listing, where a
+    #: trailing abbreviation that is both a post-nominal and a surname
+    #: particle joins the surname the comma already named: "Berg, Jan
+    #: vd" takes ``vd`` for *van der* and declines the decoration.
+    #: Which name part was declined depends on position and
     #: ``name_order``, so ``detail`` names it rather than the kind.
     SUFFIX_OR_NAME = "suffix-or-name"
-    #: A leading ambiguous particle was read as a given name -- the
-    #: right call for "Van Johnson" (the actor's given name), the
-    #: wrong one for a bare "Van Buren" (the presidential surname);
-    #: the two-word shape cannot distinguish them.
+    #: An ambiguous particle is either a particle or a name in its own
+    #: right -- "Van Johnson" is the actor's given name, a bare
+    #: "Van Buren" the presidential surname, and the two-word shape
+    #: cannot distinguish them. Three
+    #: shapes report this kind, decided in different stages, and
+    #: ``detail`` is what tells them apart. A particle left standing
+    #: alone chained nothing and was assigned a role, which ``detail``
+    #: names ("read as a given name") -- that role is whatever
+    #: assignment gave it, so it follows ``name_order`` and any
+    #: ``script_orders`` entry, which is why the kind cannot name it.
+    #: A particle that something ahead of it shifted off the front of
+    #: the name was instead claimed by the prefix chain, and ``detail``
+    #: says that and names no field at all: grouping runs before roles
+    #: exist, so that text is the same under every order. Since #367 a
+    #: plain title is not such a thing -- "Dr. Van Johnson" reads as
+    #: the untitled "Van Johnson" does and takes the first shape --
+    #: and what remains is a leading word that is both a title and a
+    #: particle, so it stays a name piece and the particle behind it is
+    #: genuinely not leading ("Freiherr von Richthofen").
+    #: The third shape is at the TAIL rather than the head: a family
+    #: comma names the surname, and a particle written behind the given
+    #: name after it -- "Beethoven, Ludwig van", the Dutch and Flemish
+    #: filing convention -- is attached to that surname, over its
+    #: reading as an ordinary name word. The comma settles which piece
+    #: is the family and nothing about this, so the fork is real and
+    #: ``detail`` names the word it turned on.
     PARTICLE_OR_GIVEN = "particle-or-given"
     #: A nickname/maiden delimiter opened without closing (or closed
     #: without opening); the text was kept as literal name content, so
@@ -450,6 +509,32 @@ def _validated_field_strings(fields: dict[str, str]) -> dict[Role, str]:
                 f"field {key!r} must be a str, got {value!r}"
             )
     return {by_value[k]: v for k, v in fields.items()}
+
+
+def _remarked(tokens: list[Token]) -> tuple[Token, ...]:
+    """UNJOINED_TAG recomputed over an edited token list.
+
+    The mark says a particle stands ALONE in its part, which is a fact
+    about the part rather than the word, so an edit that re-roles
+    tokens invalidates it in both directions: replace()/revise() splice
+    a sub-parse's tokens into one field, and a particle marked alone
+    there can land beside a name word (stale mark) while an unmarked
+    one can end up alone (missing mark). Parser.revise strips
+    FOLDED_TAG for the same reason; this one is RECOMPUTED rather than
+    stripped, because absent is only correct for half the cases.
+    """
+    out = list(tokens)
+    for role in (Role.GIVEN, Role.MIDDLE, Role.FAMILY):
+        part = [i for i, t in enumerate(out) if t.role is role]
+        alone = bool(part) and all("particle" in out[i].tags for i in part)
+        for i in part:
+            tags = out[i].tags
+            if alone and UNJOINED_TAG not in tags:
+                out[i] = dataclasses.replace(out[i], tags=tags | {UNJOINED_TAG})
+            elif not alone and UNJOINED_TAG in tags:
+                out[i] = dataclasses.replace(out[i],
+                                             tags=tags - {UNJOINED_TAG})
+    return tuple(out)
 
 
 @dataclass(frozen=True, slots=True)
@@ -548,24 +633,36 @@ class ParsedName:
             if text:
                 lines.append(f"    {role.value}: {text!r}")
         if self.ambiguities:
-            kinds = [a.kind.value for a in self.ambiguities]
-            lines.append(f"    ambiguities: {kinds!r}")
+            items = [
+                f"{a.kind.value}: {'/'.join(t.text for t in a.tokens)}"
+                if a.tokens else a.kind.value
+                for a in self.ambiguities
+            ]
+            lines.append(f"    ambiguities: {items!r}")
         body = "\n".join(lines)
         return f"<ParsedName: [\n{body}\n]>" if lines else "<ParsedName: []>"
 
     # -- string views (canonical order = Role declaration order) --------
 
     def _text_for(self, *roles: Role, tag: str | None = None,
-                  without_tag: str | None = None) -> str:
+                  without_tag: str | None = None,
+                  unless_tag: str | None = None) -> str:
         suffix_join = roles == (Role.SUFFIX,)
         parts: list[str] = []
         folded: list[str] = []
         for tok in self.tokens:
             if tok.role not in roles:
                 continue
-            if tag is not None and tag not in tok.tags:
+            # A token carrying `unless_tag` is read as though it did
+            # not carry `tag`/`without_tag` at all -- so it is EXCLUDED
+            # by a `tag=` filter and INCLUDED by a `without_tag=` one,
+            # which is how an unjoined particle anchors the base and
+            # leaves the particles view.
+            waived = unless_tag is not None and unless_tag in tok.tags
+            if tag is not None and (tag not in tok.tags or waived):
                 continue
-            if without_tag is not None and without_tag in tok.tags:
+            if without_tag is not None and without_tag in tok.tags \
+                    and not waived:
                 continue
             # "joined" (stable tag) marks a continuation of the previous
             # token ("Ph." + "D."): attach with a space so the suffix
@@ -593,6 +690,10 @@ class ParsedName:
         return self._text_for(Role.MIDDLE)
 
     @property
+    # rules.md#R1: "every field is a view computed from the parsed
+    # words at read time, joining its words in written order — except
+    # folded family words" (O3's fold and P6's tussenvoegsel, which
+    # render before the rest of the family)
     def family(self) -> str:
         return self._text_for(Role.FAMILY)
 
@@ -611,12 +712,17 @@ class ParsedName:
     # -- derived views (filters over roles + STABLE tags only) ----------
 
     @property
+    # rules.md#R2: "the family name splits into further views: the
+    # base (the family without its leading particles) and the
+    # particles themselves"
     def family_particles(self) -> str:
-        return self._text_for(Role.FAMILY, tag="particle")
+        return self._text_for(Role.FAMILY, tag="particle",
+                              unless_tag=UNJOINED_TAG)
 
     @property
     def family_base(self) -> str:
-        return self._text_for(Role.FAMILY, without_tag="particle")
+        return self._text_for(Role.FAMILY, without_tag="particle",
+                              unless_tag=UNJOINED_TAG)
 
     @property
     def surnames(self) -> str:
@@ -650,14 +756,19 @@ class ParsedName:
         empty value clears the field. original is unchanged (provenance).
         Ambiguities referencing replaced tokens are dropped.
 
-        Replacement tokens carry NO tags, so tag-driven views degrade:
-        family_particles empties, particles regain their initials, and
-        a multi-word suffix is comma-joined. Parser.revise() is the
-        tag-preserving alternative.
+        Replacement tokens carry no STABLE tag, so tag-driven views
+        degrade: family_particles empties, particles regain their
+        initials, and a multi-word suffix is comma-joined.
+        Parser.revise() is the tag-preserving alternative.
+        They do carry UNCLASSIFIED_TAG, which says the text was never
+        read rather than that it was read and found plain: a view
+        holding a vocabulary falls back to it for these and to the tags
+        for everything else.
         """
         replaced = _validated_field_strings(fields)
         synthetic = {
-            role: tuple(Token(word, None, role) for word in value.split())
+            role: tuple(Token(word, None, role, _UNCLASSIFIED)
+                        for word in value.split())
             for role, value in replaced.items()
         }
         return self._with_field_tokens(synthetic)
@@ -696,7 +807,7 @@ class ParsedName:
             amb for amb in self.ambiguities
             if all(t in new_tokens for t in amb.tokens)
         )
-        return ParsedName(self.original, tuple(new_tokens), kept)
+        return ParsedName(self.original, _remarked(new_tokens), kept)
 
     # -- comparison -------------------------------------------------------
 
@@ -749,6 +860,9 @@ class ParsedName:
                  delimiter: str = ".", separator: str = " ") -> str:
         """Initials per group; v1's initials_format/_delimiter/_separator
         become call-site arguments instead of Config-wide settings.
+        Each group is ordered the way its own field is ordered, so a
+        name whose middle words fold into the family initials them
+        before the family's own words, as `family` renders them.
         Valid spec keys: given, middle, family."""
         import nameparser._render as _render
         return _render.initials(self, spec, delimiter, separator)

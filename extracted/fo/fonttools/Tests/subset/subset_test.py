@@ -328,6 +328,37 @@ class SubsetTest:
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("expect_math_partial.ttx"), ["MATH"])
 
+    def test_subset_math_closure_drops_added_glyph_constructions(self):
+        # Regression test for https://github.com/fonttools/fonttools/pull/4096
+        # The test font has glyphs ".notdef, A, A.size1, A.size2"; only "A" is
+        # reachable via cmap. "A.size1" is both a vertical variant of "A" and a
+        # construction base of its own that grows into "A.size2". Subsetting to
+        # "A" pulls in "A.size1" via closure but must not retain "A.size1"'s
+        # construction, which would dangle a reference to the never-closed-over
+        # "A.size2".
+        fontpath = self.compile_font(self.getpath("test_math_closure.ttx"), ".ttf")
+        font = TTFont(fontpath)
+
+        subsetter = subset.Subsetter()
+        subsetter.populate(text="A")
+        subsetter.subset(font)
+
+        glyph_set = set(font.getGlyphOrder())
+        # "A.size1" survives: it is a legitimate variant of the requested "A".
+        assert "A.size1" in glyph_set
+        # "A.size2" was never closed over, so it is not in the subset.
+        assert "A.size2" not in glyph_set
+
+        math_variants = font["MATH"].table.MathVariants
+        # Only "A" keeps a construction; "A.size1"'s construction is dropped
+        # because "A.size1" entered the subset solely through closure.
+        assert list(math_variants.VertGlyphCoverage.glyphs) == ["A"]
+        assert math_variants.VertGlyphCount == 1
+        # No surviving construction references a glyph outside the subset.
+        for cons in math_variants.VertGlyphConstruction:
+            for rec in cons.MathGlyphVariantRecord:
+                assert rec.VariantGlyph in glyph_set
+
     def test_subset_opbd_remove(self):
         # In the test font, only the glyphs 'A' and 'zero' have an entry in
         # the Optical Bounds table. When subsetting, we do not request any
@@ -441,9 +472,88 @@ class SubsetTest:
         subset.main([fontpath, "--unicodes=ac00", "--output-file=%s" % subsetpath])
         subsetfont = TTFont(subsetpath)
         assert len(subsetfont.getGlyphOrder()) == 6
+        varc = subsetfont["VARC"].table
+        assert len(varc.AxisIndicesList.Item) == 2
+        assert len(varc.MultiVarStore.MultiVarData) == 1
+        assert len(varc.MultiVarStore.MultiVarData[0].Item) == 2
+        assert len(varc.MultiVarStore.SparseVarRegionList.Region) == 3
         subset.main([fontpath, "--unicodes=ac01", "--output-file=%s" % subsetpath])
         subsetfont = TTFont(subsetpath)
         assert len(subsetfont.getGlyphOrder()) == 8
+        varc = subsetfont["VARC"].table
+        assert len(varc.AxisIndicesList.Item) == 2
+        assert len(varc.MultiVarStore.MultiVarData) == 1
+        assert len(varc.MultiVarStore.MultiVarData[0].Item) == 5
+        assert len(varc.MultiVarStore.SparseVarRegionList.Region) == 3
+
+    def test_varComposite_condition_varidx(self):
+        fontpath = self.getpath("..", "..", "ttLib", "data", "varc-ac00-ac01.ttf")
+        font = TTFont(fontpath)
+        varc = font["VARC"].table
+
+        def makeCondition(varIdx):
+            condition = ot.ConditionTable()
+            condition.Format = 2
+            condition.DefaultValue = 0
+            condition.VarIdx = varIdx
+            return condition
+
+        unusedCondition = makeCondition(5)
+        negatedCondition = ot.ConditionTable()
+        negatedCondition.Format = 5
+        negatedCondition.ConditionTable = makeCondition(4)
+        usedCondition = ot.ConditionTable()
+        usedCondition.Format = 3
+        usedCondition.ConditionTable = [makeCondition(6), negatedCondition]
+
+        conditionList = ot.ConditionList()
+        conditionList.ConditionTable = [unusedCondition, usedCondition]
+        varc.ConditionList = conditionList
+        varc.VarCompositeGlyphs.VarCompositeGlyph[0].components[0].conditionIndex = 1
+
+        inputpath = self.temp_path(".ttf")
+        font.save(inputpath)
+        subsetpath = self.temp_path(".ttf")
+        subset.main([inputpath, "--unicodes=ac00", "--output-file=%s" % subsetpath])
+
+        subsetfont = TTFont(subsetpath)
+        varc = subsetfont["VARC"].table
+        assert len(varc.ConditionList.ConditionTable) == 1
+        condition = varc.ConditionList.ConditionTable[0]
+        assert condition.ConditionTable[0].VarIdx == 3
+        assert condition.ConditionTable[1].ConditionTable.VarIdx == 2
+        assert len(varc.MultiVarStore.MultiVarData) == 1
+        assert len(varc.MultiVarStore.MultiVarData[0].Item) == 4
+
+    def test_varComposite_drops_empty_auxiliary_data(self):
+        fontpath = self.getpath("..", "..", "ttLib", "data", "varc-ac00-ac01.ttf")
+        font = TTFont(fontpath)
+        varc = font["VARC"].table
+        for glyph in varc.VarCompositeGlyphs.VarCompositeGlyph:
+            for component in glyph.components:
+                component.axisIndicesIndex = None
+                component.axisValues = ()
+                component.axisValuesVarIndex = ot.NO_VARIATION_INDEX
+                component.transformVarIndex = ot.NO_VARIATION_INDEX
+
+        conditionList = ot.ConditionList()
+        condition = ot.ConditionTable()
+        condition.Format = 1
+        condition.AxisIndex = 0
+        condition.FilterRangeMinValue = 0
+        condition.FilterRangeMaxValue = 1
+        conditionList.ConditionTable = [condition]
+        varc.ConditionList = conditionList
+
+        inputpath = self.temp_path(".ttf")
+        font.save(inputpath)
+        subsetpath = self.temp_path(".ttf")
+        subset.main([inputpath, "--unicodes=ac00", "--output-file=%s" % subsetpath])
+
+        varc = TTFont(subsetpath)["VARC"].table
+        assert varc.MultiVarStore is None
+        assert varc.ConditionList is None
+        assert varc.AxisIndicesList is None
 
     def test_timing_publishes_parts(self):
         fontpath = self.compile_font(self.getpath("TestTTF-Regular.ttx"), ".ttf")
@@ -1132,13 +1242,11 @@ def featureVarsTestFont():
     fb.setupNameTable({"familyName": "TestFeatureVars", "styleName": "Regular"})
     fb.setupPost()
     fb.setupFvar(axes=[("wght", 100, 400, 900, "Weight")], instances=[])
-    fb.addOpenTypeFeatures(
-        """\
+    fb.addOpenTypeFeatures("""\
         feature dlig {
             sub f f by f_f;
         } dlig;
-    """
-    )
+    """)
     fb.addFeatureVariations(
         [([{"wght": (0.20886, 1.0)}], {"dollar": "dollar.rvrn"})], featureTag="rvrn"
     )
@@ -1196,15 +1304,13 @@ def singlepos2_font():
     fb.setupCharacterMap({ord("a"): "a", ord("b"): "b", ord("c"): "c"})
     fb.setupNameTable({"familyName": "TestSingePosFormat", "styleName": "Regular"})
     fb.setupPost()
-    fb.addOpenTypeFeatures(
-        """
+    fb.addOpenTypeFeatures("""
         feature kern {
             pos a -50;
             pos b -40;
             pos c -50;
         } kern;
-    """
-    )
+    """)
 
     buf = io.BytesIO()
     fb.save(buf)
@@ -1812,8 +1918,7 @@ def test_subset_keep_size_drop_empty_stylistic_set():
     fb.setupOS2()
     fb.setupPost()
     fb.setupNameTable({"familyName": "TestKeepSizeFeature", "styleName": "Regular"})
-    fb.addOpenTypeFeatures(
-        """
+    fb.addOpenTypeFeatures("""
         feature size {
           parameters 10.0 0;
         } size;
@@ -1823,8 +1928,7 @@ def test_subset_keep_size_drop_empty_stylistic_set():
           };
           sub b by b.ss01;
         } ss01;
-    """
-    )
+    """)
 
     buf = io.BytesIO()
     fb.save(buf)
@@ -1969,8 +2073,7 @@ def test_subset_prune_gdef_markglyphsetsdef():
     fb.setupNameTable(
         {"familyName": "TestGDEFMarkGlyphSetsDef", "styleName": "Regular"}
     )
-    fb.addOpenTypeFeatures(
-        """
+    fb.addOpenTypeFeatures("""
         feature ccmp {
             lookup ccmp_1 {
                 lookupflag UseMarkFilteringSet [acutecomb];
@@ -1989,8 +2092,7 @@ def test_subset_prune_gdef_markglyphsetsdef():
                 sub A acutecomb by Aacute;
             } ccmp_3;
         } ccmp;
-    """
-    )
+    """)
 
     buf = io.BytesIO()
     fb.save(buf)

@@ -97,6 +97,9 @@ __all__ = (
     "CarrierLookupResultTypeDef",
     "CarrierStatusInformationTypeDef",
     "CloudWatchLogsDestinationTypeDef",
+    "ConditionalBehaviorTypeDef",
+    "ConditionalRuleTypeDef",
+    "ConditionalValidationTypeDef",
     "ConfigurationSetFilterTypeDef",
     "ConfigurationSetInformationTypeDef",
     "CountryLaunchStatusFilterTypeDef",
@@ -241,6 +244,7 @@ __all__ = (
     "DiscardRegistrationVersionRequestTypeDef",
     "DiscardRegistrationVersionResultTypeDef",
     "EventDestinationTypeDef",
+    "FieldConditionTypeDef",
     "GetProtectConfigurationCountryRuleSetRequestTypeDef",
     "GetProtectConfigurationCountryRuleSetResultTypeDef",
     "GetResourcePolicyRequestTypeDef",
@@ -450,6 +454,17 @@ class CarrierStatusInformationTypeDef(TypedDict):
 class CloudWatchLogsDestinationTypeDef(TypedDict):
     IamRoleArn: str
     LogGroupArn: str
+
+class ConditionalValidationTypeDef(TypedDict):
+    MinLength: NotRequired[int]
+    MaxLength: NotRequired[int]
+    Pattern: NotRequired[str]
+    AllowedValues: NotRequired[list[str]]
+
+class FieldConditionTypeDef(TypedDict):
+    DependsOnFieldPath: str
+    Operator: str
+    Values: NotRequired[list[str]]
 
 class ConfigurationSetFilterTypeDef(TypedDict):
     Name: ConfigurationSetFilterNameType
@@ -1665,6 +1680,11 @@ class CountryLaunchStatusInformationTypeDef(TypedDict):
     CarrierStatus: list[CarrierStatusInformationTypeDef]
     RcsPlatformId: NotRequired[str]
 
+class ConditionalRuleTypeDef(TypedDict):
+    Conditions: list[FieldConditionTypeDef]
+    RuleBehavior: str
+    ConditionalValidation: NotRequired[ConditionalValidationTypeDef]
+
 class DescribeConfigurationSetsRequestTypeDef(TypedDict):
     ConfigurationSetNames: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[ConfigurationSetFilterTypeDef]]
@@ -2408,6 +2428,10 @@ class DescribeRcsAgentCountryLaunchStatusResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ConditionalBehaviorTypeDef(TypedDict):
+    Rules: list[ConditionalRuleTypeDef]
+    DefaultBehavior: str
+
 class ConfigurationSetInformationTypeDef(TypedDict):
     ConfigurationSetArn: str
     ConfigurationSetName: str
@@ -2471,15 +2495,6 @@ class DescribeRegistrationVersionsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class RegistrationFieldDefinitionTypeDef(TypedDict):
-    SectionPath: str
-    FieldPath: str
-    FieldType: FieldTypeType
-    FieldRequirement: FieldRequirementType
-    DisplayHints: RegistrationFieldDisplayHintsTypeDef
-    SelectValidation: NotRequired[SelectValidationTypeDef]
-    TextValidation: NotRequired[TextValidationTypeDef]
-
 class DescribeRegistrationSectionDefinitionsResultTypeDef(TypedDict):
     RegistrationType: str
     RegistrationSectionDefinitions: list[RegistrationSectionDefinitionTypeDef]
@@ -2490,6 +2505,16 @@ class DescribeRegistrationTypeDefinitionsResultTypeDef(TypedDict):
     RegistrationTypeDefinitions: list[RegistrationTypeDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class RegistrationFieldDefinitionTypeDef(TypedDict):
+    SectionPath: str
+    FieldPath: str
+    FieldType: FieldTypeType
+    FieldRequirement: FieldRequirementType
+    DisplayHints: RegistrationFieldDisplayHintsTypeDef
+    SelectValidation: NotRequired[SelectValidationTypeDef]
+    TextValidation: NotRequired[TextValidationTypeDef]
+    ConditionalBehavior: NotRequired[ConditionalBehaviorTypeDef]
 
 class DescribeConfigurationSetsResultTypeDef(TypedDict):
     ConfigurationSets: list[ConfigurationSetInformationTypeDef]

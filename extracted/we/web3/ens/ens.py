@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from copy import (
     deepcopy,
 )
@@ -5,10 +6,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
     cast,
 )
 
@@ -85,20 +82,20 @@ class ENS(BaseENS):
     like getting the address for a name.
 
     Unless otherwise specified, all addresses are assumed to be a `str` in
-    `checksum format <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md>`_,  # blocklint: pragma # noqa: E501
+    `checksum format <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md>`_,  # noqa: E501
     like: ``"0x314159265dD8dbb310642f98f50C066173C1259b"``
     """
 
     # mypy types
     w3: "Web3"
-    _resolver_contract: Type["Contract"]
-    _reverse_resolver_contract: Type["Contract"]
+    _resolver_contract: type["Contract"]
+    _reverse_resolver_contract: type["Contract"]
 
     def __init__(
         self,
         provider: "BaseProvider" = None,
         addr: ChecksumAddress = None,
-        middleware: Optional[Sequence[Tuple["Middleware", str]]] = None,
+        middleware: Sequence[tuple["Middleware", str]] | None = None,
     ) -> None:
         """
         :param provider: a single provider used to connect to Ethereum
@@ -144,8 +141,8 @@ class ENS(BaseENS):
     def address(
         self,
         name: str,
-        coin_type: Optional[int] = None,
-    ) -> Optional[ChecksumAddress]:
+        coin_type: int | None = None,
+    ) -> ChecksumAddress | None:
         """
         Look up the Ethereum address that `name` currently points to.
 
@@ -179,12 +176,12 @@ class ENS(BaseENS):
     def setup_address(
         self,
         name: str,
-        address: Union[Address, ChecksumAddress, HexAddress] = cast(  # noqa: B008
+        address: Address | ChecksumAddress | HexAddress = cast(
             ChecksumAddress, default
-        ),
-        coin_type: Optional[int] = None,
+        ),  # noqa: B008
+        coin_type: int | None = None,
         transact: Optional["TxParams"] = None,
-    ) -> Optional[HexBytes]:
+    ) -> HexBytes | None:
         """
         Set up the name to point to the supplied address.
         The sender of the transaction must own the name, or
@@ -224,7 +221,7 @@ class ENS(BaseENS):
             address = EMPTY_ADDR_HEX
         transact["from"] = owner
 
-        resolver: "Contract" = self._set_resolver(name, transact=transact)
+        resolver: Contract = self._set_resolver(name, transact=transact)
         node = raw_name_to_hash(name)
 
         if coin_type is None:
@@ -234,7 +231,7 @@ class ENS(BaseENS):
                 transact
             )
 
-    def name(self, address: ChecksumAddress) -> Optional[str]:
+    def name(self, address: ChecksumAddress) -> str | None:
         """
         Look up the name that the address points to, using a
         reverse lookup. Reverse lookup is opt-in for name owners.
@@ -255,7 +252,7 @@ class ENS(BaseENS):
     def setup_name(
         self,
         name: str,
-        address: Optional[ChecksumAddress] = None,
+        address: ChecksumAddress | None = None,
         transact: Optional["TxParams"] = None,
     ) -> HexBytes:
         """
@@ -321,7 +318,7 @@ class ENS(BaseENS):
         name: str,
         new_owner: ChecksumAddress = None,
         transact: Optional["TxParams"] = None,
-    ) -> Optional[ChecksumAddress]:
+    ) -> ChecksumAddress | None:
         """
         Set the owner of the supplied name to `new_owner`.
 
@@ -461,7 +458,7 @@ class ENS(BaseENS):
     def _set_resolver(
         self,
         name: str,
-        resolver_addr: Optional[ChecksumAddress] = None,
+        resolver_addr: ChecksumAddress | None = None,
         transact: Optional["TxParams"] = None,
     ) -> "Contract":
         if not transact:
@@ -479,8 +476,8 @@ class ENS(BaseENS):
         name: str,
         fn_name: str,
         args: Sequence[Any] = (),
-        contract: Optional[Type["Contract"]] = None,
-    ) -> Tuple[HexBytes, str]:
+        contract: type["Contract"] | None = None,
+    ) -> tuple[HexBytes, str]:
         contract = contract or self._resolver_contract
         node = raw_name_to_hash(name)
         dns_name = dns_encode_name(name)
@@ -489,7 +486,7 @@ class ENS(BaseENS):
 
     def _resolve(
         self, name: str, fn_name: str = "addr"
-    ) -> Optional[Union[ChecksumAddress, str]]:
+    ) -> ChecksumAddress | str | None:
         from web3.exceptions import (
             ContractLogicError,
         )
@@ -529,7 +526,7 @@ class ENS(BaseENS):
         self,
         account: ChecksumAddress,
         name: str,
-        parent_owned: Optional[str] = None,
+        parent_owned: str | None = None,
     ) -> None:
         if not address_in(account, self.w3.eth.accounts):
             raise UnauthorizedError(
@@ -539,7 +536,7 @@ class ENS(BaseENS):
 
     def _first_owner(
         self, name: str
-    ) -> Tuple[Optional[ChecksumAddress], Sequence[str], str]:
+    ) -> tuple[ChecksumAddress | None, Sequence[str], str]:
         """
         Takes a name, and returns the owner of the deepest subdomain that has an owner
 
@@ -560,7 +557,7 @@ class ENS(BaseENS):
         owner: ChecksumAddress,
         unowned: Sequence[str],
         owned: str,
-        old_owner: Optional[ChecksumAddress] = None,
+        old_owner: ChecksumAddress | None = None,
         transact: Optional["TxParams"] = None,
     ) -> None:
         if not transact:
@@ -577,7 +574,7 @@ class ENS(BaseENS):
 
     def _setup_reverse(
         self,
-        name: Optional[str],
+        name: str | None,
         address: ChecksumAddress,
         transact: Optional["TxParams"] = None,
     ) -> HexBytes:

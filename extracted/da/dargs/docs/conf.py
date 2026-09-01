@@ -27,10 +27,48 @@ project = "dargs"
 copyright = f"2020-{date.today().year}, DeepModeling "
 author = "DeepModeling"
 
-# The short X.Y version
-version = "0.0"
-# The full version, including alpha/beta/rc tags
-release = "0.0.0-rc"
+
+def _get_release() -> str:
+    """Return the SCM or installed-package version for documentation builds.
+
+    Returns
+    -------
+    str
+        The resolved package version, or ``0+unknown`` when no metadata is
+        available in the source tree.
+    """
+    try:
+        from setuptools_scm import get_version
+    except ImportError:
+        pass
+    else:
+        try:
+            return get_version(root="..", relative_to=__file__)
+        except LookupError:
+            # Installed source archives may not include Git metadata.
+            pass
+
+    try:
+        from importlib.metadata import PackageNotFoundError
+        from importlib.metadata import version as get_version
+    except ImportError:
+        try:
+            from importlib_metadata import PackageNotFoundError
+            from importlib_metadata import version as get_version
+        except ImportError:
+            return "0+unknown"
+
+    try:
+        return get_version("dargs")
+    except PackageNotFoundError:
+        # Keep source-tree docs usable when neither package metadata nor SCM
+        # tooling is available.
+        return "0+unknown"
+
+
+# Sphinx displays the short X.Y value separately from the full release string.
+release = _get_release()
+version = ".".join(release.split("+", 1)[0].split(".")[:2])
 
 
 # -- General configuration ---------------------------------------------------
@@ -108,6 +146,11 @@ html_theme = "sphinx_book_theme"
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
+
+# Use the project mark in generated HTML documentation.  The SVG lives in
+# ``docs/_static`` so it is also available as a relative asset from README.md.
+html_static_path = ["_static"]
+html_logo = "_static/dargs-logo.svg"
 
 
 # -- Options for HTMLHelp output ---------------------------------------------

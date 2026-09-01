@@ -1,24 +1,45 @@
 import threading
+from logging import getLogger
 from typing import Any, List, Mapping, Optional, Sequence, Union
 
 from ldclient.evaluation import EvaluationDetail
 from ldclient import LDClient, Config
 from ldclient.interfaces import DataSourceStatus, FlagChange, DataSourceState
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode, ProviderFatalError
+from openfeature.exception import ErrorCode, ProviderNotReadyError
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagType, FlagValueType, Reason
 from openfeature.hook import Hook
 from openfeature.provider.metadata import Metadata
 from openfeature.provider import AbstractProvider
 from openfeature.event import ProviderEventDetails
+from openfeature.track import TrackingEventDetails
 
 from ld_openfeature.impl.context_converter import EvaluationContextConverter
 from ld_openfeature.impl.details_converter import ResolutionDetailsConverter
+from ld_openfeature.version import VERSION
+
+
+WRAPPER_NAME = "open-feature-python-server"
+
+
+logger = getLogger("launchdarkly-openfeature-server")
 
 
 class LaunchDarklyProvider(AbstractProvider):
-    def __init__(self, config: Config):
-        self.__client = LDClient(config)
+    def __init__(self, config: Config, start_wait: float = 5):
+        """
+        Create a provider backed by a LaunchDarkly client.
+
+        :param config: The LaunchDarkly client configuration.
+        :param start_wait: The number of seconds to wait for a successful connection to LaunchDarkly, matching
+            the same parameter of :class:`ldclient.LDClient`. A positive value bounds the whole of initialization:
+            this constructor blocks for up to that long, and ``initialize`` then completes immediately, reporting
+            a failed initialization if the client did not become ready in time. Zero does not block this
+            constructor at all, and ``initialize`` then waits without a deadline for the data source to become
+            valid or to fail permanently.
+        """
+        self.__client = LDClient(config.with_wrapper_information(WRAPPER_NAME, VERSION), start_wait)
+        self.__start_wait = start_wait
 
         self.__context_converter = EvaluationContextConverter()
         self.__details_converter = ResolutionDetailsConverter()
@@ -41,7 +62,10 @@ class LaunchDarklyProvider(AbstractProvider):
         elif state == DataSourceState.OFF:
             error_message = self.__get_message(status,
                                                "the provider has encountered a permanent error or has been shutdown")
-            self.emit_provider_error(ProviderEventDetails(error_code=ErrorCode.PROVIDER_FATAL,
+            # This is not reported as a fatal error. A fatal provider prevents the OpenFeature client
+            # from evaluating flags at all, but the LaunchDarkly client can keep evaluating the flag
+            # data it already has.
+            self.emit_provider_error(ProviderEventDetails(error_code=ErrorCode.GENERAL,
                                                           message=error_message))
         elif state == DataSourceState.INTERRUPTED:
             error_message = self.__get_message(status, "encountered an unknown error")
@@ -72,12 +96,14 @@ class LaunchDarklyProvider(AbstractProvider):
         if self.__client.is_initialized():
             ready_event.set()
 
-        ready_event.wait()
+        # With a start wait the client constructor has already waited, so the outcome is whatever it is now.
+        if self.__start_wait <= 0:
+            ready_event.wait()
 
         self.__client.data_source_status_provider.remove_listener(ready_handler)
 
         if not self.__client.is_initialized():
-            raise ProviderFatalError(error_message="launchdarkly client initialization failed")
+            raise ProviderNotReadyError(error_message="launchdarkly client initialization failed")
 
         # Listen to new status events and emit them.
         self.__client.data_source_status_provider.add_listener(self.__handle_data_source_status)
@@ -93,6 +119,36 @@ class LaunchDarklyProvider(AbstractProvider):
 
     def get_provider_hooks(self) -> List[Hook]:
         return []
+
+    def track(
+        self,
+        tracking_event_name: str,
+        evaluation_context: Optional[EvaluationContext] = None,
+        tracking_event_details: Optional[TrackingEventDetails] = None,
+    ) -> None:
+        if evaluation_context is None:
+            logger.info(
+                "The 'track' method was called without an evaluation context. "
+                "No 'track' event will be sent to LaunchDarkly. "
+                "The LaunchDarkly SDK requires a context to associate the event with."
+            )
+            return
+
+        ld_context = self.__context_converter.to_ld_context(evaluation_context)
+
+        if tracking_event_details is None:
+            self.__client.track(tracking_event_name, ld_context)
+            return
+
+        data = tracking_event_details.attributes or None
+        metric_value = tracking_event_details.value
+
+        if metric_value is not None:
+            self.__client.track(tracking_event_name, ld_context, data, metric_value)
+        elif data is not None:
+            self.__client.track(tracking_event_name, ld_context, data)
+        else:
+            self.__client.track(tracking_event_name, ld_context)
 
     def resolve_boolean_details(
         self,

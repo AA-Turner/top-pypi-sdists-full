@@ -6,7 +6,9 @@
 
 use std::ops::Range;
 
-use crate::ast::{AstNode, LitKind};
+use either::Either;
+
+use crate::ast::{AstNode, CastKind, LitKind, PrefixOp};
 use crate::unescape::{escape_unicode_esc_str, uescape_char};
 use crate::{SyntaxNode, SyntaxToken, ast, match_ast, syntax_error::SyntaxError};
 use rowan::{TextRange, TextSize};
@@ -15,18 +17,29 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
     for node in root.descendants() {
         match_ast! {
             match node {
-                ast::AlterAggregate(it) => validate_aggregate_params(it.aggregate().and_then(|x| x.param_list()), errors),
-                ast::BeginFuncOptionList(it) => validate_begin_func_option_list(it, errors),
+                ast::Aggregate(it) => validate_aggregate_params(it.param_list(), errors),
+                ast::AtomicBody(it) => validate_atomic_body(it, errors),
                 ast::BinExpr(it) => validate_bin_expr(it, errors),
-                ast::CreateAggregate(it) => validate_aggregate_params(it.param_list(), errors),
+                ast::CastExpr(it) => validate_cast_expr(it, errors),
+                ast::CreateAggregate(it) => {
+                    validate_aggregate_params(it.param_list(), errors);
+                    validate_aggregate_variadic_params(it.param_list(), errors);
+                },
+                ast::CreateFunction(it) => validate_create_function(it, errors),
+                ast::CreateProcedure(it) => validate_create_procedure(it, errors),
                 ast::CreateTable(it) => validate_create_table(it, errors),
                 ast::CreateViewLike(it) => validate_non_empty_column_list(it.column_list(), errors),
                 ast::CustomOp(it) => validate_custom_op_length(it, errors),
+                ast::Do(it) => validate_do(it, errors),
+                ast::FuncOptionList(it) => validate_func_option_list(it, errors),
+                ast::FunctionSig(it) => validate_param_defaults(it.param_list(), errors),
                 ast::FromAlias(it) => validate_non_empty_column_list(it.columns(), errors),
+                ast::RetType(it) => validate_non_empty_column_list(it.return_table_arg_list(), errors),
                 ast::WithTable(it) => validate_non_empty_column_list(it.column_list(), errors),
                 ast::PrefixExpr(it) => validate_prefix_expr(it, errors),
+                ast::ProcedureSig(it) => validate_param_defaults(it.param_list(), errors),
+                ast::RoutineSig(it) => validate_param_defaults(it.param_list(), errors),
                 ast::ArrayExpr(it) => validate_array_expr(it, errors),
-                ast::DropAggregate(it) => validate_drop_aggregate(it, errors),
                 ast::JoinExpr(it) => validate_join_expr(it, errors),
                 ast::Literal(it) => validate_literal(it, errors),
                 ast::NonStandardParam(it) => validate_non_standard_param(it, errors),
@@ -35,6 +48,7 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
                 ast::SelectInto(it) => validate_select_into(it, errors),
                 ast::SetSingleColumn(it) => validate_set_single_column(it, errors),
                 ast::SourceFile(it) => validate_source_file(it, errors),
+                ast::Type(it) => validate_type_modifiers(it, errors),
                 _ => (),
             }
         }
@@ -64,9 +78,9 @@ fn validate_non_empty_column_list(column_list: Option<impl AstNode>, acc: &mut V
     ));
 }
 
-fn validate_begin_func_option_list(it: ast::BeginFuncOptionList, acc: &mut Vec<SyntaxError>) {
-    for option in it.begin_func_options() {
-        let ast::BeginFuncOption::Stmt(stmt) = option else {
+fn validate_atomic_body(it: ast::AtomicBody, acc: &mut Vec<SyntaxError>) {
+    for option in it.routine_body_stmts() {
+        let ast::RoutineBodyStmt::Stmt(stmt) = option else {
             continue;
         };
         let syntax = stmt.syntax();
@@ -144,6 +158,110 @@ fn validate_select(it: ast::Select, acc: &mut Vec<SyntaxError>) {
             "Missing select clause",
             TextRange::empty(from_clause.syntax().text_range().start()),
         ));
+    }
+}
+
+fn validate_cast_expr(it: ast::CastExpr, acc: &mut Vec<SyntaxError>) {
+    if it.kind() != Some(CastKind::TypeLiteral) {
+        return;
+    }
+    let Some(literal) = it.literal().and_then(|literal| literal.kind()) else {
+        return;
+    };
+    let (message, token) = match literal {
+        LitKind::BitString(token) => ("Bit string literals cannot be used in type literals", token),
+        LitKind::ByteString(token) => (
+            "Hexadecimal string literals cannot be used in type literals",
+            token,
+        ),
+        LitKind::NationalString(token) => (
+            "National character string literals cannot be used in type literals",
+            token,
+        ),
+        _ => return,
+    };
+    acc.push(SyntaxError::new(message, token.text_range()));
+}
+
+fn validate_type_modifiers(ty: ast::Type, acc: &mut Vec<SyntaxError>) {
+    let Some(arg_list) = ty.arg_list() else {
+        return;
+    };
+
+    for arg in arg_list.args() {
+        if arg.variadic_token().is_some() {
+            acc.push(SyntaxError::new(
+                "Type modifiers must be simple constants or identifiers",
+                arg.syntax().text_range(),
+            ));
+            continue;
+        }
+        if let Some(named_arg) = arg.named_arg() {
+            acc.push(SyntaxError::new(
+                "Type modifier cannot have parameter name",
+                named_arg.syntax().text_range(),
+            ));
+            continue;
+        }
+        if let Some(order_by) = arg.order_by_clause() {
+            acc.push(SyntaxError::new(
+                "Type modifier cannot have ORDER BY",
+                order_by.syntax().text_range(),
+            ));
+            continue;
+        }
+        let Some(expr) = arg.expr() else {
+            continue;
+        };
+        if !is_simple_type_modifier(&expr) {
+            acc.push(SyntaxError::new(
+                "Type modifiers must be simple constants or identifiers",
+                expr.syntax().text_range(),
+            ));
+        }
+    }
+}
+
+fn is_simple_type_modifier(expr: &ast::Expr) -> bool {
+    match expr {
+        ast::Expr::Literal(literal) => matches!(
+            literal.kind(),
+            Some(
+                LitKind::DollarQuotedString(_)
+                    | LitKind::EscString(_)
+                    | LitKind::IntNumber(_)
+                    | LitKind::NumericNumber(_)
+                    | LitKind::String(_)
+                    | LitKind::UnicodeEscString(_)
+            )
+        ),
+        ast::Expr::NameRef(_) => true,
+        ast::Expr::PrefixExpr(prefix) => {
+            matches!(prefix.op(), Some(PrefixOp::Minus(_)))
+                && prefix.expr().is_some_and(|expr| {
+                    matches!(
+                        expr,
+                        ast::Expr::Literal(ref literal)
+                            if matches!(
+                                literal.kind(),
+                                Some(LitKind::IntNumber(_) | LitKind::NumericNumber(_))
+                            )
+                    )
+                })
+        }
+        ast::Expr::ArrayExpr(_)
+        | ast::Expr::BetweenExpr(_)
+        | ast::Expr::BinExpr(_)
+        | ast::Expr::CallExpr(_)
+        | ast::Expr::CaseExpr(_)
+        | ast::Expr::CastExpr(_)
+        | ast::Expr::Collate(_)
+        | ast::Expr::FieldExpr(_)
+        | ast::Expr::IndexExpr(_)
+        | ast::Expr::ParenExpr(_)
+        | ast::Expr::PostfixExpr(_)
+        | ast::Expr::SliceExpr(_)
+        | ast::Expr::TupleExpr(_) => false,
     }
 }
 
@@ -694,12 +812,6 @@ fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {
     }
 }
 
-fn validate_drop_aggregate(drop_agg: ast::DropAggregate, acc: &mut Vec<SyntaxError>) {
-    for agg in drop_agg.aggregates() {
-        validate_aggregate_params(agg.param_list(), acc);
-    }
-}
-
 fn validate_array_expr(array_expr: ast::ArrayExpr, acc: &mut Vec<SyntaxError>) {
     if array_expr.array_token().is_none() {
         let parent_kind = array_expr.syntax().parent().map(|x| x.kind());
@@ -759,9 +871,116 @@ fn validate_custom_op(op: ast::CustomOp, acc: &mut Vec<SyntaxError>) {
     }
 }
 
+fn validate_create_function(function: ast::CreateFunction, acc: &mut Vec<SyntaxError>) {
+    validate_routine_body(function.option_list(), function.body(), acc);
+    validate_variadic_params(function.param_list(), ParamContext::Func, acc);
+
+    let returns_table = function
+        .ret_type()
+        .is_some_and(|ret_type| ret_type.table_token().is_some());
+    if !returns_table {
+        return;
+    }
+
+    let Some(params) = function.param_list() else {
+        return;
+    };
+    for param in params.all_params() {
+        let invalid_mode = match param.mode() {
+            Some(ast::ParamMode::ParamOut(mode)) => Some(mode.syntax().text_range()),
+            Some(ast::ParamMode::ParamInOut(mode)) => Some(mode.syntax().text_range()),
+            Some(ast::ParamMode::ParamIn(_)) | Some(ast::ParamMode::ParamVariadic(_)) | None => {
+                None
+            }
+        };
+        if let Some(range) = invalid_mode {
+            acc.push(SyntaxError::new(
+                "OUT and INOUT arguments aren't allowed in TABLE functions",
+                range,
+            ));
+        }
+    }
+}
+
+fn validate_create_procedure(procedure: ast::CreateProcedure, acc: &mut Vec<SyntaxError>) {
+    validate_routine_body(procedure.option_list(), procedure.body(), acc);
+    validate_variadic_params(procedure.param_list(), ParamContext::Procedure, acc);
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ParamContext {
+    Func,
+    Agg,
+    Procedure,
+}
+
+fn validate_variadic_params(
+    params: Option<ast::ParamList>,
+    context: ParamContext,
+    acc: &mut Vec<SyntaxError>,
+) {
+    let Some(params) = params else {
+        return;
+    };
+    validate_variadic_param_iter(params.all_params(), context, acc);
+}
+
+fn validate_aggregate_variadic_params(params: Option<ast::ParamList>, acc: &mut Vec<SyntaxError>) {
+    let Some(params) = params else {
+        return;
+    };
+    validate_variadic_param_iter(params.params(), ParamContext::Agg, acc);
+    if let Some(order_by) = params.aggregate_order_by() {
+        validate_variadic_param_iter(order_by.params(), ParamContext::Agg, acc);
+    }
+}
+
+fn validate_variadic_param_iter(
+    params: impl Iterator<Item = ast::Param>,
+    context: ParamContext,
+    acc: &mut Vec<SyntaxError>,
+) {
+    let mut seen_variadic = false;
+    for param in params {
+        if !seen_variadic {
+            seen_variadic = matches!(param.mode(), Some(ast::ParamMode::ParamVariadic(_)));
+            continue;
+        }
+        if matches!(param.mode(), Some(ast::ParamMode::ParamOut(_))) {
+            if matches!(context, ParamContext::Func | ParamContext::Agg) {
+                continue;
+            }
+            acc.push(SyntaxError::new(
+                "VARIADIC param must be last.",
+                param.syntax().text_range(),
+            ));
+            continue;
+        }
+        acc.push(SyntaxError::new(
+            "VARIADIC param must be last input param.",
+            param.syntax().text_range(),
+        ));
+    }
+}
+
+fn validate_param_defaults(params: Option<ast::ParamList>, acc: &mut Vec<SyntaxError>) {
+    let Some(params) = params else {
+        return;
+    };
+    for param in params.all_params() {
+        if let Some(default) = param.param_default() {
+            acc.push(SyntaxError::new(
+                "Defaults are not allowed.",
+                default.syntax().text_range(),
+            ));
+        }
+    }
+}
+
 fn validate_aggregate_params(aggregate_params: Option<ast::ParamList>, acc: &mut Vec<SyntaxError>) {
+    validate_param_defaults(aggregate_params.clone(), acc);
     if let Some(params) = aggregate_params {
-        for p in params.params() {
+        for p in params.all_params() {
             if let Some(mode) = p.mode() {
                 match mode {
                     ast::ParamMode::ParamOut(param_out) => acc.push(SyntaxError::new(
@@ -784,4 +1003,99 @@ fn validate_non_standard_param(param: ast::NonStandardParam, acc: &mut Vec<Synta
         "Invalid parameter type. Use positional params like $1 instead.",
         param.syntax().text_range(),
     ))
+}
+
+const CONFLICTING_OPTIONS: &str = "Conflicting or redundant options.";
+
+#[derive(Clone, Copy, PartialEq)]
+enum FuncOptionGroup {
+    As,
+    Cost,
+    Language,
+    Leakproof,
+    Parallel,
+    Rows,
+    Security,
+    Strict,
+    Support,
+    Transform,
+    Volatility,
+    Window,
+}
+
+fn func_option_group(option: &ast::FuncOption) -> Option<FuncOptionGroup> {
+    let group = match option {
+        ast::FuncOption::AsFuncOption(_) => FuncOptionGroup::As,
+        ast::FuncOption::CostFuncOption(_) => FuncOptionGroup::Cost,
+        ast::FuncOption::LanguageFuncOption(_) => FuncOptionGroup::Language,
+        ast::FuncOption::LeakproofFuncOption(_) | ast::FuncOption::NotLeakproofFuncOption(_) => {
+            FuncOptionGroup::Leakproof
+        }
+        ast::FuncOption::ParallelFuncOption(_) => FuncOptionGroup::Parallel,
+        ast::FuncOption::RowsFuncOption(_) => FuncOptionGroup::Rows,
+        ast::FuncOption::SecurityDefinerFuncOption(_)
+        | ast::FuncOption::SecurityInvokerFuncOption(_) => FuncOptionGroup::Security,
+        ast::FuncOption::CalledOnNullInputFuncOption(_)
+        | ast::FuncOption::ReturnsNullOnNullInputFuncOption(_)
+        | ast::FuncOption::StrictFuncOption(_) => FuncOptionGroup::Strict,
+        ast::FuncOption::SupportFuncOption(_) => FuncOptionGroup::Support,
+        ast::FuncOption::TransformFuncOption(_) => FuncOptionGroup::Transform,
+        ast::FuncOption::VolatilityFuncOption(_) => FuncOptionGroup::Volatility,
+        ast::FuncOption::WindowFuncOption(_) => FuncOptionGroup::Window,
+        ast::FuncOption::ResetFuncOption(_) | ast::FuncOption::SetFuncOption(_) => return None,
+    };
+    Some(group)
+}
+
+fn validate_func_option_list(option_list: ast::FuncOptionList, acc: &mut Vec<SyntaxError>) {
+    let mut seen: Vec<FuncOptionGroup> = vec![];
+    for option in option_list.options() {
+        let Some(group) = func_option_group(&option) else {
+            continue;
+        };
+        if seen.contains(&group) {
+            acc.push(SyntaxError::new(
+                CONFLICTING_OPTIONS,
+                option.syntax().text_range(),
+            ));
+        } else {
+            seen.push(group);
+        }
+    }
+}
+
+fn validate_routine_body(
+    option_list: Option<ast::FuncOptionList>,
+    body: Option<ast::RoutineBody>,
+    acc: &mut Vec<SyntaxError>,
+) {
+    let Some(body) = body else {
+        return;
+    };
+    let has_as_option = option_list
+        .into_iter()
+        .flat_map(|options| options.options())
+        .any(|option| matches!(option, ast::FuncOption::AsFuncOption(_)));
+    if has_as_option {
+        acc.push(SyntaxError::new(
+            "Duplicate function body.",
+            body.syntax().text_range(),
+        ));
+    }
+}
+
+fn validate_do(do_: ast::Do, acc: &mut Vec<SyntaxError>) {
+    let mut seen_language = false;
+    let mut seen_body = false;
+    for part in do_.language_and_body() {
+        let (seen, range) = match part {
+            Either::Left(language) => (&mut seen_language, language.syntax().text_range()),
+            Either::Right(body) => (&mut seen_body, body.syntax().text_range()),
+        };
+        if *seen {
+            acc.push(SyntaxError::new(CONFLICTING_OPTIONS, range));
+        } else {
+            *seen = true;
+        }
+    }
 }

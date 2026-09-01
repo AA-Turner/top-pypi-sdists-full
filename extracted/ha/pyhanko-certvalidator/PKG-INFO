@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyhanko-certvalidator
-Version: 0.31.4
+Version: 0.32.0
 Summary: Validates X.509 certificates and paths; forked from wbond/certvalidator
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 License-Expression: MIT
@@ -22,9 +22,11 @@ Requires-Dist: asn1crypto>=1.5.1
 Requires-Dist: oscrypto>=1.1.0
 Requires-Dist: cryptography>=48.0.0
 Requires-Dist: uritools>=3.0.1
-Requires-Dist: requests>=2.31.0
+Requires-Dist: aiohttp<3.15,>=3.9
+Requires-Dist: certifi>=2023.5.7
 Provides-Extra: async-http
-Requires-Dist: aiohttp<3.15,>=3.9; extra == "async-http"
+Provides-Extra: requests
+Requires-Dist: requests>=2.31.0; extra == "requests"
 Dynamic: license-file
 
 # certvalidator

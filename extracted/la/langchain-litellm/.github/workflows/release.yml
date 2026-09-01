@@ -1,14 +1,13 @@
 name: Release
+
 on:
   push:
     branches:
       - main
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Last-resort escape hatch only. Enter the tag to publish to PyPI manually (e.g. langchain-litellm-v0.x.x) or leave empty to skip. Use only if release:published trigger failed."
+        description: "Last-resort manual publish. Enter the tag to publish (e.g. langchain-litellm==0.x.x) or leave empty to skip. Still requires approval on the pypi environment."
         required: false
 
 permissions:
@@ -17,7 +16,7 @@ permissions:
 
 jobs:
   release-please:
-    # Only runs on push to main; release and workflow_dispatch events skip this job
+    # Only runs on push to main; workflow_dispatch skips this job.
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -25,6 +24,7 @@ jobs:
       pull-requests: write
     outputs:
       pr: ${{ steps.release.outputs.pr }}
+      releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
@@ -43,11 +43,11 @@ jobs:
       contents: write
     steps:
       - name: Checkout release branch
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Update lockfile
         run: uv lock
       - name: Commit and push
@@ -63,34 +63,41 @@ jobs:
           fi
 
   pypi-publish:
-    # Runs in two cases:
-    # 1. A draft GitHub Release is reviewed and published in the UI (release: published flow)
-    # 2. Last-resort escape hatch via workflow_dispatch with a tag input
-    # No always() needed — this job is fully decoupled from release-please.
+    # Publishes to PyPI in two situations, both gated by the `pypi`
+    # environment (its required reviewers are the human approval step):
+    #   1. release-please cut a release on push to main (releases_created == true).
+    #      The matching tag/commit already exists on main at this point.
+    #   2. Last-resort manual publish via workflow_dispatch with a tag input.
+    # Any one listed reviewer can approve, so the team is never blocked on a
+    # single person.
+    needs: release-please
     if: |
-      github.event_name == 'release' ||
-      (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+      always() &&
+      (
+        needs.release-please.outputs.releases_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+      )
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write  # Required for PyPI OIDC trusted publishing
       contents: read
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: >-
             ${{
               github.event_name == 'workflow_dispatch' && inputs.tag ||
-              github.ref
+              github.sha
             }}
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
       - name: Build package

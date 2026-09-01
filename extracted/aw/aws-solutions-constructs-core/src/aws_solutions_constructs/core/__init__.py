@@ -3818,6 +3818,381 @@ class CognitoOptions:
         )
 
 
+@jsii.enum(jsii_type="@aws-solutions-constructs/core.ComprehendAnalysisType")
+class ComprehendAnalysisType(enum.Enum):
+    '''The Amazon Comprehend analysis families a Lambda function may use.'''
+
+    DOMINANT_LANGUAGE = "DOMINANT_LANGUAGE"
+    ENTITIES = "ENTITIES"
+    KEY_PHRASES = "KEY_PHRASES"
+    SENTIMENT = "SENTIMENT"
+    TARGETED_SENTIMENT = "TARGETED_SENTIMENT"
+    SYNTAX = "SYNTAX"
+    PII = "PII"
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.ComprehendConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment_variables": "environmentVariables",
+        "lambda_iam_actions_required": "lambdaIamActionsRequired",
+        "data_access_role": "dataAccessRole",
+        "destination_bucket": "destinationBucket",
+        "source_bucket": "sourceBucket",
+    },
+)
+class ComprehendConfiguration:
+    def __init__(
+        self,
+        *,
+        environment_variables: typing.Sequence[typing.Union["EnvironmentVariableDefinition", typing.Dict[builtins.str, typing.Any]]],
+        lambda_iam_actions_required: typing.Sequence[builtins.str],
+        data_access_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
+        destination_bucket: typing.Optional[typing.Union["BucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_bucket: typing.Optional[typing.Union["BucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param environment_variables: -
+        :param lambda_iam_actions_required: -
+        :param data_access_role: -
+        :param destination_bucket: -
+        :param source_bucket: -
+        '''
+        if isinstance(destination_bucket, dict):
+            destination_bucket = BucketDetails(**destination_bucket)
+        if isinstance(source_bucket, dict):
+            source_bucket = BucketDetails(**source_bucket)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6bbeab8afd81384d40797e05ccd88d8bfb221c1c845c0503b6235dcfba01ef5c)
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument lambda_iam_actions_required", value=lambda_iam_actions_required, expected_type=type_hints["lambda_iam_actions_required"])
+            check_type(argname="argument data_access_role", value=data_access_role, expected_type=type_hints["data_access_role"])
+            check_type(argname="argument destination_bucket", value=destination_bucket, expected_type=type_hints["destination_bucket"])
+            check_type(argname="argument source_bucket", value=source_bucket, expected_type=type_hints["source_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_variables": environment_variables,
+            "lambda_iam_actions_required": lambda_iam_actions_required,
+        }
+        if data_access_role is not None:
+            self._values["data_access_role"] = data_access_role
+        if destination_bucket is not None:
+            self._values["destination_bucket"] = destination_bucket
+        if source_bucket is not None:
+            self._values["source_bucket"] = source_bucket
+
+    @builtins.property
+    def environment_variables(self) -> typing.List["EnvironmentVariableDefinition"]:
+        result = self._values.get("environment_variables")
+        assert result is not None, "Required property 'environment_variables' is missing"
+        return typing.cast(typing.List["EnvironmentVariableDefinition"], result)
+
+    @builtins.property
+    def lambda_iam_actions_required(self) -> typing.List[builtins.str]:
+        result = self._values.get("lambda_iam_actions_required")
+        assert result is not None, "Required property 'lambda_iam_actions_required' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def data_access_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
+        result = self._values.get("data_access_role")
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
+
+    @builtins.property
+    def destination_bucket(self) -> typing.Optional["BucketDetails"]:
+        result = self._values.get("destination_bucket")
+        return typing.cast(typing.Optional["BucketDetails"], result)
+
+    @builtins.property
+    def source_bucket(self) -> typing.Optional["BucketDetails"]:
+        result = self._values.get("source_bucket")
+        return typing.cast(typing.Optional["BucketDetails"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComprehendConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.ComprehendProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "analysis_types": "analysisTypes",
+        "comprehend_use_cases": "comprehendUseCases",
+        "data_access_role_arn_environment_variable_name": "dataAccessRoleArnEnvironmentVariableName",
+        "destination_bucket_environment_variable_name": "destinationBucketEnvironmentVariableName",
+        "destination_bucket_props": "destinationBucketProps",
+        "destination_logging_bucket_props": "destinationLoggingBucketProps",
+        "existing_destination_bucket_obj": "existingDestinationBucketObj",
+        "existing_source_bucket_obj": "existingSourceBucketObj",
+        "log_destination_s3_access_logs": "logDestinationS3AccessLogs",
+        "log_source_s3_access_logs": "logSourceS3AccessLogs",
+        "source_bucket_environment_variable_name": "sourceBucketEnvironmentVariableName",
+        "source_bucket_props": "sourceBucketProps",
+        "source_logging_bucket_props": "sourceLoggingBucketProps",
+        "use_same_bucket": "useSameBucket",
+    },
+)
+class ComprehendProps:
+    def __init__(
+        self,
+        *,
+        analysis_types: typing.Optional[typing.Sequence["ComprehendAnalysisType"]] = None,
+        comprehend_use_cases: typing.Optional[typing.Sequence["ComprehendUseCase"]] = None,
+        data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+        destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        destination_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        destination_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_destination_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        existing_source_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
+        log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
+        source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        source_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        use_same_bucket: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param analysis_types: -
+        :param comprehend_use_cases: -
+        :param data_access_role_arn_environment_variable_name: -
+        :param destination_bucket_environment_variable_name: -
+        :param destination_bucket_props: -
+        :param destination_logging_bucket_props: -
+        :param existing_destination_bucket_obj: -
+        :param existing_source_bucket_obj: -
+        :param log_destination_s3_access_logs: -
+        :param log_source_s3_access_logs: -
+        :param source_bucket_environment_variable_name: -
+        :param source_bucket_props: -
+        :param source_logging_bucket_props: -
+        :param use_same_bucket: -
+        '''
+        if isinstance(destination_bucket_props, dict):
+            destination_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**destination_bucket_props)
+        if isinstance(destination_logging_bucket_props, dict):
+            destination_logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**destination_logging_bucket_props)
+        if isinstance(source_bucket_props, dict):
+            source_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**source_bucket_props)
+        if isinstance(source_logging_bucket_props, dict):
+            source_logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**source_logging_bucket_props)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89ffec9388b48f31864d09f69cb1f8836d7ddd3da88e519d993e0645dd439dff)
+            check_type(argname="argument analysis_types", value=analysis_types, expected_type=type_hints["analysis_types"])
+            check_type(argname="argument comprehend_use_cases", value=comprehend_use_cases, expected_type=type_hints["comprehend_use_cases"])
+            check_type(argname="argument data_access_role_arn_environment_variable_name", value=data_access_role_arn_environment_variable_name, expected_type=type_hints["data_access_role_arn_environment_variable_name"])
+            check_type(argname="argument destination_bucket_environment_variable_name", value=destination_bucket_environment_variable_name, expected_type=type_hints["destination_bucket_environment_variable_name"])
+            check_type(argname="argument destination_bucket_props", value=destination_bucket_props, expected_type=type_hints["destination_bucket_props"])
+            check_type(argname="argument destination_logging_bucket_props", value=destination_logging_bucket_props, expected_type=type_hints["destination_logging_bucket_props"])
+            check_type(argname="argument existing_destination_bucket_obj", value=existing_destination_bucket_obj, expected_type=type_hints["existing_destination_bucket_obj"])
+            check_type(argname="argument existing_source_bucket_obj", value=existing_source_bucket_obj, expected_type=type_hints["existing_source_bucket_obj"])
+            check_type(argname="argument log_destination_s3_access_logs", value=log_destination_s3_access_logs, expected_type=type_hints["log_destination_s3_access_logs"])
+            check_type(argname="argument log_source_s3_access_logs", value=log_source_s3_access_logs, expected_type=type_hints["log_source_s3_access_logs"])
+            check_type(argname="argument source_bucket_environment_variable_name", value=source_bucket_environment_variable_name, expected_type=type_hints["source_bucket_environment_variable_name"])
+            check_type(argname="argument source_bucket_props", value=source_bucket_props, expected_type=type_hints["source_bucket_props"])
+            check_type(argname="argument source_logging_bucket_props", value=source_logging_bucket_props, expected_type=type_hints["source_logging_bucket_props"])
+            check_type(argname="argument use_same_bucket", value=use_same_bucket, expected_type=type_hints["use_same_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if analysis_types is not None:
+            self._values["analysis_types"] = analysis_types
+        if comprehend_use_cases is not None:
+            self._values["comprehend_use_cases"] = comprehend_use_cases
+        if data_access_role_arn_environment_variable_name is not None:
+            self._values["data_access_role_arn_environment_variable_name"] = data_access_role_arn_environment_variable_name
+        if destination_bucket_environment_variable_name is not None:
+            self._values["destination_bucket_environment_variable_name"] = destination_bucket_environment_variable_name
+        if destination_bucket_props is not None:
+            self._values["destination_bucket_props"] = destination_bucket_props
+        if destination_logging_bucket_props is not None:
+            self._values["destination_logging_bucket_props"] = destination_logging_bucket_props
+        if existing_destination_bucket_obj is not None:
+            self._values["existing_destination_bucket_obj"] = existing_destination_bucket_obj
+        if existing_source_bucket_obj is not None:
+            self._values["existing_source_bucket_obj"] = existing_source_bucket_obj
+        if log_destination_s3_access_logs is not None:
+            self._values["log_destination_s3_access_logs"] = log_destination_s3_access_logs
+        if log_source_s3_access_logs is not None:
+            self._values["log_source_s3_access_logs"] = log_source_s3_access_logs
+        if source_bucket_environment_variable_name is not None:
+            self._values["source_bucket_environment_variable_name"] = source_bucket_environment_variable_name
+        if source_bucket_props is not None:
+            self._values["source_bucket_props"] = source_bucket_props
+        if source_logging_bucket_props is not None:
+            self._values["source_logging_bucket_props"] = source_logging_bucket_props
+        if use_same_bucket is not None:
+            self._values["use_same_bucket"] = use_same_bucket
+
+    @builtins.property
+    def analysis_types(self) -> typing.Optional[typing.List["ComprehendAnalysisType"]]:
+        result = self._values.get("analysis_types")
+        return typing.cast(typing.Optional[typing.List["ComprehendAnalysisType"]], result)
+
+    @builtins.property
+    def comprehend_use_cases(self) -> typing.Optional[typing.List["ComprehendUseCase"]]:
+        result = self._values.get("comprehend_use_cases")
+        return typing.cast(typing.Optional[typing.List["ComprehendUseCase"]], result)
+
+    @builtins.property
+    def data_access_role_arn_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("data_access_role_arn_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("destination_bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket_props(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
+        result = self._values.get("destination_bucket_props")
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
+
+    @builtins.property
+    def destination_logging_bucket_props(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
+        result = self._values.get("destination_logging_bucket_props")
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
+
+    @builtins.property
+    def existing_destination_bucket_obj(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
+        result = self._values.get("existing_destination_bucket_obj")
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
+
+    @builtins.property
+    def existing_source_bucket_obj(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
+        result = self._values.get("existing_source_bucket_obj")
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
+
+    @builtins.property
+    def log_destination_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_destination_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def log_source_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_source_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def source_bucket_environment_variable_name(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("source_bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_bucket_props(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
+        result = self._values.get("source_bucket_props")
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
+
+    @builtins.property
+    def source_logging_bucket_props(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
+        result = self._values.get("source_logging_bucket_props")
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
+
+    @builtins.property
+    def use_same_bucket(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("use_same_bucket")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComprehendProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.ComprehendSelection",
+    jsii_struct_bases=[],
+    name_mapping={"analysis_types": "analysisTypes", "use_cases": "useCases"},
+)
+class ComprehendSelection:
+    def __init__(
+        self,
+        *,
+        analysis_types: typing.Sequence["ComprehendAnalysisType"],
+        use_cases: typing.Sequence["ComprehendUseCase"],
+    ) -> None:
+        '''The set of use cases and analysis types actually in effect, after defaults have been applied and duplicates removed.
+
+        Both the validation function and the configuration function work from
+        this shape, so they can never disagree about what the client selected.
+
+        :param analysis_types: -
+        :param use_cases: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89b928e0be0dd4c25940a6d86bbfcf53b66c7a5db6f4840b816baadcdd028d05)
+            check_type(argname="argument analysis_types", value=analysis_types, expected_type=type_hints["analysis_types"])
+            check_type(argname="argument use_cases", value=use_cases, expected_type=type_hints["use_cases"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "analysis_types": analysis_types,
+            "use_cases": use_cases,
+        }
+
+    @builtins.property
+    def analysis_types(self) -> typing.List["ComprehendAnalysisType"]:
+        result = self._values.get("analysis_types")
+        assert result is not None, "Required property 'analysis_types' is missing"
+        return typing.cast(typing.List["ComprehendAnalysisType"], result)
+
+    @builtins.property
+    def use_cases(self) -> typing.List["ComprehendUseCase"]:
+        result = self._values.get("use_cases")
+        assert result is not None, "Required property 'use_cases' is missing"
+        return typing.cast(typing.List["ComprehendUseCase"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComprehendSelection(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-solutions-constructs/core.ComprehendUseCase")
+class ComprehendUseCase(enum.Enum):
+    '''The Amazon Comprehend processing modes a Lambda function may use.
+
+    The actions granted to the
+    function are the cross product of the selected use cases and the selected analysis types.
+    '''
+
+    SINGLE_DOCUMENT_SYNC = "SINGLE_DOCUMENT_SYNC"
+    MULTI_DOCUMENT_SYNC = "MULTI_DOCUMENT_SYNC"
+    ASYNC_BATCH = "ASYNC_BATCH"
+
+
 class ConstructsFeatureFlagsReport(
     _constructs_77d1e7e8.Construct,
     metaclass=jsii.JSIIMeta,
@@ -6872,6 +7247,7 @@ class ServiceEndpointTypes(enum.Enum):
     TRANSLATE = "TRANSLATE"
     TEXTRACT = "TEXTRACT"
     POLLY = "POLLY"
+    COMPREHEND = "COMPREHEND"
 
 
 @jsii.data_type(
@@ -8281,6 +8657,11 @@ __all__ = [
     "CloudFrontProps",
     "CloudfrontS3Props",
     "CognitoOptions",
+    "ComprehendAnalysisType",
+    "ComprehendConfiguration",
+    "ComprehendProps",
+    "ComprehendSelection",
+    "ComprehendUseCase",
     "ConstructsFeatureFlagsReport",
     "CreateCloudFrontDistributionForS3Props",
     "CreateCloudFrontDistributionForS3Response",
@@ -8784,6 +9165,45 @@ def _typecheckingstub__2ab3cd723e5c01a12a9f21b04d8cb1909bd59787d38342b627934c458
     identitypool: _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool,
     userpool: _aws_cdk_aws_cognito_ceddda9d.UserPool,
     userpoolclient: _aws_cdk_aws_cognito_ceddda9d.UserPoolClient,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bbeab8afd81384d40797e05ccd88d8bfb221c1c845c0503b6235dcfba01ef5c(
+    *,
+    environment_variables: typing.Sequence[typing.Union[EnvironmentVariableDefinition, typing.Dict[builtins.str, typing.Any]]],
+    lambda_iam_actions_required: typing.Sequence[builtins.str],
+    data_access_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+    destination_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89ffec9388b48f31864d09f69cb1f8836d7ddd3da88e519d993e0645dd439dff(
+    *,
+    analysis_types: typing.Optional[typing.Sequence[ComprehendAnalysisType]] = None,
+    comprehend_use_cases: typing.Optional[typing.Sequence[ComprehendUseCase]] = None,
+    data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+    destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
+    log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
+    source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    use_same_bucket: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89b928e0be0dd4c25940a6d86bbfcf53b66c7a5db6f4840b816baadcdd028d05(
+    *,
+    analysis_types: typing.Sequence[ComprehendAnalysisType],
+    use_cases: typing.Sequence[ComprehendUseCase],
 ) -> None:
     """Type checking stubs"""
     pass

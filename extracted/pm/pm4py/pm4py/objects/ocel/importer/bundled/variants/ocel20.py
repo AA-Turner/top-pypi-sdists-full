@@ -488,7 +488,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         )
         changes[object_type] = object_type_name
         attribute_names = {name for name, _ in attributes}
-        for record in changes.to_dict("records"):
+        for record in changes.to_dict(orient="records"):
             oid = record[object_id]
             field = record[changed_field]
             if field not in attribute_names:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nameparser
-Version: 2.1.0
+Version: 2.2.0
 Summary: A simple Python module for parsing human names into their individual components.
 Author-email: Derek Gulbranson <derek73@gmail.com>
 License: LGPL
@@ -75,6 +75,8 @@ Quick Start Example
     ]>
     >>> name.family_base, name.family_particles
     ('Vega', 'de la')
+    >>> name.given_names, name.surnames
+    ('Juan Q. Xavier', 'Q. Xavier de la Vega')
     >>> name.render("{family}, {given}")
     'de la Vega, Juan'
 

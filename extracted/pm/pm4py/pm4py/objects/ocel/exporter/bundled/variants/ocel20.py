@@ -416,7 +416,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
 
     normalized_changes = []
     change_keys = {}
-    for record in changes.to_dict("records"):
+    for record in changes.to_dict(orient="records"):
         oid = _normalized_string(record.get(object_id), "object-change id")
         if oid not in object_type_by_id:
             raise ValueError("Object change references unknown object '%s'." % oid)
@@ -545,7 +545,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
         table_specs[table_path] = (object_table, [("ocel_id", "string", False)], attribute_types)
 
         change_records = []
-        for record in type_changes.to_dict("records"):
+        for record in type_changes.to_dict(orient="records"):
             field = record[changed_field]
             row = {
                 "ocel_id": record[object_id],
@@ -577,7 +577,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
 
     e2o_records = []
     e2o_keys = set()
-    for record in relations.to_dict("records"):
+    for record in relations.to_dict(orient="records"):
         eid = _normalized_string(record.get(event_id), "E2O event id")
         oid = _normalized_string(record.get(object_id), "E2O object id")
         relation_qualifier = _normalized_string(record.get(qualifier), "E2O qualifier", allow_empty=True)
@@ -603,7 +603,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
 
     o2o_records = []
     o2o_keys = set()
-    for record in o2o.to_dict("records"):
+    for record in o2o.to_dict(orient="records"):
         source = _normalized_string(record.get(object_id), "O2O source id")
         target = _normalized_string(record.get(object_id + "_2"), "O2O target id")
         relation_qualifier = _normalized_string(record.get(qualifier), "O2O qualifier", allow_empty=True)

@@ -8,6 +8,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 from subprocess import check_call, check_output, STDOUT
 import sys
@@ -137,6 +138,24 @@ def build_windows(args, freetds_archive, iconv_archive):
             if fn:
                 (wiconv / fn).write_bytes(zipf.read(m))
 
+    # Patch win-iconv CMakeLists to be compatible with modern CMake
+    cmakelists = wiconv / "CMakeLists.txt"
+    if cmakelists.exists():
+        try:
+            text = cmakelists.read_text(encoding='utf-8', errors='ignore')
+            new_text, n = re.subn(
+                r'cmake_minimum_required\s*\([^)]*\)',
+                'cmake_minimum_required(VERSION 3.10)',
+                text,
+                count=1,
+                flags=re.IGNORECASE
+            )
+            if n:
+                print(f"Patching {cmakelists} to use cmake_minimum_required(VERSION 3.10)")
+                cmakelists.write_text(new_text, encoding='utf-8')
+        except Exception as exc:
+            print(f"Warning: unable to patch {cmakelists}: {exc}")
+
     #env = find_vcvarsall_env()
     env = os.environ
 
@@ -156,6 +175,25 @@ def build_windows(args, freetds_archive, iconv_archive):
         shutil.rmtree(srcdir)
     tar.extractall(args.ws_dir)
     tar.close()
+
+    # Patch FreeTDS CMakeLists to be compatible with modern CMake
+    cmakelists = srcdir / "CMakeLists.txt"
+    if cmakelists.exists():
+        try:
+            text = cmakelists.read_text(encoding='utf-8', errors='ignore')
+            new_text, n = re.subn(
+                r'cmake_minimum_required\s*\([^)]*\)',
+                'cmake_minimum_required(VERSION 3.10)',
+                text,
+                count=1,
+                flags=re.IGNORECASE
+            )
+            if n:
+                print(f"Patching {cmakelists} to use cmake_minimum_required(VERSION 3.10)")
+                cmakelists.write_text(new_text, encoding='utf-8')
+        except Exception as exc:
+            print(f"Warning: unable to patch {cmakelists}: {exc}")
+
     if args.prefix is None:
         args.prefix = args.ws_dir / f"{topdir}-bin"
 

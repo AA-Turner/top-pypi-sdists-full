@@ -5829,13 +5829,13 @@ select 1::smallint$0;
     fn goto_cast_double_precision_falls_back_to_float8() {
         assert_snapshot!(goto("
 create type pg_catalog.float8;
-select '1'::double precision[]$0;
+select '1'::double precision[$0];
 "), @r"
           ╭▸ 
         2 │ create type pg_catalog.float8;
           │                        ────── 2. destination
         3 │ select '1'::double precision[];
-          ╰╴                             ─ 1. source
+          ╰╴                            ─ 1. source
         ");
     }
 
@@ -12639,6 +12639,26 @@ create operator class ops for type int using btree family fa$0m as operator 1 <;
           │                        ─── 2. destination
         5 │ create operator class ops for type int using btree family fam as operator 1 <;
           ╰╴                                                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_call_schema() {
+        assert_snapshot!(goto("
+create schema s;
+create operator s.+ (
+  leftarg = integer,
+  rightarg = integer,
+  function = pg_catalog.int4pl
+);
+select 1 operator(s$0.+) 2;
+"), @"
+          ╭▸ 
+        2 │ create schema s;
+          │               ─ 2. destination
+          ‡
+        8 │ select 1 operator(s.+) 2;
+          ╰╴                  ─ 1. source
         ");
     }
 

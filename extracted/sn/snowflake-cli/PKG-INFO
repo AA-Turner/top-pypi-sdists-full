@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snowflake-cli
-Version: 3.25.0
+Version: 3.26.0
 Summary: Snowflake CLI
 Project-URL: Source code, https://github.com/snowflakedb/snowflake-cli
 Project-URL: Bug Tracker, https://github.com/snowflakedb/snowflake-cli/issues

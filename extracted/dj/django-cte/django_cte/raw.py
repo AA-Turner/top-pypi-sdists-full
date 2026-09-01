@@ -22,11 +22,16 @@ def raw_cte_sql(sql, params, refs):
         def as_sql(self):
             return sql, params
 
-        def quote_name_unless_alias(self, name):
+        def quote_name(self, name):
             return self.connection.ops.quote_name(name)
+
+        # Name used by Django < 6.1.
+        quote_name_unless_alias = quote_name
 
     class raw_cte_queryset:
         class query:
+            annotations = {}
+
             @staticmethod
             def get_compiler(connection, *, elide_empty=None):
                 return raw_cte_compiler(connection)

@@ -46,6 +46,9 @@ __all__ = (
 
 ConnectorOperationStateType = Literal[
     "PENDING",
+    "RESTART_COMPLETE",
+    "RESTART_FAILED",
+    "RESTART_IN_PROGRESS",
     "ROLLBACK_COMPLETE",
     "ROLLBACK_FAILED",
     "ROLLBACK_IN_PROGRESS",
@@ -65,11 +68,12 @@ ConnectorOperationStepTypeType = Literal[
 ]
 ConnectorOperationTypeType = Literal[
     "ISOLATE_CONNECTOR",
+    "RESTART_CONNECTOR",
     "RESTORE_CONNECTOR",
     "UPDATE_CONNECTOR_CONFIGURATION",
     "UPDATE_WORKER_SETTING",
 ]
-ConnectorStateType = Literal["CREATING", "DELETING", "FAILED", "RUNNING", "UPDATING"]
+ConnectorStateType = Literal["CREATING", "DELETING", "FAILED", "RESTARTING", "RUNNING", "UPDATING"]
 CustomPluginContentTypeType = Literal["JAR", "ZIP"]
 CustomPluginStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"

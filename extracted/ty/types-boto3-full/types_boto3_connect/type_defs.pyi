@@ -793,6 +793,8 @@ __all__ = (
     "GetContactAttributesResponseTypeDef",
     "GetContactMetricsRequestTypeDef",
     "GetContactMetricsResponseTypeDef",
+    "GetCrossRegionRoutingRequestTypeDef",
+    "GetCrossRegionRoutingResponseTypeDef",
     "GetCurrentMetricDataRequestTypeDef",
     "GetCurrentMetricDataResponseTypeDef",
     "GetCurrentUserDataRequestTypeDef",
@@ -1511,6 +1513,7 @@ __all__ = (
     "UpdateContactRoutingDataRequestTypeDef",
     "UpdateContactScheduleRequestTypeDef",
     "UpdateContactTaskTemplateRequestTypeDef",
+    "UpdateCrossRegionRoutingRequestTypeDef",
     "UpdateDataTableAttributeRequestTypeDef",
     "UpdateDataTableAttributeResponseTypeDef",
     "UpdateDataTableMetadataRequestTypeDef",
@@ -3321,6 +3324,9 @@ class GetContactAttributesRequestTypeDef(TypedDict):
     InstanceId: str
     InitialContactId: str
 
+class GetCrossRegionRoutingRequestTypeDef(TypedDict):
+    InstanceId: str
+
 class GetEffectiveHoursOfOperationsRequestTypeDef(TypedDict):
     InstanceId: str
     HoursOfOperationId: str
@@ -4617,6 +4623,10 @@ class UpdateContactTaskTemplateRequestTypeDef(TypedDict):
     TaskTemplateId: str
     ContactId: str
 
+class UpdateCrossRegionRoutingRequestTypeDef(TypedDict):
+    InstanceId: str
+    IsolatedAll: bool
+
 class UpdateDataTableMetadataRequestTypeDef(TypedDict):
     InstanceId: str
     DataTableId: str
@@ -5012,6 +5022,10 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class GetContactAttributesResponseTypeDef(TypedDict):
     Attributes: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetCrossRegionRoutingResponseTypeDef(TypedDict):
+    IsolatedRegions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFlowAssociationResponseTypeDef(TypedDict):
@@ -7494,6 +7508,7 @@ class AgentInfoTypeDef(TypedDict):
     AgentInitiatedHoldDuration: NotRequired[int]
     StateTransitions: NotRequired[list[StateTransitionTypeDef]]
     VoiceEnhancementMode: NotRequired[VoiceEnhancementModeType]
+    ActiveRegion: NotRequired[str]
 
 class CreateParticipantRequestTypeDef(TypedDict):
     InstanceId: str

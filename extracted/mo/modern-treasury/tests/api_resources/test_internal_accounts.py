@@ -65,7 +65,7 @@ class TestInternalAccounts:
                 "line2": "line2",
             },
             party_name="party_name",
-            requested_account_number_types=["ethereum_address"],
+            requested_account_number_types=["base_address"],
             vendor_attributes={
                 "key": "value",
                 "foo": "bar",
@@ -156,6 +156,7 @@ class TestInternalAccounts:
             metadata={"foo": "string"},
             name="name",
             parent_account_id="parent_account_id",
+            status="pending_closure",
         )
         assert_matches_type(InternalAccount, internal_account, path=["response"])
 
@@ -371,7 +372,7 @@ class TestAsyncInternalAccounts:
                 "line2": "line2",
             },
             party_name="party_name",
-            requested_account_number_types=["ethereum_address"],
+            requested_account_number_types=["base_address"],
             vendor_attributes={
                 "key": "value",
                 "foo": "bar",
@@ -462,6 +463,7 @@ class TestAsyncInternalAccounts:
             metadata={"foo": "string"},
             name="name",
             parent_account_id="parent_account_id",
+            status="pending_closure",
         )
         assert_matches_type(InternalAccount, internal_account, path=["response"])
 

@@ -824,6 +824,9 @@ from mixpeek.models.query_outcome import QueryOutcome
 from mixpeek.models.rss_config import RSSConfig
 from mixpeek.models.rss_field_source import RSSFieldSource
 from mixpeek.models.rss_http_header_credentials import RSSHttpHeaderCredentials
+from mixpeek.models.rtsp_basic_credentials import RTSPBasicCredentials
+from mixpeek.models.rtsp_config import RTSPConfig
+from mixpeek.models.rtsp_field_source import RTSPFieldSource
 from mixpeek.models.range_bucket import RangeBucket
 from mixpeek.models.range_bucket_boundaries_inner import RangeBucketBoundariesInner
 from mixpeek.models.rate_limit_config import RateLimitConfig

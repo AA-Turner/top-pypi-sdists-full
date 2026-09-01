@@ -1,21 +1,18 @@
+#[cfg(feature = "ci")]
 use assert_fs::assert::PathAssert;
-use assert_fs::fixture::{FileWriteStr, PathChild};
-use prek_consts::PRE_COMMIT_HOOKS_YAML;
-use prek_consts::env_vars::{EnvVars, EnvVarsRead};
+use assert_fs::fixture::PathChild;
+use prek_consts::env_vars::EnvVars;
 
 use crate::common::{TestEnv, cmd_snapshot};
 
 /// Test `language_version` parsing and downloading.
 /// We use `setup-python` action to install Python 3.12 in CI, when running tests uv can find them.
 /// Other versions may need to be downloaded while running the tests.
+#[cfg(feature = "ci")]
 #[test]
 fn language_version() -> anyhow::Result<()> {
-    if !EnvVars.is_set(EnvVars::CI) {
-        // Skip when not running in CI, as we may have other Python versions installed locally.
-        return Ok(());
-    }
-
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -60,8 +57,8 @@ fn language_version() -> anyhow::Result<()> {
                 entry: python -c 'import sys; print(sys.version_info[:2])'
                 language_version: '3.11.1' # will auto download
                 always_run: true
-    "#});
-    context.git_add_all();
+    "#})
+        .init_git();
 
     let python_dir = context.home_dir().child("tools").child("python");
     python_dir.assert(predicates::path::missing());
@@ -142,7 +139,8 @@ fn language_version() -> anyhow::Result<()> {
 
 #[test]
 fn invalid_version() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -154,9 +152,8 @@ fn invalid_version() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: false
@@ -173,7 +170,8 @@ fn invalid_version() {
 /// Request a version that neither can be found nor downloaded.
 #[test]
 fn can_not_download() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -183,8 +181,8 @@ fn can_not_download() {
                 entry: python -c 'import sys; print(sys.version_info[:3])'
                 language_version: '<=3.6' # not supported version
                 always_run: true
-    "});
-    context.git_add_all();
+    "})
+        .init_git();
 
     let context = context.with_filters([
         (
@@ -221,7 +219,8 @@ fn can_not_download() {
 /// Test that `additional_dependencies` are installed correctly.
 #[test]
 fn additional_dependencies() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -234,9 +233,8 @@ fn additional_dependencies() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -253,50 +251,54 @@ fn additional_dependencies() {
 }
 
 #[test]
-fn additional_dependencies_in_remote_repo() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-    let repo = context.create_repo("python-hook");
-    let repo_path = repo.path();
-    repo_path
-        .child(PRE_COMMIT_HOOKS_YAML)
-        .write_str(indoc::indoc! {r#"
-        - id: hello
-          name: hello
-          language: python
-          entry: pyecho Greetings from hook
-          additional_dependencies: [".[cli]"]
-    "#})?;
-    repo_path.child("module.py").write_str(indoc::indoc! {r#"
-        def greet():
-            print("Greetings from module")
-    "#})?;
-    repo_path.child("setup.py").write_str(indoc::indoc! {r#"
-        from setuptools import setup, find_packages
-
-        setup(
-            name="remote-hooks",
-            version="0.1.0",
-            py_modules=["module"],
-            extras_require={
-                "cli": ["pyecho-cli"]
-            }
+fn additional_dependencies_in_remote_repo() {
+    let context = TestEnv::new().init_git();
+    let hook_repo = context
+        .create_hook_repo(
+            "python-hook",
+            indoc::indoc! {r#"
+            - id: hello
+              name: hello
+              language: python
+              entry: pyecho Greetings from hook
+              additional_dependencies: [".[cli]"]
+        "#},
         )
-    "#})?;
-    repo.git_add_all();
-    repo.git_commit("Add manifest");
-    repo.git_tag("v0.1.0");
+        .with_file(
+            "module.py",
+            indoc::indoc! {r#"
+            def greet():
+                print("Greetings from module")
+        "#},
+        )
+        .with_file(
+            "setup.py",
+            indoc::indoc! {r#"
+            from setuptools import setup, find_packages
 
-    let context = context.with_config(indoc::formatdoc! {r"
+            setup(
+                name="remote-hooks",
+                version="0.1.0",
+                py_modules=["module"],
+                extras_require={
+                    "cli": ["pyecho-cli"]
+                }
+            )
+        "#},
+        )
+        .build();
+
+    context.write_config(indoc::formatdoc! {r"
         repos:
           - repo: {}
-            rev: v0.1.0
+            rev: v1.0.0
             hooks:
               - id: hello
                 name: hello
                 verbose: true
-    ", repo_path.display()});
+    ", hook_repo});
 
-    context.git_add_all();
+    context.git().add(".");
     cmd_snapshot!(context, context.run(), @r"
     success: true
     exit_code: 0
@@ -309,14 +311,13 @@ fn additional_dependencies_in_remote_repo() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 /// Ensure that stderr from hooks is captured and shown to the user.
 #[test]
-fn hook_stderr() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+fn hook_stderr() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -324,14 +325,12 @@ fn hook_stderr() -> anyhow::Result<()> {
                 name: local
                 language: python
                 entry: python ./hook.py
-    "});
-
-    context
-        .work_dir()
-        .child("hook.py")
-        .write_str("import sys; print('How are you', file=sys.stderr); sys.exit(1)")?;
-
-    context.git_add_all();
+    "})
+        .with_file(
+            "hook.py",
+            "import sys; print('How are you', file=sys.stderr); sys.exit(1)",
+        )
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: false
@@ -345,15 +344,14 @@ fn hook_stderr() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 /// Test that pep723 script for local hook is installed correctly.
 /// Only if no additional dependencies are specified.
 #[test]
-fn pep723_script() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+fn pep723_script() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -369,13 +367,10 @@ fn pep723_script() -> anyhow::Result<()> {
                 entry: ./script.py hello world
                 verbose: true
                 pass_filenames: false
-    "#});
-    // On Windows, uv venv does not create `python3.exe`, `python3.12.exe` symlink,
-    // be sure to use `python` as the interpreter name.
-    context
-        .work_dir()
-        .child("script.py")
-        .write_str(indoc::indoc! {r#"
+    "#})
+        .with_file(
+            "script.py",
+            indoc::indoc! {r#"
         #!/usr/bin/env python
         # /// script
         # requires-python = ">=3.10"
@@ -383,9 +378,13 @@ fn pep723_script() -> anyhow::Result<()> {
         # ///
         from pyecho import main
         main()
-    "#})?;
+    "#},
+        )
+        .init_git();
+    // On Windows, uv venv does not create `python3.exe`, `python3.12.exe` symlink,
+    // be sure to use `python` as the interpreter name.
 
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -404,8 +403,6 @@ fn pep723_script() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 /// Test that GIT environment variables do not leak into uv pip install subprocess.
@@ -415,25 +412,24 @@ fn pep723_script() -> anyhow::Result<()> {
 /// Regression test for <https://github.com/j178/prek/issues/1354>
 #[test]
 fn git_env_vars_not_leaked_to_pip_install() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-
-    // setup.py that fails if GIT_DIR leaks into pip install
-    context
-        .work_dir()
-        .child("setup.py")
-        .write_str(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_file(
+            "setup.py",
+            indoc::indoc! {r#"
         import os, sys
         from setuptools import setup
         if os.environ.get("GIT_DIR"):
             sys.exit("ERROR: GIT_DIR should not leak into pip install")
         setup(name="test", version="0.1.0", extras_require={"test": []})
-    "#})?;
+    "#},
+        )
+        .init_git();
 
     let dependency = serde_json::to_string(&format!(
         "{}[test]",
         context.work_dir().path().to_string_lossy()
     ))?;
-    let context = context.with_config(indoc::formatdoc! {r#"
+    context.write_config(indoc::formatdoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -445,7 +441,7 @@ fn git_env_vars_not_leaked_to_pip_install() -> anyhow::Result<()> {
                 always_run: true
     "#});
 
-    context.git_add_all();
+    context.git().add(".");
 
     // Simulate worktree environment by setting GIT_DIR (like git does in worktrees)
     cmd_snapshot!(context, context.run()
@@ -461,18 +457,62 @@ fn git_env_vars_not_leaked_to_pip_install() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn configured_env_is_applied_to_python_install() -> anyhow::Result<()> {
+    let context = TestEnv::new()
+        .with_file(
+            "setup.py",
+            indoc::indoc! {r#"
+            import os, sys
+            from setuptools import setup
+            if os.environ.get("PREK_TEST_INSTALL_ENV") != "configured":
+                sys.exit("configured hook env was not applied during installation")
+            setup(name="test-install-env", version="0.1.0")
+        "#},
+        )
+        .init_git();
+
+    let dependency = serde_json::to_string(&context.work_dir().path().to_string_lossy())?;
+    context.write_config(indoc::formatdoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: install-env
+                name: install-env
+                language: python
+                entry: python -c "print('ok')"
+                additional_dependencies: [{dependency}]
+                env:
+                  PREK_TEST_INSTALL_ENV: configured
+                always_run: true
+    "#});
+    context.git().add(".");
+
+    cmd_snapshot!(context, context.run(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    install-env..............................................................Passed
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
 /// Regression test for <https://github.com/j178/prek/issues/1603>.
 #[test]
-fn local_relative_additional_dependency_is_not_resolved_from_worktree() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-    context
-        .work_dir()
-        .child("pyproject.toml")
-        .write_str(indoc::indoc! {r#"
+fn local_relative_additional_dependency_is_not_resolved_from_worktree() {
+    let context = TestEnv::new()
+        .with_file(
+            "pyproject.toml",
+            indoc::indoc! {r#"
             [project]
             name = "local-project"
             version = "0.1.0"
-        "#})?;
+        "#},
+        )
+        .init_git();
 
     let context = context
         .with_config(indoc::indoc! {r#"
@@ -499,7 +539,7 @@ fn local_relative_additional_dependency_is_not_resolved_from_worktree() -> anyho
             ),
         ]);
 
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r#"
     success: false
@@ -517,8 +557,6 @@ fn local_relative_additional_dependency_is_not_resolved_from_worktree() -> anyho
     Using Python [VERSION] environment at: [HOME]/hooks/python-[HASH]
     error: [INSTALL_CWD] does not appear to be a Python project, as neither `pyproject.toml` nor `setup.py` are present in the directory
     "#);
-
-    Ok(())
 }
 
 /// Test that health check passes when Python toolchain path involves symlinks.
@@ -531,16 +569,16 @@ fn health_check_with_symlinked_toolchain() -> anyhow::Result<()> {
     use fs_err::os::unix::fs::symlink;
     use prek_consts::prepend_paths;
 
-    let context = TestEnv::new();
+    let context = TestEnv::new().init_git();
 
     // Find a Python executable, create a symlinked directory to its parent,
     // and prepend that to PATH so that prek picks up the symlinked path.
     let python_executable = which::which("python3")?;
-    let symlinked_bin = context.work_dir().child("symlinked-bin");
+    let symlinked_bin = context.child("symlinked-bin");
     symlink(python_executable.parent().unwrap(), &symlinked_bin)?;
     let new_path = prepend_paths(&[&*symlinked_bin])?;
 
-    let context = context.with_config(indoc::indoc! {r#"
+    context.write_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -551,7 +589,7 @@ fn health_check_with_symlinked_toolchain() -> anyhow::Result<()> {
                 always_run: true
                 pass_filenames: false
     "#});
-    context.git_add_all();
+    context.git().add(".");
 
     // First run installs the hook
     cmd_snapshot!(context, context.run().env(EnvVars::PATH, new_path), @"

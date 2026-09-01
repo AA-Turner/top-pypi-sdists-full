@@ -1,13 +1,7 @@
+from collections.abc import Callable, Sequence
 import functools
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
     cast,
 )
 
@@ -87,13 +81,13 @@ from web3.types import (
 )
 
 
-def _filter_by_signature(signature: str, contract_abi: ABI) -> List[ABIElement]:
+def _filter_by_signature(signature: str, contract_abi: ABI) -> list[ABIElement]:
     return [abi for abi in contract_abi if abi_to_signature(abi) == signature]
 
 
 def _filter_by_argument_count(
     num_arguments: int, contract_abi: ABI
-) -> List[ABIElement]:
+) -> list[ABIElement]:
     return [
         abi
         for abi in contract_abi
@@ -106,9 +100,9 @@ def _filter_by_argument_count(
 def _filter_by_encodability(
     abi_codec: codec.ABIEncoder,
     args: Sequence[Any],
-    kwargs: Dict[str, Any],
+    kwargs: dict[str, Any],
     contract_abi: ABI,
-) -> List[ABICallable]:
+) -> list[ABICallable]:
     return [
         cast(ABICallable, function_abi)
         for function_abi in contract_abi
@@ -206,7 +200,7 @@ def _build_abi_input_error(
     """
     Build a string representation of the ABI input error.
     """
-    errors: Dict[str, str] = dict(
+    errors: dict[str, str] = dict(
         {
             "zero_args": "",
             "invalid_args": "",
@@ -219,8 +213,8 @@ def _build_abi_input_error(
         abi_element_input_types = get_abi_input_types(abi_element)
         abi_signature = abi_to_signature(abi_element)
         abi_element_name = get_name_from_abi_element_identifier(abi_signature)
-        types: Tuple[str, ...] = tuple()
-        aligned_args: Tuple[Any, ...] = tuple()
+        types: tuple[str, ...] = tuple()
+        aligned_args: tuple[Any, ...] = tuple()
 
         if len(abi_element_input_types) == num_args:
             if num_args == 0:
@@ -277,9 +271,9 @@ def _mismatched_abi_error_diagnosis(
     abi: ABI,
     num_matches: int = 0,
     num_args: int = 0,
-    *args: Optional[Any],
-    abi_codec: Optional[Any] = None,
-    **kwargs: Optional[Any],
+    *args: Any | None,
+    abi_codec: Any | None = None,
+    **kwargs: Any | None,
 ) -> str:
     """
     Raise a ``MismatchedABI`` when a function ABI lookup results in an error.
@@ -375,10 +369,10 @@ def _get_argument_readable_type(arg: Any) -> str:
 
 def _build_abi_filters(
     abi_element_identifier: ABIElementIdentifier,
-    *args: Optional[Any],
-    abi_codec: Optional[Any] = None,
-    **kwargs: Optional[Any],
-) -> List[Callable[..., Sequence[ABIElement]]]:
+    *args: Any | None,
+    abi_codec: Any | None = None,
+    **kwargs: Any | None,
+) -> list[Callable[..., Sequence[ABIElement]]]:
     """
     Build a list of ABI filters to find an ABI element within a contract ABI. Each
     filter is a partial function that takes a contract ABI and returns a filtered list.
@@ -401,7 +395,7 @@ def _build_abi_filters(
     if abi_element_identifier in ["constructor", "fallback", "receive"]:
         return [functools.partial(filter_abi_by_type, abi_element_identifier)]
 
-    filters: List[Callable[..., Sequence[ABIElement]]] = []
+    filters: list[Callable[..., Sequence[ABIElement]]] = []
 
     arg_count = 0
     if args or kwargs:
@@ -454,9 +448,9 @@ def _build_abi_filters(
 def get_abi_element_info(
     abi: ABI,
     abi_element_identifier: ABIElementIdentifier,
-    *args: Optional[Sequence[Any]],
-    abi_codec: Optional[Any] = None,
-    **kwargs: Optional[Dict[str, Any]],
+    *args: Sequence[Any] | None,
+    abi_codec: Any | None = None,
+    **kwargs: dict[str, Any] | None,
 ) -> ABIElementInfo:
     """
     Information about the function ABI, selector and input arguments.
@@ -510,7 +504,7 @@ def get_abi_element_info(
         abi, abi_element_identifier, *args, abi_codec=abi_codec, **kwargs
     )
     fn_selector = encode_hex(function_abi_to_4byte_selector(fn_abi))
-    fn_inputs: Tuple[Any, ...] = tuple()
+    fn_inputs: tuple[Any, ...] = tuple()
 
     if fn_abi["type"] == "fallback" or fn_abi["type"] == "receive":
         return ABIElementInfo(abi=fn_abi, selector=fn_selector, arguments=tuple())
@@ -526,9 +520,9 @@ def get_abi_element_info(
 def get_abi_element(
     abi: ABI,
     abi_element_identifier: ABIElementIdentifier,
-    *args: Optional[Any],
-    abi_codec: Optional[Any] = None,
-    **kwargs: Optional[Any],
+    *args: Any | None,
+    abi_codec: Any | None = None,
+    **kwargs: Any | None,
 ) -> ABIElement:
     """
     Return the interface for an ``ABIElement`` from the ``abi`` that matches the
@@ -621,9 +615,9 @@ def get_abi_element(
 
 def check_if_arguments_can_be_encoded(
     abi_element: ABIElement,
-    *args: Optional[Sequence[Any]],
-    abi_codec: Optional[Any] = None,
-    **kwargs: Optional[Dict[str, Any]],
+    *args: Sequence[Any] | None,
+    abi_codec: Any | None = None,
+    **kwargs: dict[str, Any] | None,
 ) -> bool:
     """
     Check if the provided arguments can be encoded with the element ABI.
@@ -686,7 +680,7 @@ def check_if_arguments_can_be_encoded(
 def get_event_abi(
     abi: ABI,
     event_name: str,
-    argument_names: Optional[Sequence[str]] = None,
+    argument_names: Sequence[str] | None = None,
 ) -> ABIEvent:
     """
     .. warning::
@@ -708,14 +702,19 @@ def get_event_abi(
 
         >>> from web3.utils import get_event_abi
         >>> abi = [
-        ...   {"type": "function", "name": "myFunction", "inputs": [], "outputs": []},
-        ...   {"type": "function", "name": "myFunction2", "inputs": [], "outputs": []},
-        ...   {"type": "event", "name": "MyEvent", "inputs": []}
+        ...     {"type": "function", "name": "myFunction", "inputs": [], "outputs": []},
+        ...     {
+        ...         "type": "function",
+        ...         "name": "myFunction2",
+        ...         "inputs": [],
+        ...         "outputs": [],
+        ...     },
+        ...     {"type": "event", "name": "MyEvent", "inputs": []},
         ... ]
-        >>> get_event_abi(abi, 'MyEvent')
+        >>> get_event_abi(abi, "MyEvent")
         {'type': 'event', 'name': 'MyEvent', 'inputs': []}
     """
-    filters: List[functools.partial[Sequence[ABIElement]]] = [
+    filters: list[Callable[[ABI], Sequence[ABIElement]]] = [
         functools.partial(filter_abi_by_type, "event"),
     ]
 
@@ -757,18 +756,13 @@ def get_event_log_topics(
 
         >>> from web3.utils import get_event_log_topics
         >>> abi = {
-        ...   'type': 'event',
-        ...   'anonymous': False,
-        ...   'name': 'MyEvent',
-        ...   'inputs': [
-        ...     {
-        ...       'name': 's',
-        ...       'type': 'uint256'
-        ...     }
-        ...   ]
+        ...     "type": "event",
+        ...     "anonymous": False,
+        ...     "name": "MyEvent",
+        ...     "inputs": [{"name": "s", "type": "uint256"}],
         ... }
-        >>> keccak_signature = b'l+Ff\xba\x8d\xa5\xa9W\x17b\x1d\x87\x9aw\xder_=\x81g\t\xb9\xcb\xe9\xf0Y\xb8\xf8u\xe2\x84'  # noqa: E501
-        >>> get_event_log_topics(abi, [keccak_signature, '0x1', '0x2'])
+        >>> keccak_signature = b"l+Ff\xba\x8d\xa5\xa9W\x17b\x1d\x87\x9aw\xder_=\x81g\t\xb9\xcb\xe9\xf0Y\xb8\xf8u\xe2\x84"  # noqa: E501
+        >>> get_event_log_topics(abi, [keccak_signature, "0x1", "0x2"])
         ['0x1', '0x2']
     """
     if event_abi["anonymous"]:
@@ -782,7 +776,7 @@ def get_event_log_topics(
 
 
 def log_topic_to_bytes(
-    log_topic: Union[Primitives, HexStr, str],
+    log_topic: Primitives | HexStr | str,
 ) -> bytes:
     r"""
     Return topic signature as bytes.
@@ -795,7 +789,7 @@ def log_topic_to_bytes(
     .. doctest::
 
         >>> from web3.utils import log_topic_to_bytes
-        >>> log_topic_to_bytes('0xa12fd1')
+        >>> log_topic_to_bytes("0xa12fd1")
         b'\xa1/\xd1'
     """
     return hexstr_if_str(to_bytes, log_topic)

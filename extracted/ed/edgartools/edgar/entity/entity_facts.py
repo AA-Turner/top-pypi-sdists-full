@@ -47,7 +47,7 @@ from edgar.storage import get_edgar_data_directory, is_using_local_storage
 # never reached a traceback or a log. The canonical class builds the message
 # and passes it up. Old name kept as a deprecated alias below.
 from edgar._compat import deprecated_alias
-from edgar.exceptions import CompanyFactsNotFoundError, TransportError, http_status
+from edgar.exceptions import CompanyFactsNotFoundError, TransportError, ValidationError, http_status
 
 __getattr__ = deprecated_alias(NoCompanyFactsFound=CompanyFactsNotFoundError)
 
@@ -1557,7 +1557,7 @@ class EntityFacts:
         from edgar.ttm.calculator import TTMCalculator
         from edgar.entity.enhanced_statement import (
             detect_fiscal_year_end,
-            validate_fiscal_year_period_end,
+            is_forward_looking_schedule,
         )
 
         # Filter out forward-looking schedule data before TTM derivation (Issues #781, #779).
@@ -1566,14 +1566,18 @@ class EntityFacts:
         # Must be filtered here, before the TTM calculator derives quarters from them.
         # Pass the company's FYE month so non-calendar-FYE companies (ADSK, WMT, MSFT)
         # don't have their forward-fiscal-year quarters incorrectly rejected.
+        #
+        # This asks specifically whether the PERIOD runs ahead of the LABEL. Asking the
+        # weaker question -- do they merely disagree -- also throws out every comparative
+        # re-filing, because the SEC tags those with the filing's fiscal year. On the
+        # Snowflake ledger that discarded 4,093 real facts to exclude 6 schedule ones,
+        # and the casualties included the six-month YTD that Q3 is derived from, so the
+        # quarterly cash-flow statement fell back to a 273-day YTD figure it labelled
+        # Q3 (GH #1180).
         fiscal_year_end_month = detect_fiscal_year_end(facts)
-        filtered_facts = []
-        for fact in facts:
-            if fact.period_end and fact.fiscal_year:
-                if not validate_fiscal_year_period_end(fact.fiscal_year, fact.period_end,
-                                                      fiscal_year_end_month):
-                    continue
-            filtered_facts.append(fact)
+        filtered_facts = [fact for fact in facts
+                          if not is_forward_looking_schedule(fact.fiscal_year, fact.period_end,
+                                                             fiscal_year_end_month)]
 
         concept_facts = defaultdict(list)
         for fact in filtered_facts:
@@ -1784,6 +1788,85 @@ class EntityFacts:
             ticker=self._ticker,
         )
 
+    # ------------------------------------------------------------------
+    # Period resolution
+    # ------------------------------------------------------------------
+    #
+    # Three parameters name the same thing. `period` is the supported spelling;
+    # `annual` and `period_length` are legacy and both go in 6.0.
+    #
+    # `period_length` was accepted, documented as "3=quarterly, 12=annual", and
+    # never read — it appeared nowhere in the body of either statement method
+    # (#1177). Honouring it is therefore a fix and not a behaviour change: a
+    # caller passing period_length=3 was already getting the annual statement
+    # they did not ask for, silently, which is the failure class 6.0 is closing.
+
+    _PERIOD_LENGTH_TO_PERIOD = {3: "quarterly", 12: "annual"}
+    _VALID_PERIODS = {"annual", "quarterly", "ttm"}
+
+    @classmethod
+    def _resolve_period(cls,
+                        period: Optional[str],
+                        annual: Optional[bool],
+                        period_length: Optional[int]) -> str:
+        """Collapse period/annual/period_length into one period name.
+
+        `period=None` means the caller did not say, which is what lets a
+        contradiction be told apart from the default. Raises ValidationError
+        when the caller asks for two different things at once.
+        """
+        if annual is not None:
+            explicit = "annual" if annual else "quarterly"
+        elif period is not None:
+            explicit = period.lower()
+        else:
+            explicit = None
+
+        if period_length is None:
+            resolved = explicit or "annual"
+        else:
+            implied = cls._PERIOD_LENGTH_TO_PERIOD.get(period_length)
+            if implied is None:
+                raise ValidationError(
+                    f"period_length={period_length!r} is not a period this statement can be "
+                    "built for.",
+                    parameter="period_length",
+                    invalid_value=period_length,
+                    suggestions=[
+                        "period_length=3 for quarterly, or period_length=12 for annual",
+                        "better, use period='quarterly' or period='annual' — "
+                        "period_length is removed in 6.0",
+                    ],
+                )
+            if explicit is not None and explicit != implied:
+                raise ValidationError(
+                    f"period_length={period_length!r} means {implied!r}, which contradicts "
+                    f"the {explicit!r} period also requested.",
+                    parameter="period_length",
+                    invalid_value=period_length,
+                    suggestions=[
+                        f"drop period_length and pass period={implied!r}",
+                        f"or drop the {explicit!r} request if you meant {implied!r}",
+                    ],
+                )
+            warnings.warn(
+                "period_length is deprecated and will be removed in v6.0. "
+                "Use period='quarterly' instead of period_length=3, and "
+                "period='annual' instead of period_length=12.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            resolved = implied
+
+        if resolved not in cls._VALID_PERIODS:
+            # ValidationError IS-A ValueError, so this stays catchable as one.
+            raise ValidationError(
+                "period must be one of: 'annual', 'quarterly', 'ttm'",
+                parameter="period",
+                invalid_value=resolved,
+            )
+        return resolved
+
     def _build_enhanced_statement(self,
                                   facts: List[FinancialFact],
                                   statement_type: str,
@@ -1818,17 +1901,19 @@ class EntityFacts:
                          as_dataframe: bool = False,
                          annual: Optional[bool] = None,
                          concise_format: bool = False,
-                         period: str = 'annual') -> Union[pd.DataFrame, MultiPeriodStatement, 'TTMStatement']:
+                         period: Optional[str] = None) -> Union[pd.DataFrame, MultiPeriodStatement, 'TTMStatement']:
         """
         Get income statement facts for recent periods.
 
         Args:
             periods: Number of periods to retrieve
-            period_length: Optional filter for period length in months (3=quarterly, 12=annual)
+            period_length: Deprecated, removed in 6.0. Period length in months
+                (3=quarterly, 12=annual); prefer period='quarterly'/'annual'.
+                Raises ValidationError if it contradicts period or annual.
             as_dataframe: If True, return DataFrame; if False, return MultiPeriodStatement
             annual: Legacy parameter - if provided, overrides period (True='annual', False='quarterly')
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
-            period: 'annual', 'quarterly', or 'ttm' (trailing twelve months)
+            period: 'annual' (the default), 'quarterly', or 'ttm' (trailing twelve months)
 
         Returns:
             MultiPeriodStatement or DataFrame with income statement data
@@ -1848,12 +1933,7 @@ class EntityFacts:
             stmt = facts.income_statement(periods=4)
             df = stmt.to_dataframe()
         """
-        if annual is not None:
-            period = 'annual' if annual else 'quarterly'
-
-        period = period.lower()
-        if period not in {'annual', 'quarterly', 'ttm'}:
-            raise ValueError("period must be one of: 'annual', 'quarterly', 'ttm'")
+        period = self._resolve_period(period, annual, period_length)
 
         if period == 'ttm':
             from edgar.ttm.statement import TTMStatementBuilder
@@ -1999,17 +2079,19 @@ class EntityFacts:
                            as_dataframe: bool = False,
                            annual: Optional[bool] = None,
                            concise_format: bool = False,
-                           period: str = 'annual') -> Union[pd.DataFrame, MultiPeriodStatement, 'TTMStatement']:
+                           period: Optional[str] = None) -> Union[pd.DataFrame, MultiPeriodStatement, 'TTMStatement']:
         """
         Get cash flow statement facts.
 
         Args:
             periods: Number of periods to retrieve
-            period_length: Optional filter for period length in months (3=quarterly, 12=annual)
+            period_length: Deprecated, removed in 6.0. Period length in months
+                (3=quarterly, 12=annual); prefer period='quarterly'/'annual'.
+                Raises ValidationError if it contradicts period or annual.
             as_dataframe: If True, return DataFrame; if False, return MultiPeriodStatement
             annual: Legacy parameter - if provided, overrides period
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
-            period: 'annual', 'quarterly', or 'ttm' (trailing twelve months)
+            period: 'annual' (the default), 'quarterly', or 'ttm' (trailing twelve months)
 
         Returns:
             MultiPeriodStatement or DataFrame with cash flow data
@@ -2026,12 +2108,7 @@ class EntityFacts:
             stmt = facts.cash_flow_statement(periods=4)
             df = stmt.to_dataframe()
         """
-        if annual is not None:
-            period = 'annual' if annual else 'quarterly'
-
-        period = period.lower()
-        if period not in {'annual', 'quarterly', 'ttm'}:
-            raise ValueError("period must be one of: 'annual', 'quarterly', 'ttm'")
+        period = self._resolve_period(period, annual, period_length)
 
         if period == 'ttm':
             from edgar.ttm.statement import TTMStatementBuilder
@@ -2053,7 +2130,7 @@ class EntityFacts:
         )
 
     def cash_flow(self, periods: int = 4, period_length: Optional[int] = None, as_dataframe: bool = False,
-                  annual: bool = True, concise_format: bool = False) -> Union[DataFrame, MultiPeriodStatement]:
+                  annual: Optional[bool] = None, concise_format: bool = False) -> Union[DataFrame, MultiPeriodStatement]:
         """Deprecated: Use cash_flow_statement() instead."""
         warnings.warn(
             "cash_flow() is deprecated and will be removed in v6.0. "

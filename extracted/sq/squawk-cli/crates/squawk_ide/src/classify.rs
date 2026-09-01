@@ -335,7 +335,7 @@ fn classify_call_expr_name_ref(
         if ast::Select::can_cast(ancestor.kind())
             || ast::SelectInto::can_cast(ancestor.kind())
             || ast::Insert::can_cast(ancestor.kind())
-            || ast::ReturnFuncOption::can_cast(ancestor.kind())
+            || ast::ReturnStmt::can_cast(ancestor.kind())
         {
             return Some(NameRefClass::SelectFunctionCall);
         }
@@ -425,9 +425,9 @@ fn is_prepared_transaction_id(node: &SyntaxNode) -> bool {
         return false;
     };
     if let Some(commit) = ast::Commit::cast(parent.clone()) {
-        commit.prepared_token().is_some()
+        matches!(commit, ast::Commit::CommitPrepared(_))
     } else if let Some(rollback) = ast::Rollback::cast(parent) {
-        rollback.prepared_token().is_some()
+        matches!(rollback, ast::Rollback::RollbackPrepared(_))
     } else {
         false
     }
@@ -714,7 +714,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                     return Some(NameRefClass::PolicyColumn);
                 }
             }
-            if ast::ReturnFuncOption::can_cast(ancestor.kind()) {
+            if ast::ReturnStmt::can_cast(ancestor.kind()) {
                 if let Some(ast::Expr::NameRef(base)) = field_expr.base()
                     && enclosing_routine_name(&ancestor)
                         .is_some_and(|routine_name| Name::from_node(&base) == routine_name)
@@ -824,7 +824,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         {
             return Some(NameRefClass::PrivilegeColumn);
         }
-        if ast::PathType::can_cast(ancestor.kind()) || ast::ExprType::can_cast(ancestor.kind()) {
+        if ast::PathType::can_cast(ancestor.kind()) {
             if let Some(class) = classify_ddl_function_option_value(&ancestor) {
                 return Some(class);
             }
@@ -1092,7 +1092,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             break;
         }
         // SQL-body function: `create function f(x int) returns int language sql return x + 1;`
-        if ast::ReturnFuncOption::can_cast(ancestor.kind()) {
+        if ast::ReturnStmt::can_cast(ancestor.kind()) {
             return Some(NameRefClass::SelectColumn);
         }
     }

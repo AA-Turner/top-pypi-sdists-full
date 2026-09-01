@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.519"
+__version__ = "1.3.540"
 
 # Define package exports
 __all__ = [
@@ -937,6 +937,9 @@ __all__ = [
     "RSSConfig",
     "RSSFieldSource",
     "RSSHttpHeaderCredentials",
+    "RTSPBasicCredentials",
+    "RTSPConfig",
+    "RTSPFieldSource",
     "RangeBucket",
     "RangeBucketBoundariesInner",
     "RateLimitConfig",
@@ -2324,6 +2327,9 @@ from mixpeek.models.query_outcome import QueryOutcome as QueryOutcome
 from mixpeek.models.rss_config import RSSConfig as RSSConfig
 from mixpeek.models.rss_field_source import RSSFieldSource as RSSFieldSource
 from mixpeek.models.rss_http_header_credentials import RSSHttpHeaderCredentials as RSSHttpHeaderCredentials
+from mixpeek.models.rtsp_basic_credentials import RTSPBasicCredentials as RTSPBasicCredentials
+from mixpeek.models.rtsp_config import RTSPConfig as RTSPConfig
+from mixpeek.models.rtsp_field_source import RTSPFieldSource as RTSPFieldSource
 from mixpeek.models.range_bucket import RangeBucket as RangeBucket
 from mixpeek.models.range_bucket_boundaries_inner import RangeBucketBoundariesInner as RangeBucketBoundariesInner
 from mixpeek.models.rate_limit_config import RateLimitConfig as RateLimitConfig

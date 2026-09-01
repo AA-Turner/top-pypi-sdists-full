@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: socketsecurity
-Version: 2.6.8
+Version: 2.6.9
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -39,17 +39,17 @@ Requires-Dist: brotlicffi==1.2.0.1; platform_python_implementation != 'CPython'
 Requires-Dist: gitpython==3.1.59
 Requires-Dist: markdown==3.10.3
 Requires-Dist: mdutils==1.8.1
-Requires-Dist: packaging==26.2
+Requires-Dist: packaging==26.3
 Requires-Dist: prettytable==3.18.0
-Requires-Dist: python-dotenv==1.2.2
+Requires-Dist: python-dotenv==1.2.3
 Requires-Dist: requests==2.34.2
 Requires-Dist: socketdev==3.5.0
 Provides-Extra: dev
-Requires-Dist: hatch==1.17.1; extra == 'dev'
-Requires-Dist: pre-commit==4.6.1; extra == 'dev'
-Requires-Dist: ruff==0.16.1; extra == 'dev'
+Requires-Dist: hatch==1.18.0; extra == 'dev'
+Requires-Dist: pre-commit==4.6.2; extra == 'dev'
+Requires-Dist: ruff==0.16.3; extra == 'dev'
 Requires-Dist: twine==7.0.0; extra == 'dev'
-Requires-Dist: uv==0.12.0; extra == 'dev'
+Requires-Dist: uv==0.12.5; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: pytest-asyncio==1.4.0; extra == 'test'
 Requires-Dist: pytest-cov==7.1.0; extra == 'test'

@@ -387,10 +387,6 @@ check: $(done_dir)/flake8_$(pymn)_$(PACKAGE_LEVEL).done
 check_reqs: $(done_dir)/check_reqs_$(pymn)_$(PACKAGE_LEVEL).done
 	@echo "Makefile: $@ done."
 
-.PHONY: safety
-safety: $(done_dir)/safety_develop_$(pymn)_$(PACKAGE_LEVEL).done $(done_dir)/safety_install_$(pymn)_$(PACKAGE_LEVEL).done
-	@echo "Makefile: $@ done."
-
 .PHONY: pylint
 pylint: $(done_dir)/pylint_$(pymn)_$(PACKAGE_LEVEL).done
 	@echo "Makefile: $@ done."
@@ -444,8 +440,8 @@ release_publish:
 	git pull
 	git tag -f $(VERSION)
 	git push -f --tags
-	git branch -D release_$(VERSION)
-	git branch -D -r origin/release_$(VERSION)
+	-git branch -D release_$(VERSION)
+	-git branch -D -r origin/release_$(VERSION)
 	rm -f branch.tmp
 	@echo "Done: Triggered the publish workflow - now wait for it to finish and verify the publishing."
 	@echo "Makefile: $@ done."
@@ -489,8 +485,8 @@ start_tag:
 	git pull
 	git tag -f $(VERSION)a0
 	git push -f --tags
-	git branch -D start_$(VERSION)
-	git branch -D -r origin/start_$(VERSION)
+	-git branch -D start_$(VERSION)
+	-git branch -D -r origin/start_$(VERSION)
 	rm -f branch.tmp
 	@echo "Done: Pushed the release start tag and cleaned up the release start branch."
 	@echo "Makefile: $@ done."
@@ -636,19 +632,12 @@ $(done_dir)/mypy_$(pymn)_$(PACKAGE_LEVEL).done: $(done_dir)/develop_$(pymn)_$(PA
 	@echo "Makefile: Done running Mypy"
 	echo "done" >$@
 
-$(done_dir)/safety_develop_$(pymn)_$(PACKAGE_LEVEL).done: $(done_dir)/develop_$(pymn)_$(PACKAGE_LEVEL).done $(safety_develop_policy_file) minimum-constraints-develop.txt minimum-constraints-install.txt
-	-$(call RM_FUNC,$@)
-	@echo "Makefile: Running Safety for development packages (and tolerate safety issues when RUN_TYPE is normal or scheduled)"
-	bash -c "safety check --policy-file $(safety_develop_policy_file) -r minimum-constraints-develop.txt --full-report || test '$(RUN_TYPE)' == 'normal' || test '$(RUN_TYPE)' == 'scheduled' || exit 1"
-	@echo "Makefile: Done running Safety for development packages"
-	echo "done" >$@
-
-$(done_dir)/safety_install_$(pymn)_$(PACKAGE_LEVEL).done: $(done_dir)/develop_$(pymn)_$(PACKAGE_LEVEL).done $(safety_install_policy_file) minimum-constraints-install.txt
-	-$(call RM_FUNC,$@)
-	@echo "Makefile: Running Safety for install packages (and tolerate safety issues when RUN_TYPE is normal)"
+.PHONY: safety
+safety: $(done_dir)/develop_$(pymn)_$(PACKAGE_LEVEL).done Makefile $(safety_develop_policy_file) $(safety_install_policy_file) minimum-constraints-develop.txt minimum-constraints-install.txt minimum-constraints-install.txt
+	@echo "Makefile: Running Safety"
 	bash -c "safety check --policy-file $(safety_install_policy_file) -r minimum-constraints-install.txt --full-report || test '$(RUN_TYPE)' == 'normal' || exit 1"
-	@echo "Makefile: Done running Safety for install packages"
-	echo "done" >$@
+	bash -c "safety check --policy-file $(safety_develop_policy_file) -r minimum-constraints-develop.txt --full-report || test '$(RUN_TYPE)' == 'normal' || test '$(RUN_TYPE)' == 'scheduled' || exit 1"
+	@echo "Makefile: Done running Safety"
 
 $(done_dir)/check_reqs_$(pymn)_$(PACKAGE_LEVEL).done: $(done_dir)/develop_$(pymn)_$(PACKAGE_LEVEL).done minimum-constraints-develop.txt minimum-constraints-install.txt requirements.txt
 	@echo "Makefile: Checking missing dependencies of the package"

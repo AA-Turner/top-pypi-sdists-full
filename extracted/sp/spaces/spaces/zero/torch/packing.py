@@ -127,8 +127,8 @@ def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int], Any] | None 
 
     callback = (lambda bytes: None) if callback is None else callback
 
-    free_buffers: Queue[torch.Tensor] = Queue()
-    read_buffers: Queue[torch.Tensor] = Queue()
+    free_buffers: Queue[torch.Tensor | None] = Queue()
+    read_buffers: Queue[torch.Tensor | None] = Queue()
 
     for _ in range(BUFFER_COUNT):
         free_buffers.put(torch.ByteTensor(BUFFER_SIZE).pin_memory())
@@ -137,18 +137,22 @@ def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int], Any] | None 
         mv = memoryview((ctypes.c_char * size).from_address(buffer.data_ptr()))
         read_bytes = 0
         while read_bytes < size:
-            read_bytes += os.readv(fd, [mv[read_bytes:]])
+            if (num_bytes := os.readv(fd, [mv[read_bytes:]])) == 0:
+                raise EOFError
+            read_bytes += num_bytes
 
     def disk_to_pin(fd: int):
         for batch in pack.batches:
-            buffer = free_buffers.get()
+            if (buffer := free_buffers.get()) is None:
+                return
             batch_size = sum([aligned_size for *_, aligned_size in batch])
             read(fd, buffer, batch_size)
             read_buffers.put(buffer)
         for *_, aligned_size in pack.big_tensors:
             read_bytes = 0
             while read_bytes < aligned_size:
-                buffer = free_buffers.get()
+                if (buffer := free_buffers.get()) is None:
+                    return
                 read_size = min(BUFFER_SIZE, aligned_size - read_bytes)
                 read(fd, buffer, read_size)
                 read_buffers.put(buffer)
@@ -157,7 +161,8 @@ def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int], Any] | None 
     def pin_to_cuda():
         total_duration_in_callback = 0
         for batch in pack.batches:
-            buffer = read_buffers.get()
+            if (buffer := read_buffers.get()) is None:
+                return
             offset = 0
             cuda_storages = []
             for tensor, size, aligned_size in batch:
@@ -179,7 +184,8 @@ def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int], Any] | None 
             cuda_storage = torch.empty(size, dtype=torch.uint8, device='cuda')
             offset = 0
             while offset < size:
-                buffer = read_buffers.get()
+                if (buffer := read_buffers.get()) is None:
+                    return
                 read_size = min(BUFFER_SIZE, size - offset)
                 cuda_storage[offset:offset+read_size] = buffer[:read_size]
                 offset += read_size
@@ -195,14 +201,16 @@ def pack_to_cuda(pack: ZeroGPUTensorPack, callback: Callable[[int], Any] | None 
 
         debug(f"{total_duration_in_callback=}")
 
-    with ThreadPoolExecutor(2) as e:
-        fd = os.open(pack.path(), os.O_RDONLY | os.O_DIRECT)
-        try:
-            futures = [
-                e.submit(copy_context().run, disk_to_pin, fd),
-                e.submit(copy_context().run, pin_to_cuda),
-            ]
-            for future in as_completed(futures):
-                future.result()
-        finally:
-            os.close(fd)
+    fd = os.open(pack.path(), os.O_RDONLY | os.O_DIRECT)
+    try:
+        with ThreadPoolExecutor(2) as e:
+            read_future = e.submit(copy_context().run, disk_to_pin, fd)
+            cuda_future = e.submit(copy_context().run, pin_to_cuda)
+            for future in as_completed([read_future, cuda_future]):
+                buffers_queue = read_buffers if future is read_future else free_buffers
+                try:
+                    future.result()
+                finally:
+                    buffers_queue.put(None)
+    finally:
+        os.close(fd)

@@ -609,7 +609,7 @@ def apply(
     relation_keys = set()
     o2o_keys = set()
 
-    records = table.to_dict("records")
+    records = table.to_dict(orient="records")
     object_type_column_pairs = [
         (column, str(column)[len(object_type_prefix):]) for column in object_type_columns
     ]

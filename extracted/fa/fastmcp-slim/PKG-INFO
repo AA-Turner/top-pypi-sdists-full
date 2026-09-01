@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fastmcp-slim
-Version: 3.4.7
+Version: 4.0.0
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
 Project-URL: Documentation, https://gofastmcp.com
-Author: Jeremiah Lowin
+Author: Jeremiah Lowin, Nate Nowack
 License-Expression: Apache-2.0
 Keywords: agent,fastmcp,llm,mcp,mcp client,mcp server,model context protocol
 Classifier: Intended Audience :: Developers
@@ -17,14 +17,15 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
+Requires-Dist: mcp-types<3.0.0,>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
 Requires-Dist: pydantic-settings>=2.0.0
-Requires-Dist: pydantic[email]>=2.11.7
+Requires-Dist: pydantic[email]>=2.12.0
 Requires-Dist: python-dotenv>=1.1.0
 Requires-Dist: rich>=13.9.4
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.48.0; extra == 'anthropic'
+Requires-Dist: anthropic<1,>=0.48.0; extra == 'anthropic'
 Provides-Extra: apps
 Requires-Dist: prefab-ui>=0.18.0; extra == 'apps'
 Provides-Extra: azure
@@ -33,21 +34,21 @@ Requires-Dist: pyjwt>=2.12.0; extra == 'azure'
 Provides-Extra: client
 Requires-Dist: authlib>=1.6.11; extra == 'client'
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'client'
-Requires-Dist: httpx<1.0,>=0.28.1; extra == 'client'
-Requires-Dist: mcp<2.0,>=1.24.0; extra == 'client'
-Requires-Dist: opentelemetry-api>=1.20.0; extra == 'client'
+Requires-Dist: httpx2>=2.5.0; extra == 'client'
+Requires-Dist: mcp<3.0.0,>=2.0.0; extra == 'client'
+Requires-Dist: opentelemetry-api>=1.28.0; extra == 'client'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'client'
 Requires-Dist: starlette>=1.0.1; extra == 'client'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty==0.0.17; extra == 'code-mode'
+Requires-Dist: pydantic-monty==0.0.18; extra == 'code-mode'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Requires-Dist: jsonref>=1.1.0; extra == 'gemini'
 Provides-Extra: mcp
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'mcp'
-Requires-Dist: httpx<1.0,>=0.28.1; extra == 'mcp'
-Requires-Dist: mcp<2.0,>=1.24.0; extra == 'mcp'
-Requires-Dist: opentelemetry-api>=1.20.0; extra == 'mcp'
+Requires-Dist: httpx2>=2.5.0; extra == 'mcp'
+Requires-Dist: mcp<3.0.0,>=2.0.0; extra == 'mcp'
+Requires-Dist: opentelemetry-api>=1.28.0; extra == 'mcp'
 Requires-Dist: starlette>=1.0.1; extra == 'mcp'
 Provides-Extra: openai
 Requires-Dist: openai>=1.102.0; extra == 'openai'
@@ -56,25 +57,23 @@ Requires-Dist: authlib>=1.6.11; extra == 'server'
 Requires-Dist: cyclopts>=4.0.0; extra == 'server'
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'server'
 Requires-Dist: griffelib>=2.0.0; extra == 'server'
-Requires-Dist: httpx<1.0,>=0.28.1; extra == 'server'
-Requires-Dist: joserfc>=1.1.0; extra == 'server'
+Requires-Dist: httpx2>=2.5.0; extra == 'server'
+Requires-Dist: joserfc>=1.5.0; extra == 'server'
 Requires-Dist: jsonref>=1.1.0; extra == 'server'
 Requires-Dist: jsonschema-path>=0.3.4; extra == 'server'
-Requires-Dist: mcp<2.0,>=1.24.0; extra == 'server'
+Requires-Dist: mcp<3.0.0,>=2.0.0; extra == 'server'
 Requires-Dist: openapi-pydantic>=0.5.1; extra == 'server'
-Requires-Dist: opentelemetry-api>=1.20.0; extra == 'server'
+Requires-Dist: opentelemetry-api>=1.28.0; extra == 'server'
 Requires-Dist: packaging>=24.0; extra == 'server'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'server'
 Requires-Dist: pyperclip>=1.9.0; extra == 'server'
 Requires-Dist: python-multipart>=0.0.26; extra == 'server'
 Requires-Dist: pyyaml<7.0,>=6.0; extra == 'server'
 Requires-Dist: starlette>=1.0.1; extra == 'server'
-Requires-Dist: uncalled-for>=0.2.0; extra == 'server'
+Requires-Dist: uncalled-for>=0.4.0; extra == 'server'
 Requires-Dist: uvicorn>=0.35; extra == 'server'
 Requires-Dist: watchfiles>=1.0.0; extra == 'server'
 Requires-Dist: websockets>=15.0.1; extra == 'server'
-Provides-Extra: tasks
-Requires-Dist: pydocket>=0.20.0; extra == 'tasks'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -179,9 +178,10 @@ uv pip install fastmcp
 For full installation instructions, including verification and upgrading, see the [**Installation Guide**](https://gofastmcp.com/getting-started/installation).
 
 **Upgrading?** We have guides for:
-- [Upgrading from FastMCP v2](https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2)
-- [Upgrading from the MCP Python SDK](https://gofastmcp.com/getting-started/upgrading/from-mcp-sdk)
-- [Upgrading from the low-level SDK](https://gofastmcp.com/getting-started/upgrading/from-low-level-sdk)
+- [Upgrading from FastMCP 3](https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3)
+- [Upgrading from FastMCP 2](https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2)
+- [Upgrading from MCP SDK v1](https://gofastmcp.com/getting-started/upgrading/from-mcp-sdk-v1) or [v2](https://gofastmcp.com/getting-started/upgrading/from-mcp-sdk-v2)
+- [Upgrading from the low-level SDK v1](https://gofastmcp.com/getting-started/upgrading/from-low-level-sdk-v1) or [v2](https://gofastmcp.com/getting-started/upgrading/from-low-level-sdk-v2)
 
 ## 📚 Documentation
 

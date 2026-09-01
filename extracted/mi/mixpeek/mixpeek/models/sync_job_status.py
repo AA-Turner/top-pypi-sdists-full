@@ -31,6 +31,7 @@ class SyncJobStatus(str, Enum):
     COMPLETED = 'completed'
     FAILED = 'failed'
     INTERRUPTED = 'interrupted'
+    SKIPPED = 'skipped'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -155,7 +155,7 @@ x-documentation:
     - `post.tiktok.url_resolved` - A published TikTok post's public URL became available. TikTok exposes the numeric video id asynchronously, so `post.published` / `post.platform.published` can carry an empty `publishedUrl` for TikTok; this event delivers the URL once resolved (at most once per platform target). Never fires for drafts or private posts, which have no public URL.
     - `post.external.created` - A native post authored outside Zernio (e.g. a Google Business Profile localPost created in the Google UI) was detected by our sync for the first time. Poll-driven (~hourly), not real-time. Payload carries `post.source: "external"`.
     - `post.external.updated` - A tracked native post's text or media changed on the platform. Edits are detected by comparing text/media structure and (where the platform exposes it) the platform's own edit timestamp; media-URL-only refreshes do not fire this.
-    - `post.external.deleted` - A tracked native post was detected as removed from the platform. `post.deletedAt` carries the detection time. Coverage is bounded to the most recent posts the platform listing returns.
+    - `post.external.deleted` - A tracked native post was detected as removed from the platform. `post.deletedAt` carries the detection time. Coverage is bounded to the most recent posts the platform listing returns, and detection is a diff against posts a prior sync already indexed, so an account for which no post has ever been indexed never emits it.
     - `account.connected` - Social account connected
     - `account.disconnected` - Social account disconnected (token expired)
     - `account.ads.initial_sync_completed` - Initial ads sync (discovery + 90-day backfill) completed for an ads-enabled account
@@ -1384,7 +1384,7 @@ components:
                 items: { type: string }
         warnings:
           type: array
-          description: "Top-level advisory warnings (e.g. `rows_exceed_advisory_limit:500`). Empty when none."
+          description: "Top-level advisory warnings, e.g. `rows_exceed_advisory_limit:500` or `unknown_columns:<a,b,c>` (comma-separated unrecognized CSV column names). Empty when none."
           items: { type: string }
         rateLimitedAccounts:
           type: array
@@ -3613,7 +3613,20 @@ components:
                 properties:
                   type:
                     type: string
-                    description: Attachment type (image, video, file, sticker, audio)
+                    description: Attachment type (image, video, file, sticker, audio, share)
+                  originalType:
+                    type: string
+                    description: |
+                      Instagram and Facebook only, and present only when it differs
+                      from `type`. Meta's own attachment type before Zernio normalized
+                      it: `ig_reel` and `reel` become `video`, while `ig_post`, `post`,
+                      `ig_story` and `story_mention` all become `share`.
+
+                      Read it before rendering, because `type: "share"` alone is
+                      ambiguous. In particular a story mention arrives as
+                      `type: "share"` with `originalType: "story_mention"`; treating an
+                      unrecognized type as a generic document shows your agent
+                      "document received" for what is usually a lead.
                   url:
                     type: string
                     description: |
@@ -3629,6 +3642,18 @@ components:
                       - **Instagram / Facebook / Telegram**: a direct platform CDN link
                         that needs no authentication and expires on the platform's own
                         schedule.
+
+                      **Webhook attachments carry no `refreshUrl`.** That field is
+                      stamped only when you read a message back over REST
+                      (`GET /v1/inbox/conversations/{conversationId}/messages`). On
+                      Instagram and Facebook the url above is a signed Meta CDN link
+                      that expires, so do not persist it: store the message id and
+                      resolve the media through
+                      `GET /v1/inbox/conversations/{conversationId}/messages/{messageId}/attachments/{index}?accountId={accountId}`,
+                      which re-mints it on demand. Every value that URL needs is
+                      already in this payload: `message.conversationId`,
+                      `message.platformMessageId`, `account.accountId`, and the
+                      attachment's zero-based position in this array.
                   payload:
                     type: object
                     description: Additional attachment metadata
@@ -4031,7 +4056,10 @@ components:
                 properties:
                   type:
                     type: string
-                    description: Attachment type (image, video, file, sticker, audio)
+                    description: Attachment type (image, video, file, sticker, audio, share)
+                  originalType:
+                    type: string
+                    description: 'Instagram and Facebook only, and present only when it differs from `type`. Meta''s own attachment type before Zernio normalized it. See the same field on message.received for the full mapping.'
                   url:
                     type: string
                     description: |
@@ -4041,24 +4069,42 @@ components:
                       and it needs no Zernio credentials. Contrast the inbound direction:
                       `message.received` attachment URLs on WhatsApp point at the
                       authenticated `GET /v1/whatsapp/media/{mediaId}`.
+
+                      As on `message.received`, webhook attachments carry no
+                      `refreshUrl`: that field is stamped only on the REST read. Resolve
+                      Instagram and Facebook media through
+                      `GET /v1/inbox/conversations/{conversationId}/messages/{messageId}/attachments/{index}?accountId={accountId}`.
                   payload:
                     type: object
                     description: Additional attachment metadata
             sender:
               type: object
               required: [id]
+              description: |
+                **On this event the sender is your own business, not the person you
+                are talking to.** `id` is the Zernio account id and `name`,
+                `username` and `picture` are that connected account's own profile.
+
+                Do not read these to name or update a contact: doing so on an echo
+                relabels the customer's record with your business name. The other
+                party is `conversation.participantId` / `participantName` /
+                `participantUsername`, which are populated in both directions.
               properties:
                 id:
                   type: string
+                  description: 'The Zernio account id of the connected account that sent the message, not a contact id.'
                 contactId:
                   type: string
                   description: 'Always omitted on this event: the sender is the business, not a contact. Use conversation.contactId to join back to the CRM Contact.'
                 name:
                   type: string
+                  description: Display name of your connected account.
                 username:
                   type: string
+                  description: Username of your connected account.
                 picture:
                   type: string
+                  description: Profile picture of your connected account.
             sentAt:
               type: string
               format: date-time
@@ -5030,8 +5076,7 @@ components:
             - $ref: '#/components/schemas/User'
         title:
           type: string
-          description: |
-            YouTube: title must be ≤ 100 characters.
+          description: "Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted)."
         content: { type: string }
         mediaItems:
           type: array
@@ -5048,6 +5093,7 @@ components:
           items: { type: string }
         hashtags:
           type: array
+          description: "Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead."
           items: { type: string }
         mentions:
           type: array
@@ -6771,7 +6817,8 @@ components:
           description: |
             Whether the user explicitly activated this account. false means the account was
             created as a side effect (e.g., posting account auto-created when user connected
-            ads first). Posting UI and scheduler ignore accounts with enabled: false.
+            ads first). Such accounts are hidden from this list, cannot be posted to
+            (`ACCOUNT_NOT_ENABLED_FOR_POSTING`), and are not billed as connected accounts.
         metadata:
           type: object
           description: |
@@ -7576,6 +7623,11 @@ components:
           type: string
         post:
           $ref: '#/components/schemas/Post'
+        warnings:
+          type: array
+          description: 'Advisory notices about a post that was still created: media truncated for a platform, a recycling caveat, or a field that was ignored because it sat outside platforms[].platformSpecificData. Absent when there are none.'
+          items:
+            type: string
     PostUpdateResponse:
       type: object
       properties:
@@ -9243,7 +9295,10 @@ webhooks:
         target. `platform.deletedAt` carries the detection time. Detection
         is listing-based: a false positive self-heals in Zernio's data when
         the post reappears, but the event is not retracted. Coverage is
-        bounded to the posts the platform listing returns.
+        bounded to the posts the platform listing returns. Detection is a diff
+        against the posts a prior sync already indexed, so an account for which no
+        post has ever been indexed can never emit this event, no matter how the
+        subscription is configured.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -9691,7 +9746,10 @@ webhooks:
       description: |
         Fired when a tracked native post is detected as removed from the platform.
         `post.deletedAt` carries the detection time. Coverage is bounded to the
-        most recent posts the platform listing returns.
+        most recent posts the platform listing returns. Detection is a diff against
+        the posts a prior sync already indexed, so an account for which no post has
+        ever been indexed can never emit this event, no matter how the subscription
+        is configured.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -14458,7 +14516,9 @@ paths:
             schema:
               type: object
               properties:
-                title: { type: string }
+                title:
+                  type: string
+                  description: "Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted)."
                 content:
                   type: string
                   description: 'Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.'
@@ -14514,6 +14574,7 @@ paths:
                   items: { type: string }
                 hashtags:
                   type: array
+                  description: "Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead."
                   items: { type: string }
                 mentions:
                   type: array
@@ -14867,6 +14928,7 @@ paths:
           description: |
             Forbidden. Distinguish by the `code` field:
             - `ACCOUNT_DISCONNECTED` — a target account exists but its platform connection is no longer active (token expired or revoked, or the account was disconnected). Reconnect the account, then refresh account IDs from `GET /v1/accounts` (accounts report their connection state via `isActive`). The disconnect itself is also emitted as the `account.disconnected` webhook event.
+            - `ACCOUNT_NOT_ENABLED_FOR_POSTING` — a target account was connected for ads only (`enabled: false`) and cannot be posted to. Connect it as a posting account (it then counts as a connected account), then refresh account IDs from `GET /v1/accounts`.
             - `PROFILE_OVER_LIMIT` — a target account belongs to a profile beyond the plan's profile limit.
             - No `code` — a target `accountId` does not belong to the authenticated user (or is outside the API key's profile scope).
           content:
@@ -14875,7 +14937,7 @@ paths:
                 type: object
                 properties:
                   error: { type: string, example: 'Account 6a0f6d2e520992756d96bb6c (facebook "My Page") is disconnected and cannot be posted to. Facebook tokens expired. Please reconnect your Facebook account. After reconnecting, refresh your account IDs from GET /v1/accounts.' }
-                  code: { type: string, enum: [ACCOUNT_DISCONNECTED, PROFILE_OVER_LIMIT], description: Stable machine-readable cause. Absent for ownership failures. }
+                  code: { type: string, enum: [ACCOUNT_DISCONNECTED, ACCOUNT_NOT_ENABLED_FOR_POSTING, PROFILE_OVER_LIMIT], description: Stable machine-readable cause. Absent for ownership failures. }
         '409':
           description: |
             Duplicate content detected. Returned when the requested post matches an existing one on `(platform, accountId, content-hash)` within the last 24 hours, AND the request was NOT an `x-request-id` retry of an in-flight call. Distinct from same-`x-request-id` retries (which return HTTP 200 with the original post — see operation description for the idempotency contract).
@@ -15155,7 +15217,9 @@ paths:
             schema:
               type: object
               properties:
-                title: { type: string }
+                title:
+                  type: string
+                  description: "Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted)."
                 content: { type: string }
                 mediaItems:
                   type: array
@@ -15195,6 +15259,7 @@ paths:
                   items: { type: string }
                 hashtags:
                   type: array
+                  description: "Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead."
                   items: { type: string }
                 mentions:
                   type: array
@@ -15285,7 +15350,26 @@ paths:
       operationId: bulkUploadPosts
       tags: [Posts]
       summary: Bulk upload from CSV
-      description: Create multiple posts by uploading a CSV file. Use dryRun=true to validate without creating posts.
+      description: |
+        Create multiple posts by uploading a CSV file. Use dryRun=true to validate without creating posts.
+
+        CSV columns:
+        - Required: `platforms`, `profiles`, and a schedule (one of `schedule_time`, a `schedule_time_<platform>` override, `publish_now=true`, `use_queue=true`, or `is_draft=true`).
+        - Content: at least one of `post_content`, `title`, or `media_urls` is required.
+        - Aliases: a handful of columns accept the JSON field name from POST /v1/posts, since integrators infer the CSV shape from that endpoint's body. When both are present the real CSV column wins, unless it is blank for that row, in which case the alias value is used.
+          - `content` aliases `post_content`
+          - `timezone` aliases `tz`
+          - `scheduledFor` aliases `schedule_time`
+          - `mediaUrls` aliases `media_urls`
+        - Per-platform overrides use three dynamic column prefixes, one column per platform (e.g. `schedule_time_instagram`, `custom_content_tiktok`, `custom_media_youtube`): `schedule_time_<platform>`, `custom_content_<platform>`, `custom_media_<platform>`.
+        - Any other column is not read. It does not error, but it is reported in the response's `warnings` array as `unknown_columns:<a,b,c>` (see BulkUploadResult), so a misnamed or unsupported column is never silently dropped.
+        - Row limits: 5000 rows is a hard cap that returns 400 above it. 500 rows is only an advisory threshold, it adds `rows_exceed_advisory_limit:500` to `warnings` and the request still processes.
+
+        Example row (header + one data row):
+        ```
+        post_content,platforms,profiles,schedule_time,tz
+        "Hello world",instagram,MyProfile,2026-09-01 10:00,America/New_York
+        ```
       parameters:
         - name: dryRun
           in: query
@@ -15422,7 +15506,11 @@ paths:
                 properties:
                   error: { type: string }
         '403':
-          description: Forbidden
+          description: |
+            Forbidden. Distinguish by the `code` field:
+            - `ACCOUNT_NOT_ENABLED_FOR_POSTING`: a target account was connected for ads only (`enabled: false`) and cannot be posted to. Connect it as a posting account, then retry.
+            - `PROFILE_OVER_LIMIT`: a target account belongs to a profile beyond the plan's profile limit.
+            - `insufficient_permissions`: the post is not accessible to the caller.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -16728,6 +16816,7 @@ paths:
         '400':
           description: 'Invalid accountId, platform does not support posts listing, or the account has no access token'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'X analytics capability not enabled for this account (code X_ANALYTICS_NOT_ENABLED)' }
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/accounts/{accountId}/follow-status/{userId}:
     get:
@@ -17269,7 +17358,61 @@ paths:
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
-          description: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+          description: |
+            Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+
+            On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
+            `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason` and
+            `dashboard_url` are conditional and must be treated as optional.
+
+            This list is NOT exhaustive and new values may be added at any time. Treat an unrecognized
+            value as a generic failure rather than matching it exhaustively. Existing values are not
+            renamed or removed without notice.
+
+            OAuth and callback:
+              oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
+              internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
+              missing_google_permissions, platform_requires_destination, reconnect_account_mismatch,
+              invalid_request
+
+            Access and limits:
+              profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
+              profile_limit_exceeded, payment_required
+
+            Destination selection:
+              no_facebook_pages, facebook_pages_error, no_google_locations, google_locations_error,
+              google_permission_denied, no_snapchat_public_profiles, snapchat_profiles_error,
+              discord_no_guild, slack_no_team
+
+            WhatsApp:
+              whatsapp_error, one_whatsapp_per_profile, whatsapp_number_already_connected,
+              whatsapp_number_pinned_to_profile, connection_cancelled
+
+            Google Ads (platform=googleads):
+              google_ads_auth_failed, google_ads_invalid_state, google_ads_config_error,
+              google_ads_token_failed, google_ads_quota_exhausted, google_ads_callback_error
+
+            TikTok Ads (platform=tiktokads):
+              tiktok_ads_auth_failed, tiktok_ads_invalid_state, tiktok_ads_access_denied,
+              tiktok_ads_config_error, tiktok_ads_token_failed, tiktok_ads_account_not_found,
+              tiktok_ads_callback_error
+
+            X Ads (platform=xads):
+              x_ads_denied, x_ads_auth_failed, x_ads_config_error, x_ads_account_not_found,
+              x_ads_state_error, x_ads_token_failed, x_ads_token_missing, x_ads_callback_error
+
+            Shopify (platform=shopify):
+              shopify_auth_failed, shopify_config_error, shopify_invalid_state, shopify_invalid_hmac,
+              shopify_invalid_shop, shopify_missing_scopes, shopify_callback_error
+
+            1. On this endpoint every upstream OAuth error is collapsed into `oauth_denied`. The
+            provider's own value (for example Meta's `access_denied`) is not forwarded. The dedicated
+            ads flows below are different: they use their own denial slugs and `google_ads_auth_failed`
+            and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
+
+            2. On the tiktok and twitter ads flows `platform` carries the ads platform id
+            (`tiktokads`, `xads`), not the value used in the request path. The googleads and shopify
+            flows report `googleads` and `shopify`.
         - name: headless
           in: query
           schema: { type: boolean, default: false }
@@ -17374,7 +17517,24 @@ paths:
       description: |
         Unified ads connection endpoint. Creates a dedicated ads SocialAccount for the specified platform.
 
-        Same-token platforms (facebook, instagram, linkedin, pinterest): Creates an ads SocialAccount (metaads, linkedinads, pinterestads) with a copied OAuth token from the parent posting account. If the ads account already exists, returns alreadyConnected: true. No extra OAuth needed.
+        Same-token platforms (facebook, instagram, linkedin, pinterest): the ads SocialAccount
+        (metaads, linkedinads, pinterestads) reuses the OAuth token of the parent posting account,
+        but only when an active parent exists and, for facebook and instagram, its stored token
+        carries ads_management and ads_read (linkedin and pinterest need no extra scope). In that
+        case no extra OAuth happens and the response is alreadyConnected: true. When no such parent
+        exists, or the scopes are missing, the endpoint returns an authUrl and a full OAuth round
+        trip is required. When a parent exists but carries no token usable for ad accounts, the call
+        fails with 400 RECONNECT_REQUIRED. Independently of the branch, the call can return 403
+        ADS_ADDON_REQUIRED without the ads add-on and 402 PAYMENT_REQUIRED when the billing gate is
+        closed.
+
+        Meta Ads prerequisite: connecting Meta Ads (via facebook or instagram) requires a Facebook
+        Page. Not because the ad account is read through a Page, but because both parent posting
+        accounts are: the facebook flow only offers Pages you manage, and the instagram flow with
+        loginMethod=facebook_login only offers Instagram accounts linked to one of those Pages.
+        Without a Page there is no parent account to inherit a token from. A user who manages no
+        Facebook Page cannot complete this connection, and the facebook flow ends with
+        error=no_facebook_pages.
 
         Separate-token platforms (tiktok, twitter): Starts the platform-specific marketing API OAuth flow and creates an ads SocialAccount (tiktokads, xads) with its own token. If the ads account already exists, returns alreadyConnected: true.
           - tiktok: accountId is OPTIONAL. With accountId, the new tiktokads account links to that posting account (parentAccountId set) — Spark Ads + standalone ads using the posting TT_USER identity become available. Without accountId, ads-only mode kicks in: the new tiktokads account has parentAccountId=null and standalone ads use a synthetic CUSTOMIZED_USER ("Brand Identity"); Spark Ads are unavailable because TikTok requires a posting account for them. The Brand Identity is configured separately via PATCH /v1/connect/tiktok-ads (or inline on POST /v1/ads/create via the brandIdentity field).
@@ -17390,7 +17550,12 @@ paths:
           schema:
             type: string
             enum: [facebook, instagram, linkedin, tiktok, twitter, pinterest, googleads]
-          description: Platform to connect ads for. Only platforms with ads support are accepted.
+          description: |
+            Platform to connect ads for. Only platforms with ads support are accepted.
+
+            `instagram` requires an Instagram account connected with loginMethod=facebook_login whose
+            token carries ads_management and ads_read. With an account connected through the default
+            instagram_login flow no ads account can be created; do not use this value for those accounts.
         - name: profileId
           in: query
           required: true
@@ -17415,8 +17580,12 @@ paths:
             `tiktok`, `twitter` and `googleads` land on the URL unchanged, while the
             same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`)
             append `connected`, `profileId`, `accountId`, `username` and, on API-key
-            calls, `connect_token`. On failure every platform appends error details,
-            starting with `error` and `platform`. When omitted, the browser lands on
+            calls, `connect_token`. On failure the same error contract applies as on
+            GET /v1/connect/{platform}: `error` and `platform` are always appended,
+            other params are optional, and the value list there is not exhaustive.
+            Note that on the tiktok, twitter and googleads flows `platform` carries
+            the ads platform id (`tiktokads`, `xads`, `googleads`), not the value
+            used in the request path. When omitted, the browser lands on
             the Zernio dashboard.
         - name: headless
           in: query
@@ -21017,6 +21186,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401':
           description: "Unauthorized, or the API key could not read an OpenAI ad account (code invalid_credentials)."
+        '402': { $ref: '#/components/responses/PaymentRequired' }
         '403':
           description: Ads add-on required.
 
@@ -25465,6 +25635,78 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
 
+  /v1/webhooks/logs/redeliver:
+    post:
+      x-resource-group: "webhooks"
+      operationId: redeliverWebhookEvent
+      tags: [Webhooks]
+      summary: Redeliver a webhook event
+      description: |
+        Replay a past delivery: the original payload is re-sent, byte for byte, to the
+        subscription's current URL. The original event ID is preserved so your endpoint can
+        dedupe, and the replay is recorded as a fresh attempt, so it shows up in
+        `GET /v1/webhooks/logs` next to the delivery it replays.
+
+        Both `webhookId` and `eventId` come from a row of `GET /v1/webhooks/logs`. Because
+        the stored payload is replayed as-is, a redelivery reflects the event as it was
+        emitted, not the current state of the resource.
+
+        Only deliveries inside the 30-day log retention window can be replayed; past that
+        the payload is gone and the request fails with a 500. Replays run the same
+        resource-group checks as live delivery, against both the key's groups and the
+        subscription's `disabledResourceGroups`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - webhookId
+                - eventId
+              properties:
+                webhookId:
+                  type: string
+                  minLength: 1
+                  description: ID of the webhook subscription that delivered the event
+                eventId:
+                  type: string
+                  minLength: 1
+                  description: Stable event ID of the delivery to replay
+            example:
+              webhookId: "507f1f77bcf86cd799439011"
+              eventId: "evt_9f2c1b7a4d8e"
+      responses:
+        '200':
+          description: Event re-delivered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+              example:
+                success: true
+                message: "Webhook re-delivered"
+        '400': { description: 'webhookId or eventId missing or empty' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
+        '500': { description: 'Webhook no longer exists, has no URL configured, or the original payload is outside the 30-day retention window' }
+        '502':
+          description: |
+            Re-delivery was attempted but your endpoint errored again. The attempt is still
+            logged; `message` describes the failure.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+
   /v1/webhooks/test:
     post:
       x-resource-group: "webhooks"
@@ -26022,7 +26264,13 @@ paths:
                     ({{name}}, {{company}} - how Meta Business Manager creates templates), where
                     values fill the named slots in order of appearance. Example - a body with
                     {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values:
-                    [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled
+                    [body1, body2, buttonSuffix]. For positional templates the list must cover
+                    every slot: supplying fewer values than the template's header + body + dynamic
+                    URL-button count is rejected with a 400 (code INVALID_TEMPLATE_PARAMS) naming
+                    the expected split, rather than delivering a template whose button URL was
+                    filled from the wrong value. A dynamic URL button covered by templateButtonParams
+                    needs no value here unless another uncovered dynamic URL button follows it, since
+                    the override applies after slot numbering. Media headers (image, video, document) are filled
                     automatically from the approved template and take no value here (use headerMedia
                     to override the header asset per send). Buttons that are not dynamic-URL buttons
                     (copy-code, flow) take no value here either; use templateButtonParams.
@@ -26618,6 +26866,9 @@ paths:
                             properties:
                               id: { type: string }
                               type: { type: string, enum: [image, video, audio, file, sticker, share] }
+                              originalType:
+                                type: string
+                                description: 'Instagram and Facebook only, and present only when it differs from `type`. Meta''s own type before normalization: `ig_reel` and `reel` become `video`, while `ig_post`, `post`, `ig_story` and `story_mention` become `share`. A story mention is `type: "share"` with `originalType: "story_mention"`; render on this field, since `share` alone is ambiguous.'
                               url:
                                 type: string
                                 description: 'Direct media link. On Instagram and Facebook this is a signed Meta CDN url that EXPIRES: use it now, do not store it. Persist `refreshUrl` instead.'
@@ -28040,7 +28291,16 @@ paths:
         and stops working later. This endpoint checks the stored url and, when it
         has gone stale, re-mints the message's media from Meta and persists it
         before answering. The message id never expires, so this URL is the one to
-        store — it is returned on each attachment as `refreshUrl`.
+        store. It is returned ready-made on each attachment as `refreshUrl` when
+        you read a message over REST.
+
+        **Webhook payloads do not carry `refreshUrl`**, so a webhook-driven
+        integration builds this URL itself. Every piece is in the event:
+        `message.conversationId`, `message.platformMessageId`, the attachment's
+        zero-based position, and `account.accountId`. Note that **`accountId` is a
+        required query parameter**; omitting it returns `400`
+        `missing_required_field`, which is the same requirement
+        `GET /v1/whatsapp/media/{mediaId}` has.
 
         By default it responds `302` to the live media url, so it can be used
         directly as an `<img src>` on a browser session. API-key integrators
@@ -28072,7 +28332,7 @@ paths:
           in: query
           required: true
           schema: { type: string }
-          description: Social account ID
+          description: 'Social account ID. Required: without it the request returns 400 missing_required_field.'
         - name: format
           in: query
           required: false
@@ -28219,7 +28479,7 @@ paths:
                             accountUsername: { type: [string, "null"] }
                             platform: { type: string }
                             error: { type: string }
-                            code: { type: [string, "null"], description: Error code if available }
+                            code: { type: [string, "null"], description: 'Error code if available (e.g. TOKEN_EXPIRED, or X_INBOX_NOT_ENABLED for an X account whose owner has not enabled X inbox)' }
                             retryAfter: { type: [integer, "null"], description: Seconds to wait before retry (rate limits) }
                       lastUpdated: { type: string, format: date-time }
                       accountsSkipped:
@@ -31619,7 +31879,9 @@ paths:
                   isActive: { type: boolean }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: 'No payment method on file (code `payment_required`). Sender-ID sends incur carrier fees, so the billing owner needs a card before one can be created.' }
         '403': { description: 'Workspace is not on usage-based billing, or already holds the maximum of 1,000 active sender IDs (code `sender_id_limit_reached`; raisable via support).' }
+        '409': { description: 'Billing setup is incomplete for this workspace (code `billing_setup_incomplete`); contact support.' }
         '422': { description: 'Sender ID rejected: it appears to impersonate a protected brand or institution.' }
     get:
       x-resource-group: "telephony"
@@ -41268,7 +41530,10 @@ paths:
           kind on the ad group (criteria not in the list are removed); a kind left out is
           untouched. Any other `targeting` field returns 400: Google cannot mutate broad
           targeting post-create without recreating the campaign. `creative` returns 501.
-        - **Pinterest / X / LinkedIn / OpenAI Ads**: status + budget only. Sending
+        - **LinkedIn**: status, budget, targeting (geo countries only, applied to the
+          LinkedIn Campaign via PARTIAL_UPDATE), and creative (uploads new media, creates a
+          replacement inline creative on the same campaign, pauses the old one).
+        - **Pinterest / X / OpenAI Ads**: status + budget only. Sending
           `targeting` or `creative` returns 501 with code `unsupported_platform_operation`.
           OpenAI Ads budget is lifetime-only (see `budget.type` below).
       security:
@@ -41291,8 +41556,8 @@ paths:
                 targeting:
                   type: object
                   description: |
-                    Meta + TikTok (demographics/interests) and Google (keyword edits only).
-                    Pinterest / X / LinkedIn return 501.
+                    Meta + TikTok (demographics/interests), Google (keyword edits only),
+                    and LinkedIn (geo countries). Pinterest / X return 501.
                   properties:
                     keywords:
                       type: array
@@ -41324,7 +41589,7 @@ paths:
                 creative:
                   type: object
                   description: |
-                    Replace the ad's creative. Meta + TikTok only.
+                    Replace the ad's creative. Meta, TikTok, and LinkedIn.
 
                     - **Meta**: requires `headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`. The
                       ad's existing creative is replaced via a new `/act_X/adcreatives` upload + ad
@@ -41332,6 +41597,9 @@ paths:
                     - **TikTok**: patch-style. Pass any subset; `headline` is ignored (TikTok creatives
                       have no headline slot). `body` becomes the in-feed `ad_text`; `linkUrl` becomes
                       `landing_page_url`; `videoUrl` triggers a fresh upload.
+                    - **LinkedIn**: uploads new media (image via `imageUrl` or video via `videoUrl`),
+                      creates a new inline media creative on the same campaign, and pauses the old
+                      creative (best-effort). The old creative is retained for historical reporting.
                   properties:
                     headline: { type: string, description: "Meta only" }
                     body: { type: string }
@@ -41354,7 +41622,7 @@ paths:
           description: Invalid status transition or budget below minimum
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '501': { description: "targeting or creative not supported on the platform (Meta + TikTok only)" }
+        '501': { description: "targeting or creative not supported on the platform (supported on Meta, TikTok, and LinkedIn)" }
         '502': { description: "Meta accepted the request then failed to produce the media (upload session, chunk transfer, processing timeout, or a response with no image hash). Inspect `platformError.reason`." }
     delete:
       x-resource-group: "ads"
@@ -43643,6 +43911,11 @@ paths:
                     (for example, an agency paying for a client's ads). Same rules as
                     `dsaBeneficiary`: required for EU targeting unless the ad account has
                     a default payor.
+                leadGenFormId: { type: string, description: "Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals." }
+                status:
+                  type: string
+                  enum: [ACTIVE, PAUSED]
+                  description: 'Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default); PAUSED creates them paused so you can review before they spend. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).'
                 optimizationGoal:
                   type: string
                   description: |
@@ -43769,8 +44042,9 @@ paths:
 
                     **LinkedIn**
                     - `engagement`, `traffic`, `awareness` and `video_views` create standalone Direct Sponsored Content ads. `traffic` requires `linkUrl`; `video_views` requires `video`.
+                    - `lead_generation`: requires `leadGenFormId` (an adForm ID from POST /v1/ads/lead-forms). The campaign objective is set to MAX_LEAD and the creative's `leadgenCallToAction` destination is set to `urn:li:adForm:{id}`.
                     - `job_applicants` requires a `platformSpecificData.jobs` creative.
-                    - For `lead_generation` or `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
+                    - For `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
 
                     **OpenAI Ads**
                     - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 422.
@@ -43794,7 +44068,7 @@ paths:
                 status:
                   type: string
                   enum: [ACTIVE, PAUSED]
-                  description: "Meta and TikTok. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused."
+                  description: "Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each)."
                 campaignStatus:
                   type: string
                   enum: [ACTIVE, PAUSED]
@@ -43819,7 +44093,7 @@ paths:
                 description: { type: string, maxLength: 255, description: "Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead." }
                 callToAction: { type: string, enum: [LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, DOWNLOAD, GET_OFFER, GET_QUOTE, SUBSCRIBE, WATCH_MORE, ADD_TO_CART, APPLY_NOW, BOOK_NOW, BUY_TICKETS, DONATE, DONATE_NOW, GET_DIRECTIONS, GET_SHOWTIMES, LISTEN_NOW, ORDER_NOW, PLAY_GAME, REQUEST_TIME, SEE_MENU, START_ORDER, INSTALL_MOBILE_APP, USE_APP, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, BUY_NOW], description: "Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter." }
                 linkUrl: { type: string, format: uri, description: "Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url)." }
-                leadGenFormId: { type: string, description: "Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` (or `videoUrls`) entry plus your text variations to get Meta's \"Multiple Text Options\" behavior on a lead ad." }
+                leadGenFormId: { type: string, description: "Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on Meta instant-form lead ads." }
                 imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format)." }
                 images:
                   type: object

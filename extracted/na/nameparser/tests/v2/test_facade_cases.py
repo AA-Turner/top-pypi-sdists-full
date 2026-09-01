@@ -1,4 +1,5 @@
-"""Facade runner (migration spec §5): the shared case table asserted
+"""Facade runner (mechanisms.md#FACADE-CONTRACT): the shared case
+table asserted
 through HumanName. Deleted wholesale in 3.0 with the facade."""
 import dataclasses
 
@@ -70,10 +71,22 @@ _TRANSLATED = frozenset({
 #: to the unsubtracted default pushes every parenthesis-maiden row
 #: into this set and turns nothing red.
 _CORE_ONLY_IDS = frozenset({
+    # #296's bundle: the positional read of the pre-comma name under a
+    # declared family-first order -- v1 has no name order to declare
+    "family_comma_no_name_word_family_first",
+    "family_comma_no_name_word_family_first_given_last",
+    "family_comma_no_name_word_family_first_plain",
+    "leading_never_given_particle_two_leftovers_family_first",
+    "leading_never_given_particle_two_leftovers_family_first_given_last",
     "maiden_marker_delimited_beside_a_nickname_clause",
+    "maiden_marker_stops_the_leading_run_family_first",
+    "maiden_marker_stops_the_leading_run_family_first_given_last",
     "maiden_marker_kyusei_delimited",
     "ko_honorific_period_under_strict_comma_suffixes",
     "ja_honorific_glued_family_comma_strict_knob",
+    # the strict knob has no v1 spelling, so the row that pins C1's
+    # initial veto surviving #430 is core-only
+    "family_comma_strict_keeps_the_initial_veto",
     "ja_honorific_glued_family_comma_credential_pair_strict_knob",
 })
 

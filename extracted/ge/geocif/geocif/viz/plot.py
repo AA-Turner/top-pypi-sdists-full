@@ -445,26 +445,119 @@ def _gmt_available():
 #: (~50 states) stay well under it, so they keep their labels.
 _ANNOTATE_MAX_REGIONS = 200
 
+#: Master switch for the geometry-aware label-fit heuristic below. Set from
+#: ``[ML] annotate_regions_auto`` (default True) via :func:`set_auto_label_fit`.
+#: When False, ``annotate_regions`` is honoured literally and labels are drawn
+#: however illegible they end up — the pre-heuristic behaviour.
+_AUTO_LABEL_FIT = True
 
-def effective_annotate_regions(annotate_regions, n_regions, logged=set()):
+#: Fraction of the map's WIDTH consumed by one label character, at the default
+#: figure width (~6.5 in) and label font (~6 pt): (6 * 0.55) / (6.5 * 72).
+#: Used to estimate whether a region's polygon is wide enough to hold its own
+#: name. Deliberately dimensionless so the test is independent of backend.
+_CHAR_WIDTH_FRAC = 0.007
+
+#: Draw names only if at least this fraction of regions can actually fit one.
+#: Below it the labels become the smear this heuristic exists to prevent, and a
+#: partially-labelled map reads as broken rather than selective.
+_MIN_LABEL_FIT_FRACTION = 0.5
+
+
+def set_auto_label_fit(enabled):
+    """Enable/disable the label-fit heuristic ([ML] annotate_regions_auto)."""
+    global _AUTO_LABEL_FIT
+    _AUTO_LABEL_FIT = bool(enabled)
+
+
+def label_fit_fraction(gdf, label_col=None, char_width_frac=_CHAR_WIDTH_FRAC):
+    """Fraction of regions whose polygon is wide enough to hold its label.
+
+    Region COUNT alone is a poor proxy for legibility: 90 Kenyan sub-counties
+    are an unreadable smear because the western cluster is tiny, while ~50 US
+    states at a similar count label cleanly. What actually matters is each
+    polygon's width *relative to the map extent* versus the width its text
+    needs.
+
+    For each region: ``bbox_width / map_width`` (dimensionless, so it holds for
+    any backend, projection or country) is compared against
+    ``len(label) * char_width_frac``. Returns the fraction that fit, or ``None``
+    when the geometry/labels needed for the test are unavailable.
+    """
+    try:
+        if gdf is None or len(gdf) == 0 or "geometry" not in gdf:
+            return None
+        b = gdf.geometry.bounds  # minx, miny, maxx, maxy per row
+        # ROBUST extent, not total_bounds: one far-flung polygon otherwise makes
+        # every other region look unlabellably small. Alaska crosses the
+        # dateline, so US Level_1 total_bounds spans 359 deg and the naive test
+        # reported 6% of states as labellable when the real (CONUS-dominated)
+        # map labels them fine — the 2.5/97.5 percentile span gives 94 deg and
+        # 57%. Trimming the tails costs nothing on compact countries
+        # (Brazil 45.1 -> 44.7 deg, unchanged verdict).
+        map_w = float(np.percentile(b["maxx"], 97.5)
+                      - np.percentile(b["minx"], 2.5))
+        if not (map_w > 0):
+            return None
+        if label_col and label_col in gdf.columns:
+            labels = gdf[label_col].astype(str)
+        elif "_label" in gdf.columns:
+            labels = gdf["_label"].astype(str)
+        else:
+            return None
+        widths = (b["maxx"] - b["minx"]).to_numpy(dtype=float) / map_w
+        needed = labels.str.len().to_numpy(dtype=float) * float(char_width_frac)
+        ok = np.isfinite(widths) & np.isfinite(needed)
+        if not ok.any():
+            return None
+        return float((widths[ok] >= needed[ok]).mean())
+    except Exception:  # geometry/label shapes vary by caller — never block a map
+        return None
+
+
+def effective_annotate_regions(annotate_regions, n_regions, gdf=None,
+                               label_col=None, logged=set()):
     """Whether region NAME labels should actually be drawn.
 
-    ``annotate_regions`` is commonly inherited from ``[DEFAULT]`` rather than
-    set per project, so a county-scale run silently asks for a label on every
-    one of ~1,000 counties. Suppress it above _ANNOTATE_MAX_REGIONS: the
-    decision is made on the polygon count actually being drawn, so it holds for
-    any project at fine granularity regardless of how its admin level is named.
+    Two independent suppressions, both skippable via
+    ``[ML] annotate_regions_auto = False``:
+
+    1. **Count cap** — ``annotate_regions`` is commonly inherited from
+       ``[DEFAULT]`` rather than set per project, so a county-scale run silently
+       asks for a label on every one of ~1,000 counties.
+    2. **Label fit** (see :func:`label_fit_fraction`) — catches the case the
+       count cap misses: a moderate number of regions that are nonetheless far
+       too small to hold their names, e.g. Kenya's ~90 admin_2 sub-counties.
     """
-    if not annotate_regions or n_regions <= _ANNOTATE_MAX_REGIONS:
-        return bool(annotate_regions)
-    if "warned" not in logged:
-        logged.add("warned")
-        logging.getLogger(__name__).info(
-            f"annotate_regions is on but the map has {n_regions} regions "
-            f"(> {_ANNOTATE_MAX_REGIONS}) — suppressing per-region name labels, "
-            f"which would be unreadable at this granularity"
-        )
-    return False
+    if not annotate_regions:
+        return False
+    if not _AUTO_LABEL_FIT:
+        return True
+
+    log = logging.getLogger(__name__)
+    if n_regions > _ANNOTATE_MAX_REGIONS:
+        if "count" not in logged:
+            logged.add("count")
+            log.info(
+                f"annotate_regions is on but the map has {n_regions} regions "
+                f"(> {_ANNOTATE_MAX_REGIONS}) — suppressing per-region name "
+                f"labels, which would be unreadable at this granularity"
+            )
+        return False
+
+    frac = label_fit_fraction(gdf, label_col)
+    if frac is not None and frac < _MIN_LABEL_FIT_FRACTION:
+        key = f"fit{n_regions}"
+        if key not in logged:
+            logged.add(key)
+            log.info(
+                f"annotate_regions is on but only {frac:.0%} of {n_regions} "
+                f"regions are wide enough to hold their name "
+                f"(< {_MIN_LABEL_FIT_FRACTION:.0%}) — suppressing per-region "
+                f"name labels. Set [ML] annotate_regions_auto = False to force "
+                f"them on."
+            )
+        return False
+    return True
 
 
 def _plot_map_pygmt(
@@ -575,7 +668,9 @@ def _plot_map_pygmt(
         # annotate_values=True, so every county map would still be labelled.
         # Suppress the whole annotation at county scale, not just the name.
         "annotate": bool(
-            effective_annotate_regions(annotate_regions or annotate_values, len(gdf))
+            effective_annotate_regions(
+                annotate_regions or annotate_values, len(gdf), gdf=gdf
+            )
             and "_label" in gdf.columns
         ),
         # Draw admin_1 (state/province) boundaries so individual units are
@@ -720,7 +815,8 @@ def plot_map(
     # Same rule as the pygmt backend: per-region name labels are unreadable
     # once there are more polygons than _ANNOTATE_MAX_REGIONS (county scale).
     _keep_labels = effective_annotate_regions(
-        annotate_regions or annotate_values, len(df_comb)
+        annotate_regions or annotate_values, len(df_comb),
+        gdf=df_comb, label_col=annotate_region_column,
     )
     _draw_regions(
         ax, df_comb, merge_col, name_col, series, dict_lup, use_key,

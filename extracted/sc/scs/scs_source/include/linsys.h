@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "glbopts.h"
+#include "scs.h"
 
 /* This is the API that any new linear system solver must implement */
 
@@ -61,7 +62,7 @@ scs_int scs_solve_lin_sys(ScsLinSysWork *w, scs_float *b, const scs_float *s,
  *  @param  new_diag_r    Updated `diag_r`, diagonal entries of R.
  *
  */
-scs_int scs_update_lin_sys_diag_r(ScsLinSysWork *w, const scs_float *new_diag_r);
+void scs_update_lin_sys_diag_r(ScsLinSysWork *w, const scs_float *new_diag_r);
 
 /**
  * Name of the linear solver.

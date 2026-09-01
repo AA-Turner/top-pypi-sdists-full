@@ -28,6 +28,7 @@ from geocif import utils
 from geocif.progress import pbar as _pbar
 from .cid import definitions as di
 from .ml import correlations, feature_engineering as fe, feature_selection as fs, fs_cache
+from .ml.region_selection import leakfree as _leakfree
 from .ml import output, spatial_neighbors as sn, stages, stats, trainers, trend, xai
 
 plt.style.use("default")
@@ -190,6 +191,26 @@ class Geocif:
         self.n_leaked_neighbors = self.parser.getint(
             "ML", "n_leaked_neighbors", fallback=3,
         )
+        # Promote a FRACTION of the forecast year's regions into training
+        # ("what is early-reporting data worth?"). Default off. The selector
+        # may use the forecast year itself (ga mode), so these runs are a
+        # research UPPER BOUND, never an operational forecast — see
+        # geocif/ml/region_selection.py. Promoted regions are dropped from
+        # df_test in the same step so reported skill stays honest.
+        self.forecast_year_selector = self.parser.get(
+            "ML", "forecast_year_selector", fallback="none",
+        ).strip().lower()
+        self.forecast_year_train_pct = self.parser.getfloat(
+            "ML", "forecast_year_train_pct", fallback=0.05,
+        )
+        self.forecast_year_seed = self.parser.getint(
+            "ML", "forecast_year_seed", fallback=0,
+        )
+        # Set by the GA driver (region_optimizer) to feed one candidate subset
+        # in; ignored unless forecast_year_selector == "explicit".
+        self.forecast_year_regions = []
+        # Populated per fold by _prepare_train_test_split for reporting.
+        self.promoted_regions = []
         self.feature_selection = self.parser.get("ML", "feature_selection")
         # Valid values: none, SHAP, stabl, feature_engine, mrmr, RFECV, lasso,
         #   BorutaPy, Leshy, PowerShap, BorutaShap, Genetic, RFE, multi, gOMP
@@ -2667,6 +2688,22 @@ class Geocif:
             "plot_correlation_scatter": self.plot_correlation_scatter,
         }
 
+    def _df_train_leakfree(self, df_train=None):
+        """``df_train`` minus any rows promoted from the forecast year.
+
+        Rows injected by ``forecast_year_selector`` (or by the older
+        ``use_neighbor_leakage`` hook) carry the forecast year's ANSWER. Any
+        statistic that is later applied to a held-out region must not see them,
+        or the evaluation is contaminated: a per-region detrend fitted on such a
+        row reconstructs the very value being predicted, and a `null`/`trend`
+        baseline built from it is inflated on exactly the rows the ML model got
+        help on — biasing the comparison in both directions at once.
+
+        Returns ``df_train`` unchanged when nothing was promoted, so the normal
+        pipeline is bit-for-bit unaffected.
+        """
+        return _leakfree(self.df_train if df_train is None else df_train)
+
     def _prepare_train_test_split(self, df: pd.DataFrame):
         """Separate data into training and testing sets.
 
@@ -2849,6 +2886,40 @@ class Geocif:
                 logger=self.logger,
             )
 
+        # Forecast-year region promotion ("value of early-reporting data").
+        # Same slot as the neighbor-leakage hook above and for the same
+        # reasons: after the min-years / production filters so promoted rows
+        # aren't dropped, before the region-anomaly demean so the stats see
+        # the augmented set. Promoted regions leave df_test here, which is
+        # what keeps every downstream metric honest.
+        self.promoted_regions = []
+        if self.forecast_year_selector != "none":
+            from geocif.ml.region_selection import apply_region_promotion
+
+            self.df_train, self.df_test, self.promoted_regions = apply_region_promotion(
+                df_train=self.df_train,
+                df_test=self.df_test,
+                df_full=df,
+                target_year=int(self.forecast_season),
+                target_col=self.target,
+                fraction=float(self.forecast_year_train_pct),
+                mode=self.forecast_year_selector,
+                explicit=self.forecast_year_regions,
+                seed=int(self.forecast_year_seed),
+                region_col="Region",
+                year_col="Harvest Year",
+                logger=self.logger,
+            )
+            # With cluster_strategy=individual each region gets its own model,
+            # so a promoted region's rows never reach any OTHER region's fit —
+            # the feature silently does nothing for the regions we care about.
+            if self.promoted_regions and getattr(self, "cluster_strategy", "") == "individual":
+                self.logger.warning(
+                    "  region_promotion: cluster_strategy='individual' means a "
+                    "promoted region's rows reach only its own model, so this "
+                    "has no effect on the held-out regions. Use 'single'."
+                )
+
         # Region-anomaly target transform (leak-safe: uses train years only).
         # Only computes the per-region mean lookup + prunes regions with too
         # few training rows. The actual demean of y_train happens later in
@@ -2867,7 +2938,11 @@ class Geocif:
                 and "Country__Region" in self.df_train.columns
                 else "Region"
             )
-            counts = self.df_train.groupby(admin_col)[self.target].count()
+            # HAZARD #8: leak-free — the promoted forecast-year value must not
+            # enter the per-region mean that is subtracted from y and re-added
+            # at predict time.
+            _dtr_anom = _leakfree(self.df_train)
+            counts = _dtr_anom.groupby(admin_col)[self.target].count()
             keep = counts[counts >= self.region_anomaly_min_years].index.tolist()
             dropped = sorted(set(counts.index) - set(keep))
             if dropped:
@@ -2883,7 +2958,7 @@ class Geocif:
                     )
                     self._last_region_anomaly_drop = cache_key
             self._region_target_means = (
-                self.df_train[self.df_train[admin_col].isin(keep)]
+                _dtr_anom[_dtr_anom[admin_col].isin(keep)]
                 .groupby(admin_col)[self.target]
                 .mean()
                 .to_dict()
@@ -3083,7 +3158,10 @@ class Geocif:
                 and pd.api.types.is_numeric_dtype(self.df_train[c])
             ]
             for col in matching:
-                stats = self.df_train.groupby(admin_col)[col].agg(
+                # HAZARD #5: leak-free — else a promoted region is z-scored
+                # against a mean/std that already contains its own forecast-year
+                # value, so its test row is standardised against itself.
+                stats = _leakfree(self.df_train).groupby(admin_col)[col].agg(
                     ["mean", "std", "count"]
                 )
                 stats.loc[stats["count"] < 3, "std"] = np.nan
@@ -3176,7 +3254,10 @@ class Geocif:
             from scipy.stats import pearsonr as _pearsonr
         except Exception as _e:
             return False, f"scipy unavailable: {_e}"
-        df = self.df_train.dropna(subset=[self.target]).copy()
+        # HAZARD #6: leak-free. The docstring above claims this gate is
+        # leak-safe per LOOCV fold; promoted forecast-year rows would make that
+        # claim false, since the gate validates on the latest training year.
+        df = _leakfree(self.df_train).dropna(subset=[self.target]).copy()
         if df.empty:
             return False, "no training rows"
         # Harvest Year can arrive as an unordered Categorical (set by
@@ -3250,6 +3331,18 @@ class Geocif:
         self.df_test["Detrended Model Type"] = pd.Series(np.nan, index=self.df_test.index, dtype="object")
         self.detrend_models = {}
 
+        # NOT leak-filtered, deliberately. Detrending is strictly PER REGION,
+        # and a promoted region is removed from df_test in the same step that
+        # promotes it — so a SCORED region's trend model never sees a promoted
+        # row (those rows belong to other regions). There is no leakage path
+        # here, unlike the cross-region aggregates (neighbour graph, trend-gate
+        # diagnostic) which are filtered.
+        #
+        # Filtering here is also actively wrong: promoted rows would get no
+        # `Detrended <target>` value, so _setup_training_data would drop them
+        # from y but not X, and the fit dies with "Found input variables with
+        # inconsistent numbers of samples". Promoted rows must be detrended
+        # like any other training row to be usable at all.
         groups = self.df_train.groupby("Region")
 
         for region_name, group in groups:
@@ -3303,8 +3396,12 @@ class Geocif:
             else self.target
         )
 
+        # HAZARD #4: leak-free. This is the nbr_* family where a real leak bug
+        # lived (fixed 0.4.939) — a promoted region's forecast-year yield must
+        # not enter the correlation graph or the neighbour medians that a
+        # DIFFERENT region's test row then consumes.
         self.neighbor_graph = sn.build_neighbor_graph(
-            self.df_train,
+            _leakfree(self.df_train),
             admin_col=admin_col,
             lat_col="lat",
             lon_col="lon",
@@ -3355,7 +3452,7 @@ class Geocif:
             self.df_test, self.neighbor_graph, feature_cols,
             admin_col=admin_col, year_col="Harvest Year",
             yield_col=self.target, prefix="nbr_",
-            df_source=self.df_train,
+            df_source=_leakfree(self.df_train),
         )
 
         self.logger.info(
@@ -4745,11 +4842,16 @@ class Geocif:
             # for every admin sharing the cluster's Region_ID), so iterate per
             # admin and give each row ITS OWN unit's mean rather than
             # broadcasting one admin's mean across the whole cluster.
+            # HAZARD #2: use leak-free rows. A promoted region's own
+            # forecast-year yield would otherwise enter its per-unit mean,
+            # strengthening the baseline on exactly the rows the ML model was
+            # helped on — biasing the comparison in both directions at once.
+            _dtr_null = _leakfree(self.df_train)
             y_pred = np.full(len(X_test), np.nan, dtype=float)
             for region_name, sub in df_region.groupby("Region", observed=True):
                 past = (
-                    self.df_train.loc[
-                        self.df_train["Region"] == region_name,
+                    _dtr_null.loc[
+                        _dtr_null["Region"] == region_name,
                         ["Harvest Year", self.target],
                     ]
                     .dropna()
@@ -4789,11 +4891,15 @@ class Geocif:
             # diagnostic when cluster_strategy=auto_detect).
             from scipy.stats import theilslopes
             min_years = 5
+            # HAZARD #2 (see the null branch): leak-free rows only, so a
+            # promoted region's forecast-year yield can't anchor its own
+            # Theil-Sen slope at the very point being predicted.
+            _dtr_trend = _leakfree(self.df_train)
             y_pred = np.full(len(X_test), np.nan, dtype=float)
             for region_name, sub in df_region.groupby("Region", observed=True):
                 past = (
-                    self.df_train.loc[
-                        self.df_train["Region"] == region_name,
+                    _dtr_trend.loc[
+                        _dtr_trend["Region"] == region_name,
                         ["Harvest Year", self.target],
                     ]
                     .dropna()
@@ -5890,7 +5996,14 @@ class Geocif:
         # Regions skipped here don't appear in last_observed_map; all
         # downstream readers use .get(region) so missing keys degrade
         # gracefully.
-        df_valid = df_region_train.dropna(subset=[self.target_column])
+        # HAZARD #7: leak-free. For a promoted region the newest training row IS
+        # the forecast year, so without this the DB's "Last Observed Year" /
+        # "Last Observed <target>" columns would carry that year's OBSERVED
+        # yield — the answer, written into the results table beside the
+        # prediction.
+        df_valid = _leakfree(df_region_train).dropna(
+            subset=[self.target_column]
+        )
         self.last_observed_map = {}  # {region_name: (year, yield)}
         if df_valid.empty:
             return

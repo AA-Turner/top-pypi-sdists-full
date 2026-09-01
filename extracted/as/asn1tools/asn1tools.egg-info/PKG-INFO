@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asn1tools
-Version: 0.168.0
+Version: 0.169.0
 Summary: ASN.1 parsing, encoding and decoding.
 Home-page: https://github.com/eerimoq/asn1tools
 Author: Erik Moqvist

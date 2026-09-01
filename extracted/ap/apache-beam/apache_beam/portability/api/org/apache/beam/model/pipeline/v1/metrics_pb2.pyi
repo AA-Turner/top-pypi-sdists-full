@@ -76,7 +76,9 @@ class Annotation(google.protobuf.message.Message):
     KEY_FIELD_NUMBER: builtins.int
     VALUE_FIELD_NUMBER: builtins.int
     key: builtins.str
+    """The annotation key, e.g. "description", "units"."""
     value: builtins.str
+    """The annotation value as a string."""
     def __init__(
         self,
         *,
@@ -138,7 +140,9 @@ class MonitoringInfoSpecs(google.protobuf.message.Message):
         USER_SET_STRING: MonitoringInfoSpecs._Enum.ValueType  # 21
         """Represents a set of strings seen across bundles."""
         USER_BOUNDED_TRIE: MonitoringInfoSpecs._Enum.ValueType  # 22
-        """Represents a set of strings seen across bundles."""
+        """Represents a bounded trie of strings seen across bundles. The trie has a
+        maximum number of elements it will store before truncating.
+        """
         ELEMENT_COUNT: MonitoringInfoSpecs._Enum.ValueType  # 10
         """General monitored state information which contains structured information
         which does not fit into a typical metric format. See MonitoringTableData
@@ -155,12 +159,27 @@ class MonitoringInfoSpecs(google.protobuf.message.Message):
             value: "URN utilized to report user monitoring data."
           }]
         }];
+
+        The total number of elements output to a PCollection by a PTransform.
         """
         SAMPLED_BYTE_SIZE: MonitoringInfoSpecs._Enum.ValueType  # 11
+        """The distribution of byte sizes of a sampled set of elements in a PCollection.
+        Sampling is used because serializing elements to compute byte size is CPU-intensive.
+        """
         START_BUNDLE_MSECS: MonitoringInfoSpecs._Enum.ValueType  # 12
+        """The total estimated execution time (in milliseconds) of the startBundle
+        function in a ParDo transform.
+        """
         PROCESS_BUNDLE_MSECS: MonitoringInfoSpecs._Enum.ValueType  # 13
+        """The total estimated execution time (in milliseconds) of the processElement
+        function in a ParDo transform.
+        """
         FINISH_BUNDLE_MSECS: MonitoringInfoSpecs._Enum.ValueType  # 14
+        """The total estimated execution time (in milliseconds) of the finishBundle
+        function in a ParDo transform.
+        """
         TOTAL_MSECS: MonitoringInfoSpecs._Enum.ValueType  # 15
+        """The total estimated execution time (in milliseconds) of the entire PTransform."""
         WORK_REMAINING: MonitoringInfoSpecs._Enum.ValueType  # 16
         """All values reported across all beam:metric:ptransform_progress:.*:v1
         metrics are of the same magnitude.
@@ -177,8 +196,17 @@ class MonitoringInfoSpecs(google.protobuf.message.Message):
         number of items fully processed (or -1 if processing has not yet started).
         """
         API_REQUEST_COUNT: MonitoringInfoSpecs._Enum.ValueType  # 19
+        """The total number of API requests made to an I/O service, grouped by
+        service, method, resource, PTransform, and status.
+        """
         API_REQUEST_LATENCIES: MonitoringInfoSpecs._Enum.ValueType  # 20
+        """A histogram of API request latencies (in milliseconds) made to I/O service
+        APIs for batching reads or writes.
+        """
         USER_HISTOGRAM: MonitoringInfoSpecs._Enum.ValueType  # 23
+        """Represents a user-defined histogram metric tracking the distribution of
+        integer values across bundles.
+        """
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     USER_SUM_INT64: MonitoringInfoSpecs.Enum.ValueType  # 0
@@ -220,7 +248,9 @@ class MonitoringInfoSpecs(google.protobuf.message.Message):
     USER_SET_STRING: MonitoringInfoSpecs.Enum.ValueType  # 21
     """Represents a set of strings seen across bundles."""
     USER_BOUNDED_TRIE: MonitoringInfoSpecs.Enum.ValueType  # 22
-    """Represents a set of strings seen across bundles."""
+    """Represents a bounded trie of strings seen across bundles. The trie has a
+    maximum number of elements it will store before truncating.
+    """
     ELEMENT_COUNT: MonitoringInfoSpecs.Enum.ValueType  # 10
     """General monitored state information which contains structured information
     which does not fit into a typical metric format. See MonitoringTableData
@@ -237,12 +267,27 @@ class MonitoringInfoSpecs(google.protobuf.message.Message):
         value: "URN utilized to report user monitoring data."
       }]
     }];
+
+    The total number of elements output to a PCollection by a PTransform.
     """
     SAMPLED_BYTE_SIZE: MonitoringInfoSpecs.Enum.ValueType  # 11
+    """The distribution of byte sizes of a sampled set of elements in a PCollection.
+    Sampling is used because serializing elements to compute byte size is CPU-intensive.
+    """
     START_BUNDLE_MSECS: MonitoringInfoSpecs.Enum.ValueType  # 12
+    """The total estimated execution time (in milliseconds) of the startBundle
+    function in a ParDo transform.
+    """
     PROCESS_BUNDLE_MSECS: MonitoringInfoSpecs.Enum.ValueType  # 13
+    """The total estimated execution time (in milliseconds) of the processElement
+    function in a ParDo transform.
+    """
     FINISH_BUNDLE_MSECS: MonitoringInfoSpecs.Enum.ValueType  # 14
+    """The total estimated execution time (in milliseconds) of the finishBundle
+    function in a ParDo transform.
+    """
     TOTAL_MSECS: MonitoringInfoSpecs.Enum.ValueType  # 15
+    """The total estimated execution time (in milliseconds) of the entire PTransform."""
     WORK_REMAINING: MonitoringInfoSpecs.Enum.ValueType  # 16
     """All values reported across all beam:metric:ptransform_progress:.*:v1
     metrics are of the same magnitude.
@@ -259,8 +304,17 @@ class MonitoringInfoSpecs(google.protobuf.message.Message):
     number of items fully processed (or -1 if processing has not yet started).
     """
     API_REQUEST_COUNT: MonitoringInfoSpecs.Enum.ValueType  # 19
+    """The total number of API requests made to an I/O service, grouped by
+    service, method, resource, PTransform, and status.
+    """
     API_REQUEST_LATENCIES: MonitoringInfoSpecs.Enum.ValueType  # 20
+    """A histogram of API request latencies (in milliseconds) made to I/O service
+    APIs for batching reads or writes.
+    """
     USER_HISTOGRAM: MonitoringInfoSpecs.Enum.ValueType  # 23
+    """Represents a user-defined histogram metric tracking the distribution of
+    integer values across bundles.
+    """
 
     def __init__(
         self,
@@ -290,6 +344,13 @@ global___MonitoringInfoLabelProps = MonitoringInfoLabelProps
 
 @typing_extensions.final
 class MonitoringInfo(google.protobuf.message.Message):
+    """A monitoring info represents a single data point or aggregated metric reported
+    by the SDK or runner. It contains the URN identifying the metric, the type
+    encoding, the payload (encoded metric value), labels providing context (such
+    as which PTransform or PCollection the metric is associated with), and an
+    optional start_time for cumulative metrics.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     class _MonitoringInfoLabels:
@@ -304,34 +365,64 @@ class MonitoringInfo(google.protobuf.message.Message):
         refer to them. For actively processed bundles, these should match the
         values within the ProcessBundleDescriptor. For job management APIs,
         these should match values within the original pipeline representation.
+        Label referencing the PTransform that this metric is associated with.
         """
         PCOLLECTION: MonitoringInfo._MonitoringInfoLabels.ValueType  # 1
+        """Label referencing the PCollection that this metric is associated with."""
         WINDOWING_STRATEGY: MonitoringInfo._MonitoringInfoLabels.ValueType  # 2
+        """Label referencing the WindowingStrategy that this metric is associated with."""
         CODER: MonitoringInfo._MonitoringInfoLabels.ValueType  # 3
+        """Label referencing the Coder used for encoding elements."""
         ENVIRONMENT: MonitoringInfo._MonitoringInfoLabels.ValueType  # 4
+        """Label referencing the Environment that this metric is associated with."""
         NAMESPACE: MonitoringInfo._MonitoringInfoLabels.ValueType  # 5
+        """Label for the namespace of a user metric, used to avoid name collisions
+        between user-defined metrics.
+        """
         NAME: MonitoringInfo._MonitoringInfoLabels.ValueType  # 6
+        """Label for the name of a user metric within its namespace."""
         SERVICE: MonitoringInfo._MonitoringInfoLabels.ValueType  # 7
+        """Label for the I/O service name (e.g. "bigquery", "pubsub")."""
         METHOD: MonitoringInfo._MonitoringInfoLabels.ValueType  # 8
+        """Label for the I/O API method name (e.g. "read", "write")."""
         RESOURCE: MonitoringInfo._MonitoringInfoLabels.ValueType  # 9
+        """Label for the I/O resource being accessed (e.g. a table or topic name)."""
         STATUS: MonitoringInfo._MonitoringInfoLabels.ValueType  # 10
+        """Label for the HTTP status code of an I/O API request."""
         BIGQUERY_PROJECT_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 11
+        """Label for the BigQuery project ID associated with this metric."""
         BIGQUERY_DATASET: MonitoringInfo._MonitoringInfoLabels.ValueType  # 12
+        """Label for the BigQuery dataset associated with this metric."""
         BIGQUERY_TABLE: MonitoringInfo._MonitoringInfoLabels.ValueType  # 13
+        """Label for the BigQuery table associated with this metric."""
         BIGQUERY_VIEW: MonitoringInfo._MonitoringInfoLabels.ValueType  # 14
+        """Label for the BigQuery view associated with this metric."""
         BIGQUERY_QUERY_NAME: MonitoringInfo._MonitoringInfoLabels.ValueType  # 15
+        """Label for a user-provided query name used to identify a BigQuery query."""
         GCS_BUCKET: MonitoringInfo._MonitoringInfoLabels.ValueType  # 16
+        """Label for the GCS bucket associated with this metric."""
         GCS_PROJECT_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 17
+        """Label for the GCP project ID associated with a GCS operation."""
         DATASTORE_PROJECT: MonitoringInfo._MonitoringInfoLabels.ValueType  # 18
+        """Label for the Datastore project associated with this metric."""
         DATASTORE_NAMESPACE: MonitoringInfo._MonitoringInfoLabels.ValueType  # 19
+        """Label for the Datastore namespace associated with this metric."""
         BIGTABLE_PROJECT_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 20
+        """Label for the Bigtable project ID associated with this metric."""
         INSTANCE_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 21
+        """Label for the instance ID of a Bigtable or other service."""
         TABLE_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 22
+        """Label for the table ID of a Bigtable or other service."""
         SPANNER_PROJECT_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 23
+        """Label for the Spanner project ID associated with this metric."""
         SPANNER_DATABASE_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 24
+        """Label for the Spanner database ID associated with this metric."""
         SPANNER_TABLE_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 25
+        """Label for the Spanner table ID associated with this metric."""
         SPANNER_INSTANCE_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 26
+        """Label for the Spanner instance ID associated with this metric."""
         SPANNER_QUERY_NAME: MonitoringInfo._MonitoringInfoLabels.ValueType  # 27
+        """Label for a user-provided query name used to identify a Spanner query."""
         PER_WORKER_METRIC: MonitoringInfo._MonitoringInfoLabels.ValueType  # 28
         """Label which if has a "true" value indicates that the metric is intended
         to be aggregated per-worker.
@@ -344,34 +435,64 @@ class MonitoringInfo(google.protobuf.message.Message):
     refer to them. For actively processed bundles, these should match the
     values within the ProcessBundleDescriptor. For job management APIs,
     these should match values within the original pipeline representation.
+    Label referencing the PTransform that this metric is associated with.
     """
     PCOLLECTION: MonitoringInfo.MonitoringInfoLabels.ValueType  # 1
+    """Label referencing the PCollection that this metric is associated with."""
     WINDOWING_STRATEGY: MonitoringInfo.MonitoringInfoLabels.ValueType  # 2
+    """Label referencing the WindowingStrategy that this metric is associated with."""
     CODER: MonitoringInfo.MonitoringInfoLabels.ValueType  # 3
+    """Label referencing the Coder used for encoding elements."""
     ENVIRONMENT: MonitoringInfo.MonitoringInfoLabels.ValueType  # 4
+    """Label referencing the Environment that this metric is associated with."""
     NAMESPACE: MonitoringInfo.MonitoringInfoLabels.ValueType  # 5
+    """Label for the namespace of a user metric, used to avoid name collisions
+    between user-defined metrics.
+    """
     NAME: MonitoringInfo.MonitoringInfoLabels.ValueType  # 6
+    """Label for the name of a user metric within its namespace."""
     SERVICE: MonitoringInfo.MonitoringInfoLabels.ValueType  # 7
+    """Label for the I/O service name (e.g. "bigquery", "pubsub")."""
     METHOD: MonitoringInfo.MonitoringInfoLabels.ValueType  # 8
+    """Label for the I/O API method name (e.g. "read", "write")."""
     RESOURCE: MonitoringInfo.MonitoringInfoLabels.ValueType  # 9
+    """Label for the I/O resource being accessed (e.g. a table or topic name)."""
     STATUS: MonitoringInfo.MonitoringInfoLabels.ValueType  # 10
+    """Label for the HTTP status code of an I/O API request."""
     BIGQUERY_PROJECT_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 11
+    """Label for the BigQuery project ID associated with this metric."""
     BIGQUERY_DATASET: MonitoringInfo.MonitoringInfoLabels.ValueType  # 12
+    """Label for the BigQuery dataset associated with this metric."""
     BIGQUERY_TABLE: MonitoringInfo.MonitoringInfoLabels.ValueType  # 13
+    """Label for the BigQuery table associated with this metric."""
     BIGQUERY_VIEW: MonitoringInfo.MonitoringInfoLabels.ValueType  # 14
+    """Label for the BigQuery view associated with this metric."""
     BIGQUERY_QUERY_NAME: MonitoringInfo.MonitoringInfoLabels.ValueType  # 15
+    """Label for a user-provided query name used to identify a BigQuery query."""
     GCS_BUCKET: MonitoringInfo.MonitoringInfoLabels.ValueType  # 16
+    """Label for the GCS bucket associated with this metric."""
     GCS_PROJECT_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 17
+    """Label for the GCP project ID associated with a GCS operation."""
     DATASTORE_PROJECT: MonitoringInfo.MonitoringInfoLabels.ValueType  # 18
+    """Label for the Datastore project associated with this metric."""
     DATASTORE_NAMESPACE: MonitoringInfo.MonitoringInfoLabels.ValueType  # 19
+    """Label for the Datastore namespace associated with this metric."""
     BIGTABLE_PROJECT_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 20
+    """Label for the Bigtable project ID associated with this metric."""
     INSTANCE_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 21
+    """Label for the instance ID of a Bigtable or other service."""
     TABLE_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 22
+    """Label for the table ID of a Bigtable or other service."""
     SPANNER_PROJECT_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 23
+    """Label for the Spanner project ID associated with this metric."""
     SPANNER_DATABASE_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 24
+    """Label for the Spanner database ID associated with this metric."""
     SPANNER_TABLE_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 25
+    """Label for the Spanner table ID associated with this metric."""
     SPANNER_INSTANCE_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 26
+    """Label for the Spanner instance ID associated with this metric."""
     SPANNER_QUERY_NAME: MonitoringInfo.MonitoringInfoLabels.ValueType  # 27
+    """Label for a user-provided query name used to identify a Spanner query."""
     PER_WORKER_METRIC: MonitoringInfo.MonitoringInfoLabels.ValueType  # 28
     """Label which if has a "true" value indicates that the metric is intended
     to be aggregated per-worker.
@@ -457,7 +578,11 @@ global___MonitoringInfo = MonitoringInfo
 
 @typing_extensions.final
 class MonitoringInfoTypeUrns(google.protobuf.message.Message):
-    """A set of well known URNs that specify the encoding and aggregation method."""
+    """A set of well known URNs that specify the encoding and aggregation method
+    for metric payloads. Each URN defines how the payload bytes of a MonitoringInfo
+    should be decoded and how values from multiple bundles should be aggregated
+    together by the runner.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -560,7 +685,10 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
           - valueX: beam:coder:double:v1
         """
         PROGRESS_TYPE: MonitoringInfoTypeUrns._Enum.ValueType  # 10
-        """Encoding: <iter><value1><value2>...<valueN></iter>
+        """Represents progress information for a PTransform, containing both completed
+        and remaining work as separate values.
+
+        Encoding: <iter><value1><value2>...<valueN></iter>
           - iter:   beam:coder:iterable:v1
           - valueX: beam:coder:double:v1
         """
@@ -577,7 +705,9 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
         Encoding: BoundedTrie proto
         """
         HISTOGRAM: MonitoringInfoTypeUrns._Enum.ValueType  # 13
-        """Represents a histogram."""
+        """Represents a histogram of integer values. The payload is encoded as a
+        HistogramValue protobuf message.
+        """
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     SUM_INT64_TYPE: MonitoringInfoTypeUrns.Enum.ValueType  # 0
@@ -673,7 +803,10 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
       - valueX: beam:coder:double:v1
     """
     PROGRESS_TYPE: MonitoringInfoTypeUrns.Enum.ValueType  # 10
-    """Encoding: <iter><value1><value2>...<valueN></iter>
+    """Represents progress information for a PTransform, containing both completed
+    and remaining work as separate values.
+
+    Encoding: <iter><value1><value2>...<valueN></iter>
       - iter:   beam:coder:iterable:v1
       - valueX: beam:coder:double:v1
     """
@@ -690,7 +823,9 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
     Encoding: BoundedTrie proto
     """
     HISTOGRAM: MonitoringInfoTypeUrns.Enum.ValueType  # 13
-    """Represents a histogram."""
+    """Represents a histogram of integer values. The payload is encoded as a
+    HistogramValue protobuf message.
+    """
 
     def __init__(
         self,
@@ -909,6 +1044,9 @@ global___HistogramValue = HistogramValue
 LABEL_PROPS_FIELD_NUMBER: builtins.int
 MONITORING_INFO_SPEC_FIELD_NUMBER: builtins.int
 label_props: google.protobuf.internal.extension_dict._ExtensionFieldDescriptor[google.protobuf.descriptor_pb2.EnumValueOptions, global___MonitoringInfoLabelProps]
-"""From: commit 0x7970544."""
+"""Properties for MonitoringInfoLabel enum values, specifying the label name
+to use in the MonitoringInfo labels map.
+From: commit 0x7970544.
+"""
 monitoring_info_spec: google.protobuf.internal.extension_dict._ExtensionFieldDescriptor[google.protobuf.descriptor_pb2.EnumValueOptions, global___MonitoringInfoSpec]
-"""Enum extension to store the MonitoringInfoSpecs."""
+"""Enum extension to store the MonitoringInfoSpec."""

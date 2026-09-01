@@ -2,6 +2,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+#[cfg(windows)]
+use std::os::windows::io::AsRawHandle;
+
 #[cfg(target_os = "linux")]
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -14,6 +19,10 @@ use encoding_rs_io::DecodeReaderBytes;
 use rustix::fs::{AtFlags, CWD as RUSTIX_CWD, StatxFlags, statx};
 use tempfile::NamedTempFile;
 use tracing::{debug, warn};
+#[cfg(windows)]
+use windows::Win32::Foundation::HANDLE;
+#[cfg(windows)]
+use windows::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle};
 
 pub use crate::locked_file::*;
 pub use crate::path::*;
@@ -21,12 +30,61 @@ pub use crate::read::ValidatedReader;
 pub use crate::space::{PhysicalSpaceError, physical_space, supports_fine_grained_accounting};
 
 pub mod cachedir;
+#[cfg(target_os = "macos")]
+mod hardlink_macos;
 pub mod link;
 mod locked_file;
 mod path;
 mod read;
 mod space;
 pub mod which;
+
+/// Return the number of hardlinks to a file.
+#[cfg(unix)]
+pub fn hardlink_count(path: &Path) -> io::Result<u64> {
+    Ok(fs_err::metadata(path)?.nlink())
+}
+
+/// Return the number of hardlinks to a file.
+#[cfg(windows)]
+#[expect(unsafe_code)]
+pub fn hardlink_count(path: &Path) -> io::Result<u64> {
+    let file = fs_err::File::open(path)?;
+    let mut information = BY_HANDLE_FILE_INFORMATION::default();
+    // SAFETY: The file handle remains open for the duration of the call, and `information`
+    // points to a valid, writable structure of the type expected by the Windows API.
+    unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &raw mut information) }?;
+    Ok(u64::from(information.nNumberOfLinks))
+}
+
+/// Return an error on platforms that cannot report hardlink counts.
+#[cfg(not(any(unix, windows)))]
+pub fn hardlink_count(_path: &Path) -> io::Result<u64> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "hardlink counts are not supported on this platform",
+    ))
+}
+
+/// Collect regular files whose only hardlink is their entry in this directory.
+///
+/// Ignores symlink entries and uses bulk metadata reads on macOS. Returns `None` when the fast path
+/// is unavailable, required attributes are missing, or subdirectories need a recursive walk.
+/// No candidates are returned unless the entire directory can use the fast path.
+///
+/// Callers deleting these files must prevent concurrent changes to the directory and hardlink
+/// counts throughout both the scan and deletion.
+pub fn files_with_one_hardlink(path: &Path) -> io::Result<Option<Vec<PathBuf>>> {
+    #[cfg(target_os = "macos")]
+    {
+        hardlink_macos::files_with_one_hardlink(path)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        Ok(None)
+    }
+}
 
 /// Return a path's creation time, including on Linux targets where [`std::fs::Metadata::created`]
 /// does not expose the filesystem birth time.

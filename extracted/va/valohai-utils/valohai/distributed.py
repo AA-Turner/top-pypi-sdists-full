@@ -1,8 +1,9 @@
-import json
+from __future__ import annotations
+
 import warnings
-from typing import List, Optional
 
 from valohai import paths
+from valohai.internals import json_utils
 from valohai.internals.distributed_config import DistributedConfig, Member
 
 
@@ -11,13 +12,13 @@ class Distributed:
     Distributed toolkit accessed through `valohai.distributed`.
     """
 
-    _config: Optional[DistributedConfig] = None
+    _config: DistributedConfig | None = None
 
     def is_distributed_task(self) -> bool:
         # not a property to mimic `is_running_in_valohai`
         try:
             return bool(self.config.group_name)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, ValueError):
             return False
         except Exception as exc:
             warnings.warn(f"Failed to parse distributed config: {exc}")
@@ -32,14 +33,14 @@ class Distributed:
         return self.config.member_id
 
     @property
-    def rank(self) -> Optional[int]:
+    def rank(self) -> int | None:
         return self.me().rank
 
     @property
     def required_count(self) -> int:
         return self.config.required_count
 
-    def members(self) -> List[Member]:
+    def members(self) -> list[Member]:
         return self.config.members
 
     def member(self, member_id: str) -> Member:
@@ -60,8 +61,7 @@ class Distributed:
     @property
     def config(self) -> DistributedConfig:
         if not self._config:
-            with open(self._get_config_path()) as json_file:
-                json_data = json.load(json_file)
+            json_data = json_utils.load_file(self._get_config_path())
             self._config = DistributedConfig.from_json_data(json_data)
         return self._config
 

@@ -11,6 +11,10 @@ import pytest
 
 from html_page.archive_body import ArchiveBody
 from html_page.archive_row import ArchiveRow
+from html_page.attachment_body import AttachmentBody
+from html_page.attachment_item import AttachmentItem
+from html_page.attachment_meta import AttachmentMeta
+from html_page.attachment_part import AttachmentPart
 from html_page.floating_error import FloatingError
 from html_page.screenshot_details import ScreenshotDetails
 from html_page.suite_row import SuiteRow
@@ -29,11 +33,51 @@ from pytest_html_reporter.util import (
     report_log_limit,
     merge_log_sections,
     format_log_sections,
-    escape_log_text,
+    escape_report_text,
+    js_literal,
     count_log_lines,
+    report_attachments_mode,
+    report_attachment_limit,
+    archive_days,
+    archive_since,
+    archive_cutoff,
+    expired_archives,
+    generate_report_links,
+)
+from pytest_html_reporter.coverage_report import (
+    collect_coverage,
+    generate_coverage_view,
+)
+from pytest_html_reporter.attachments import (
+    attachment_size,
+    filename_for,
+    human_size,
+    take_attachments,
+    trim_parts,
 )
 from pytest_html_reporter.time_converter import time_converter
 from pytest_html_reporter.const_vars import ConfigVars
+
+
+# What fits the caption strip under a gallery tile.
+SCREENSHOT_NAME_MAX = 19
+
+# Stand-ins for the test name of a file that never produced a test at all.
+COLLECT_ERROR_NAME = '(collection error)'
+COLLECT_SKIP_NAME = '(module skipped)'
+
+
+def archived_coverage(data):
+    """One build's coverage percentage out of its output.json, or None.
+
+    Every archived build predating this feature simply has no coverage key,
+    and so does any build that ran without coverage measured - both are "not
+    known", which is a different answer from zero.
+    """
+    try:
+        return float((data.get('coverage') or {})['percent'])
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return None
 
 
 class HTMLReporter(object):
@@ -51,6 +95,15 @@ class HTMLReporter(object):
         self._log_sections = {}
         self.logs_mode = report_logs_mode(config)
         self.log_limit = report_log_limit(config)
+        self.attachments_mode = report_attachments_mode(config)
+        self.attachment_limit = report_attachment_limit(config)
+
+        # Age-based retention, alongside --archive-count. A run on a schedule
+        # wants "the last 30 days": a build count has to be retuned every time
+        # the schedule changes, and says nothing about how far back the report
+        # actually reaches.
+        self.archive_days = archive_days(config)
+        self.archive_since = archive_since(config)
 
         # One record per finished test. In a serial run this process fills the
         # list on its own; under xdist every worker fills its own copy and the
@@ -60,6 +113,10 @@ class HTMLReporter(object):
         # Where each test's record sits in that list, so a retry can replace the
         # attempt it superseded instead of being reported as another test.
         self._record_slots = {}
+
+        # Which collectors have already been recorded as failed or skipped, so
+        # a broken file seen by several processes is reported once.
+        self._collect_slots = set()
         self._collected = {}
         self.worker_id = xdist_worker_id(config)
 
@@ -81,6 +138,45 @@ class HTMLReporter(object):
         # lets the controller put the workers' results back in collection
         # order, whatever order they actually ran in.
         self._collected = {item.nodeid: index for index, item in enumerate(items)}
+
+    def pytest_collectreport(self, report):
+        """Keep a file that never produced a test, so it cannot vanish silently.
+
+        A module that fails to import - or one skipped at module level - yields
+        no items at all, so nothing reaches pytest_runtest_teardown and the
+        whole file, every test in it and the error itself were missing from the
+        report while pytest printed them. A broken import is exactly the case
+        where the report is read to find out what happened, and it was the one
+        case the report did not cover.
+        """
+        if report.passed: return
+        if not report.nodeid: return  # the session collector itself
+
+        # A skipped collector's longrepr is a (path, lineno, reason) tuple, and
+        # rendering it as text would put the tuple's repr in the report.
+        if report.skipped and isinstance(report.longrepr, tuple):
+            message = str(report.longrepr[2])
+        else:
+            message = str(report.longreprtext or '')
+
+        self.store_collect_record({
+            'suite_name': str(report.nodeid),
+            'test_name': COLLECT_SKIP_NAME if report.skipped else COLLECT_ERROR_NAME,
+            'nodeid': str(report.nodeid),
+            'status': 'SKIP' if report.skipped else 'ERROR',
+            'message': message,
+            'duration': 0,
+            'rerun': 0,
+            # Collection runs before any test does, and before collection order
+            # is even known, so these sort ahead of the run itself: a file that
+            # never loaded is the first thing worth seeing.
+            'index': -1,
+            'worker': self.worker_id,
+            'screenshot': None,
+            'logs': [],
+            'attachments': [],
+            'collect': True,
+        })
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_teardown(self, item, nextitem):
@@ -115,7 +211,7 @@ class HTMLReporter(object):
         payload = getattr(node, 'workeroutput', {}).get('pytest_html_reporter')
         if payload:
             for record in payload['records']:
-                self.store_test_record(record)
+                self.store_record(record)
 
     def archive_data(self, base, filename):
         path = os.path.join(base, filename)
@@ -143,20 +239,37 @@ class HTMLReporter(object):
             return os.path.abspath(logfile), 'pytest_html_report.html'
 
     def remove_old_archives(self):
-        archive_dir = os.path.abspath(os.path.expanduser(os.path.expandvars(self.path))) + '/archive'
+        """Apply the retention limits to the builds kept on disk.
 
-        if self.archive_count != '':
-            if int(self.archive_count) == 0:
-                if os.path.isdir(archive_dir):
-                    shutil.rmtree(archive_dir)
-                return
+        --archive-count, --archive-days and --archive-since intersect: a build
+        has to satisfy every limit that is set to survive. Nothing set keeps
+        everything, which is how the report grows until it is slow to open.
 
-            archive_count = int(self.archive_count) - 1
+        The folder is taken from report_path rather than from self.path: the
+        path can name the html file itself - ./report/report.html - and the
+        archive sits beside it, in the folder.
+        """
+        archive_dir = os.path.join(self.report_path[0], 'archive')
+        cutoff = archive_cutoff(days=self.archive_days, since=self.archive_since)
+
+        if self.archive_count == '' and cutoff is None:
+            return
+
+        if self.archive_count == '0':
             if os.path.isdir(archive_dir):
-                archives = os.listdir(archive_dir)
-                archives.sort(key=lambda f: os.path.getmtime(os.path.join(archive_dir, f)))
-                for i in range(0, len(archives) - archive_count):
-                    os.remove(os.path.join(archive_dir, archives[i]))
+                shutil.rmtree(archive_dir)
+            return
+
+        if not os.path.isdir(archive_dir):
+            return
+
+        # The build being reported now is shown alongside the archived ones and
+        # counts against --archive-count, so one fewer is kept on disk.
+        keep = int(self.archive_count) - 1 if self.archive_count != '' else None
+
+        for path in expired_archives(glob.glob(os.path.join(archive_dir, '*.json')),
+                                     keep=keep, cutoff=cutoff):
+            os.remove(path)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
@@ -185,6 +298,11 @@ class HTMLReporter(object):
             os.makedirs(base, exist_ok=True)
             self.archive_data(base, self.report_path[1])
 
+            # read whatever coverage this run produced, before the json is
+            # written: output.json carries the percentage, which is what lets
+            # the next build show a delta and the trend read across builds
+            self.collect_coverage_data(base)
+
             # generate json file
             self.generate_json_data(base)
 
@@ -204,8 +322,15 @@ class HTMLReporter(object):
             # say why the Logs column is empty, when something is suppressing it
             generate_logs_notice(self.config)
 
+            # build the Coverage tab from what was collected above, now that
+            # update_trends has filled in the archived builds' percentages
+            generate_coverage_view(self.config)
+
+            # extra side-nav entries asked for with --report-link
+            generate_report_links(self.config)
+
             # generate html report
-            live_logs_file = open(path, 'w')
+            live_logs_file = open(path, 'w', encoding='utf-8')
             message = self.renew_template_text('https://i.imgur.com/LRSRHJO.png')
             live_logs_file.write(message)
             live_logs_file.close()
@@ -222,13 +347,6 @@ class HTMLReporter(object):
         # any single report.
         if self.logs_mode != 'none':
             merge_log_sections(self._log_sections, rep.sections)
-
-            # A record is built from the teardown hook, which runs before
-            # pytest has finished capturing that phase. Folding the last
-            # sections in here is what puts fixture teardown output - the
-            # output of the code that cleans up after a failure - in the
-            # report at all.
-            if rep.when == 'teardown': self.refresh_record_logs(rep.nodeid)
 
         # Only the outcome of this one test is tracked here. Suite grouping and
         # every total are worked out at the end, from the merged records, so
@@ -281,6 +399,37 @@ class HTMLReporter(object):
                         longerr += line + "\n"
                     self.update_test_error(longerr)
 
+        # The record was built from the teardown hook, which runs before pytest
+        # has finished reporting that phase, so whatever the teardown itself
+        # said has to be folded into the stored record here.
+        if rep.when == 'teardown': self.refresh_record(rep.nodeid)
+
+    def refresh_record(self, nodeid):
+        """Fold the teardown phase into the record already stored for a test.
+
+        A fixture that blows up while cleaning up left the test standing in the
+        report as a plain pass: pytest counted it as an error, the report did
+        not, and a failing run could read as green. Captured output is re-read
+        at the same time - after the status, so a test that only failed in its
+        teardown keeps its output under --report-logs failed - which is what
+        puts fixture teardown output, the output of the code that cleans up
+        after a failure, in the report at all.
+        """
+        slot = self._record_slots.get(str(nodeid))
+        if slot is None: return
+
+        record = self._records[slot]
+
+        # A test that already failed keeps the failure it was reported with:
+        # that is the headline, and pytest lists it the same way, as a failure
+        # with an error beside it rather than as an error.
+        if (ConfigVars._test_status == 'ERROR') and (record['status'] not in ('FAIL', 'ERROR')):
+            record['status'] = 'ERROR'
+            record['message'] = str(ConfigVars._current_error)
+
+        if self.logs_mode != 'none':
+            record['logs'] = self.collect_logs(record['status'])
+
     def append_test_record(self, item):
         """Store one finished test as a plain dict.
 
@@ -300,6 +449,7 @@ class HTMLReporter(object):
             'worker': self.worker_id,
             'screenshot': None,
             'logs': self.collect_logs(str(ConfigVars._test_status)),
+            'attachments': self.collect_attachments(str(ConfigVars._test_status)),
         }
 
         # Whatever the test did. A screenshot of a pass is a baseline, and one
@@ -312,14 +462,6 @@ class HTMLReporter(object):
 
         self.store_test_record(record)
 
-    def refresh_record_logs(self, nodeid):
-        """Re-read the captured output of the record already stored for a test."""
-        slot = self._record_slots.get(str(nodeid))
-        if slot is None: return
-
-        record = self._records[slot]
-        record['logs'] = self.collect_logs(record['status'])
-
     def collect_logs(self, status):
         """What pytest captured while this test ran, ready to be rendered.
 
@@ -330,6 +472,46 @@ class HTMLReporter(object):
         if (self.logs_mode == 'failed') and (status not in ('FAIL', 'ERROR')): return []
 
         return format_log_sections(self._log_sections, self.log_limit)
+
+    def collect_attachments(self, status):
+        """The text, JSON and API calls this test handed over, trimmed to size.
+
+        The buffer is drained whatever the mode says. An attachment left in it
+        would be picked up by the next test to finish and reported as that
+        test's own - the bug screenshots had before every record started
+        claiming the pending image.
+        """
+        pending = take_attachments()
+
+        if self.attachments_mode == 'none': return []
+        if (self.attachments_mode == 'failed') and (status not in ('FAIL', 'ERROR')): return []
+
+        collected = []
+        for attachment in pending:
+            attachment = dict(attachment)
+            attachment['parts'] = trim_parts(attachment['parts'], self.attachment_limit)
+            collected.append(attachment)
+
+        return collected
+
+    def store_record(self, record):
+        """Store a record of either kind - a test that ran, or a file that did not."""
+        if record.get('collect'):
+            self.store_collect_record(record)
+        else:
+            self.store_test_record(record)
+
+    def store_collect_record(self, record):
+        """Keep one record per collector that failed, however many saw it fail.
+
+        Every xdist worker collects the whole suite, and the controller is sent
+        their collect reports as well, so the same unimportable file arrives
+        here once per process. Only the first is kept.
+        """
+        if record['nodeid'] in self._collect_slots: return
+
+        self._collect_slots.add(record['nodeid'])
+        self._records.append(record)
 
     def store_test_record(self, record):
         """Keep one record per test, however many times it was attempted.
@@ -358,8 +540,11 @@ class HTMLReporter(object):
         record['rerun'] = int(superseded['rerun']) + int(record['rerun']) + 1
 
         # A retry that attached no screenshot of its own keeps the one from the
-        # attempt it replaces, rather than dropping it from the report.
+        # attempt it replaces, rather than dropping it from the report. The
+        # same goes for its attachments: a flaky test that captured the failing
+        # response on its first attempt should not lose it by then passing.
         if record['screenshot'] is None: record['screenshot'] = superseded['screenshot']
+        if not record.get('attachments'): record['attachments'] = superseded.get('attachments') or []
 
         record['index'] = superseded['index']
         self._records[slot] = record
@@ -389,23 +574,29 @@ class HTMLReporter(object):
         self.update_counts(records)
 
     def append_test_metrics_row(self, record, row_id):
+        # Escaped here rather than in the record: output.json carries the same
+        # text and wants it raw. The message is cut to length first, so the cut
+        # cannot land in the middle of an entity and leave "&a" on the page.
         test_row_text = TestRow(
-            sname=str(record['suite_name']),
-            name=str(record['test_name']),
+            sname=escape_report_text(record['suite_name']),
+            name=escape_report_text(record['test_name']),
             stat=str(record['status']),
             dur=str(record['duration']),
-            msg=str(record['message'][:50]),
+            msg=escape_report_text(record['message'][:50]),
             runt=row_id,
-            log_count=str(self.attach_test_logs(record, row_id))
+            log_count=str(self.attach_test_logs(record, row_id)),
+            attach_count=str(self.attach_test_data(record, row_id))
         )
 
+        # The raw length, not the escaped one: this asks whether the message was
+        # cut short, and escaping it first would make a message full of angle
+        # brackets look long enough to need a modal it does not need.
         if len(record['message']) < 49:
             test_row_text.floating_error_text = ''
         else:
             test_row_text.floating_error_text = str(
-                FloatingError(full_msg=str(record['message']), runt=row_id)
+                FloatingError(full_msg=escape_report_text(record['message']), runt=row_id)
             )
-            test_row_text.full_msg = str(record['message'])
 
         ConfigVars._test_metrics_content += str(test_row_text)
 
@@ -432,18 +623,92 @@ class HTMLReporter(object):
         body = ''
         for section in sections:
             body += str(TestLogSection(
-                title=escape_log_text(section['title']),
-                text=escape_log_text(section['text'])
+                title=escape_report_text(section['title']),
+                text=escape_report_text(section['text'])
             ))
 
         ConfigVars._test_logs_content += str(TestLog(
             runt=row_id,
-            sname=escape_log_text(record['suite_name']),
-            name=escape_log_text(record['test_name']),
+            sname=escape_report_text(record['suite_name']),
+            name=escape_report_text(record['test_name']),
             sections=body
         ))
 
         return count_log_lines(sections)
+
+    def attach_test_data(self, record, row_id):
+        """Park a test's attachments outside the table, return how many there are.
+
+        Same reasoning as the captured output: a response body sitting in a
+        cell would be swept into the table's search index and into every CSV,
+        Excel and print export. The row keeps the count, which is all it needs
+        to show a button and all the Attachments tab needs to be linked to.
+        """
+        attachments = record.get('attachments') or []
+
+        for index, attachment in enumerate(attachments):
+            aid = '%s-%s' % (row_id, index)
+
+            parts = ''
+            for part in attachment['parts']:
+                parts += str(AttachmentPart(
+                    title=escape_report_text(part['title']),
+                    format=escape_report_text(part['format']),
+                    text=escape_report_text(part['text'])
+                ))
+
+            meta = ''
+            for label, value in attachment['meta']:
+                meta += str(AttachmentMeta(
+                    label=escape_report_text(label),
+                    value=escape_report_text(value),
+                    title=escape_report_text(value)
+                ))
+
+            ConfigVars._attachment_store += str(AttachmentBody(
+                aid=aid,
+                sname=escape_report_text(record['suite_name']),
+                name=escape_report_text(record['test_name']),
+                title=escape_report_text(attachment['title']),
+                filename=escape_report_text(filename_for(record['test_name'], attachment['title'])),
+                meta=meta,
+                parts=parts
+            ))
+
+            ConfigVars._attachment_items += str(AttachmentItem(
+                aid=aid,
+                runt=row_id,
+                kind=escape_report_text(attachment['kind']),
+                status=escape_report_text(attachment['status']),
+                code=escape_report_text(attachment['code']),
+                detail=escape_report_text(attachment['detail']
+                                          or human_size(attachment_size(attachment))),
+                ms=escape_report_text(attachment.get('ms', '')),
+                size=str(attachment_size(attachment)),
+                title=escape_report_text(attachment['title']),
+                # The file name, not the path: every entry in the rail carries
+                # the same directories, and they were crowding out the test
+                # name, which is the half that says which entry this is.
+                sname=escape_report_text(record['suite_name'].split('/')[-1]),
+                name=escape_report_text(record['test_name']),
+                search=escape_report_text(self.attachment_search_text(record, attachment))
+            ))
+
+        return len(attachments)
+
+    def attachment_search_text(self, record, attachment):
+        """What the Attachments search box matches an entry on.
+
+        The suite, the test, the title and every meta value - so a url, a
+        method or a status code finds the call - but not the payloads: those
+        are already several thousand characters each, and repeating them in an
+        attribute would double the size of the file to no end.
+        """
+        terms = [record['suite_name'], record['test_name'], attachment['title'],
+                 attachment['kind'], attachment['code']]
+        terms += [value for _, value in attachment['meta']]
+
+        return ' '.join(term for term in terms if term).lower()
 
     def generate_screenshot_data(self):
         """Save the attached image and describe it for the report.
@@ -460,8 +725,12 @@ class HTMLReporter(object):
         if self.worker_id: _screenshot_name += '-' + self.worker_id
 
         _screenshot_suite_name = ConfigVars._suite_name.split('/')[-1:][0].replace('.py', '')
+        # The head of the name, not its tail. Keeping the last 17 characters
+        # turned test_login_page_renders into "ogin_page_renders", which names
+        # nothing and reads as a bug in the report.
         _screenshot_test_name = ConfigVars._test_name
-        if len(ConfigVars._test_name) >= 19: _screenshot_test_name = ConfigVars._test_name[-17:]
+        if len(_screenshot_test_name) > SCREENSHOT_NAME_MAX:
+            _screenshot_test_name = _screenshot_test_name[:SCREENSHOT_NAME_MAX - 2] + '..'
 
         ConfigVars.screen_img.save(
             ConfigVars.screen_base + '/pytest_screenshots/' + _screenshot_name + '.png'
@@ -520,7 +789,7 @@ class HTMLReporter(object):
         }
 
         suite_row_text = SuiteRow(
-            sname=str(name),
+            sname=escape_report_text(name),
             spass=str(_status['total_pass']),
             sfail=str(_status['total_fail']),
             sskip=str(_status['total_skip']),
@@ -556,6 +825,29 @@ class HTMLReporter(object):
         )
         ConfigVars._total = ConfigVars._executed = len(records)
 
+    def collect_coverage_data(self, base):
+        """Read this run's coverage, and put its headline in output.json.
+
+        Stored alongside the test counts rather than in a file of its own: the
+        archives, the trend chart and Suite Highlights all read output.json
+        already, so a percentage kept there is a percentage every one of them
+        can reach without a second format to keep in step.
+        """
+        summary, notice = collect_coverage(self.config, base, self._sessionstarttime)
+
+        ConfigVars._coverage = summary
+        ConfigVars._coverage_notice = notice
+
+        if summary is None: return
+
+        self.json_data['coverage'] = {
+            'percent': summary['percent'],
+            'statements': summary['statements'],
+            'covered': summary['covered'],
+            'missing': summary['missing'],
+            'branch': summary['branch'],
+        }
+
     def update_test_error(self, msg):
         ConfigVars._current_error = msg
 
@@ -590,8 +882,8 @@ class HTMLReporter(object):
         template_text = HtmlTemplate(
             custom_logo=logo_url,
             execution_time=str(ConfigVars._execution_time),
-            title=ConfigVars._title,
-            title_full=str(ConfigVars._title_full),
+            title=escape_report_text(ConfigVars._title),
+            title_full=escape_report_text(ConfigVars._title_full),
             title_class=str(ConfigVars._title_class),
             total=str(
                 ConfigVars._aspass + ConfigVars._asfail + ConfigVars._asskip + ConfigVars._aserror + ConfigVars._asxpass + ConfigVars._asxfail),
@@ -606,7 +898,7 @@ class HTMLReporter(object):
             suite_metrics_row=str(ConfigVars._suite_metrics_content),
             test_metrics_row=str(ConfigVars._test_metrics_content),
             date=str(self._date()),
-            test_suites=str(ConfigVars._test_suite_name),
+            test_suites=js_literal(ConfigVars._test_suite_name),
             test_suite_length=str(len(ConfigVars._test_suite_name)),
             test_suite_pass=str(ConfigVars._test_pass_list),
             test_suites_fail=str(ConfigVars._test_fail_list),
@@ -618,7 +910,7 @@ class HTMLReporter(object):
             archive_body_content=str(ConfigVars._archive_body_content),
             archive_count=str(ConfigVars._archive_count),
             archives=str(ConfigVars.archives),
-            max_failure_suite_name_final=str(ConfigVars.max_failure_suite_name_final),
+            max_failure_suite_name_final=escape_report_text(ConfigVars.max_failure_suite_name_final),
             max_failure_suite_count=str(ConfigVars.max_failure_suite_count),
             similar_max_failure_suite_count=str(ConfigVars.similar_max_failure_suite_count),
             max_failure_total_tests=str(ConfigVars.max_failure_total_tests),
@@ -629,11 +921,32 @@ class HTMLReporter(object):
             tskip=str(ConfigVars.tskip),
             attach_screenshot_details=str(ConfigVars._attach_screenshot_details),
             test_logs=str(ConfigVars._test_logs_content),
+            attachment_items=str(ConfigVars._attachment_items),
+            attachment_store=str(ConfigVars._attachment_store),
             logs_notice=str(ConfigVars._logs_notice),
             environment_rows=str(ConfigVars._environment_rows),
-            environment=str(ConfigVars._environment_label),
-            environment_title=str(ConfigVars._environment),
-            environment_class=str(ConfigVars._environment_class)
+            environment=escape_report_text(ConfigVars._environment_label),
+            environment_title=escape_report_text(ConfigVars._environment),
+            environment_class=str(ConfigVars._environment_class),
+            coverage_state=str(ConfigVars._coverage_state),
+            coverage_display=str(ConfigVars._coverage_display),
+            coverage_dash=str(ConfigVars._coverage_dash),
+            coverage_grade=str(ConfigVars._coverage_grade),
+            coverage_tiles=str(ConfigVars._coverage_tiles),
+            coverage_rows=str(ConfigVars._coverage_rows),
+            coverage_meta=str(ConfigVars._coverage_meta),
+            coverage_delta=str(ConfigVars._coverage_delta),
+            coverage_delta_class=str(ConfigVars._coverage_delta_class),
+            coverage_target=str(ConfigVars._coverage_target),
+            coverage_link=str(ConfigVars._coverage_link),
+            coverage_note=str(ConfigVars._coverage_note),
+            coverage_notice=escape_report_text(ConfigVars._coverage_notice),
+            coverage_branch=str(ConfigVars._coverage_branch),
+            coverage_trend_state=str(ConfigVars._coverage_trend_state),
+            coverage_trend_labels=str(ConfigVars._coverage_trend_labels),
+            coverage_trend_values=str(ConfigVars._coverage_trend_values),
+            coverage_chip=str(ConfigVars._coverage_chip),
+            report_links=str(ConfigVars._report_links)
         )
 
         return str(template_text)
@@ -795,6 +1108,7 @@ class HTMLReporter(object):
             ConfigVars.tpass.append(data['status_list']['pass'])
             ConfigVars.tfail.append(int(data['status_list']['fail']) + int(data['status_list']['error']))
             ConfigVars.tskip.append(data['status_list']['skip'])
+            ConfigVars.tcoverage.append(archived_coverage(data))
 
         f = glob.glob(base + '/archive' + '/*.json')
         f.sort(reverse=True)
@@ -818,18 +1132,22 @@ class HTMLReporter(object):
                 ConfigVars.tpass.append(data['status_list']['pass'])
                 ConfigVars.tfail.append(int(data['status_list']['fail']) + int(data['status_list']['error']))
                 ConfigVars.tskip.append(data['status_list']['skip'])
+                # None, not 0: a build that ran before coverage was switched on
+                # never measured anything, and drawing it as zero would invent a
+                # cliff in the trend that never happened.
+                ConfigVars.tcoverage.append(archived_coverage(data))
 
                 if i == 4: break
 
     def attach_screenshots(self, screen_name, test_suite, test_case, test_error):
 
+        # The suite and test names land in a data-caption attribute as well as
+        # in the tile's text, so they are escaped for both.
         _screenshot_details = ScreenshotDetails(
-            screen_name=str(screen_name),
-            ts=str(test_suite),
-            tc=str(test_case),
-            te=str(test_error)
+            screen_name=escape_report_text(screen_name),
+            ts=escape_report_text(test_suite),
+            tc=escape_report_text(test_case),
+            te=escape_report_text(test_error)
         )
-
-        if len(test_case) == 17: test_case = '..' + test_case
 
         ConfigVars._attach_screenshot_details += str(_screenshot_details)

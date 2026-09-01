@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-litellm
-Version: 0.7.0
+Version: 0.7.1
 Summary: An integration package connecting LiteLLM and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/litellm
 Project-URL: Documentation, https://docs.langchain.com/oss/python/integrations/chat/litellm
@@ -29,9 +29,9 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
-Requires-Dist: cryptography<49.0.0,>=46.0.5
+Requires-Dist: cryptography<51.0.0,>=46.0.5
 Requires-Dist: httpx<0.29.0,>=0.28.1
-Requires-Dist: langchain-core<2.0.0,>=1.4.7
+Requires-Dist: langchain-core<2.0.0,>=1.6.1
 Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.83.14
 Description-Content-Type: text/markdown
 

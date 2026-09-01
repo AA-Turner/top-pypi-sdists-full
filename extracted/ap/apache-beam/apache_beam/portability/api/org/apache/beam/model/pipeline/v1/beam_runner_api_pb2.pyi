@@ -1294,10 +1294,15 @@ global___StateSpec = StateSpec
 
 @typing_extensions.final
 class ReadModifyWriteStateSpec(google.protobuf.message.Message):
+    """Specification for a read-modify-write state cell, which holds a single value
+    per key and window. The value can be read, modified, and written back atomically.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CODER_ID_FIELD_NUMBER: builtins.int
     coder_id: builtins.str
+    """(Required) The id of the Coder for the values stored in this state cell."""
     def __init__(
         self,
         *,
@@ -1309,10 +1314,15 @@ global___ReadModifyWriteStateSpec = ReadModifyWriteStateSpec
 
 @typing_extensions.final
 class BagStateSpec(google.protobuf.message.Message):
+    """Specification for a bag state cell, which holds an unordered collection of elements
+    per key and window. Elements can be appended and read as an iterable.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ELEMENT_CODER_ID_FIELD_NUMBER: builtins.int
     element_coder_id: builtins.str
+    """(Required) The id of the Coder for elements stored in this bag."""
     def __init__(
         self,
         *,
@@ -1344,13 +1354,20 @@ global___OrderedListStateSpec = OrderedListStateSpec
 
 @typing_extensions.final
 class CombiningStateSpec(google.protobuf.message.Message):
+    """Specification for a combining state cell, which incrementally combines values
+    using a CombineFn. Rather than storing all input values, it stores a single
+    accumulator that is updated as new values arrive.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ACCUMULATOR_CODER_ID_FIELD_NUMBER: builtins.int
     COMBINE_FN_FIELD_NUMBER: builtins.int
     accumulator_coder_id: builtins.str
+    """(Required) The id of the Coder for the accumulator."""
     @property
-    def combine_fn(self) -> global___FunctionSpec: ...
+    def combine_fn(self) -> global___FunctionSpec:
+        """(Required) The FunctionSpec of the CombineFn used to combine values."""
     def __init__(
         self,
         *,
@@ -1364,12 +1381,20 @@ global___CombiningStateSpec = CombiningStateSpec
 
 @typing_extensions.final
 class MapStateSpec(google.protobuf.message.Message):
+    """Specification for a map state cell, which holds a key-value mapping per key
+    and window. Keys and values can be read, written, and deleted individually.
+    Note: This is distinct from MultimapStateSpec in that MapState keys are unique.
+    In practice, Beam SDKs use Multimap state for both map and multimap semantics.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     KEY_CODER_ID_FIELD_NUMBER: builtins.int
     VALUE_CODER_ID_FIELD_NUMBER: builtins.int
     key_coder_id: builtins.str
+    """(Required) The id of the Coder for map keys."""
     value_coder_id: builtins.str
+    """(Required) The id of the Coder for map values."""
     def __init__(
         self,
         *,
@@ -1382,12 +1407,19 @@ global___MapStateSpec = MapStateSpec
 
 @typing_extensions.final
 class MultimapStateSpec(google.protobuf.message.Message):
+    """Specification for a multimap state cell, which holds a key-to-multiple-values
+    mapping per key and window. A single key can be associated with multiple values,
+    analogous to a multimap.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     KEY_CODER_ID_FIELD_NUMBER: builtins.int
     VALUE_CODER_ID_FIELD_NUMBER: builtins.int
     key_coder_id: builtins.str
+    """(Required) The id of the Coder for map keys."""
     value_coder_id: builtins.str
+    """(Required) The id of the Coder for map values."""
     def __init__(
         self,
         *,
@@ -1400,10 +1432,16 @@ global___MultimapStateSpec = MultimapStateSpec
 
 @typing_extensions.final
 class SetStateSpec(google.protobuf.message.Message):
+    """Specification for a set state cell, which holds an unordered collection of
+    unique elements per key and window. Elements can be added, removed, and checked
+    for existence.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ELEMENT_CODER_ID_FIELD_NUMBER: builtins.int
     element_coder_id: builtins.str
+    """(Required) The id of the Coder for elements stored in this set."""
     def __init__(
         self,
         *,
@@ -1415,12 +1453,19 @@ global___SetStateSpec = SetStateSpec
 
 @typing_extensions.final
 class TimerFamilySpec(google.protobuf.message.Message):
+    """Specification for a timer family, which groups timers that share the same
+    time domain and encoding. Timer families allow timers to be managed together,
+    including batch processing of expired timers.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     TIME_DOMAIN_FIELD_NUMBER: builtins.int
     TIMER_FAMILY_CODER_ID_FIELD_NUMBER: builtins.int
     time_domain: global___TimeDomain.Enum.ValueType
+    """(Required) The time domain for this timer family (event time or processing time)."""
     timer_family_coder_id: builtins.str
+    """(Required) The id of the Coder for timers in this family."""
     def __init__(
         self,
         *,
@@ -1433,6 +1478,10 @@ global___TimerFamilySpec = TimerFamilySpec
 
 @typing_extensions.final
 class IsBounded(google.protobuf.message.Message):
+    """Indicates whether a PCollection is bounded (finite, known size) or unbounded (infinite, unknown size).
+    This affects how runners execute the pipeline and which features are available.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     class _Enum:
@@ -1843,10 +1892,19 @@ global___GroupIntoBatchesPayload = GroupIntoBatchesPayload
 
 @typing_extensions.final
 class RedistributePayload(google.protobuf.message.Message):
+    """Payload for the RedistributeByKey and RedistributeArbitrarily composite transforms.
+    These transforms redistribute elements across workers, optionally allowing duplicates
+    to improve throughput at the cost of additional processing.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ALLOW_DUPLICATES_FIELD_NUMBER: builtins.int
     allow_duplicates: builtins.bool
+    """(Optional) If true, the redistribution may produce duplicate elements.
+    This can improve performance by avoiding costly deduplication, but requires
+    downstream transforms to be tolerant of duplicates.
+    """
     def __init__(
         self,
         *,
@@ -2912,12 +2970,13 @@ class Trigger(google.protobuf.message.Message):
 
     @typing_extensions.final
     class ElementCount(google.protobuf.message.Message):
-        """Ready whenever the requisite number of input elements have arrived"""
+        """Ready whenever the requisite number of input elements have arrived."""
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         ELEMENT_COUNT_FIELD_NUMBER: builtins.int
         element_count: builtins.int
+        """(Required) The number of elements that must arrive before this trigger fires."""
         def __init__(
             self,
             *,
@@ -3267,14 +3326,16 @@ global___StandardArtifacts = StandardArtifacts
 
 @typing_extensions.final
 class ArtifactFilePayload(google.protobuf.message.Message):
+    """Payload for a file-based artifact, referencing a locally-accessible file on disk."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     PATH_FIELD_NUMBER: builtins.int
     SHA256_FIELD_NUMBER: builtins.int
     path: builtins.str
-    """a string for an artifact file path e.g. "/tmp/foo.jar" """
+    """(Required) A file path for an artifact e.g. "/tmp/foo.jar" """
     sha256: builtins.str
-    """The hex-encoded sha256 checksum of the artifact."""
+    """(Optional) The hex-encoded sha256 checksum of the artifact."""
     def __init__(
         self,
         *,
@@ -3323,14 +3384,16 @@ global___EmbeddedFilePayload = EmbeddedFilePayload
 
 @typing_extensions.final
 class PyPIPayload(google.protobuf.message.Message):
+    """Payload for a PyPI artifact, describing a Python package dependency."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ARTIFACT_ID_FIELD_NUMBER: builtins.int
     VERSION_FIELD_NUMBER: builtins.int
     artifact_id: builtins.str
-    """Pypi compatible artifact id e.g. "apache-beam" """
+    """(Required) A PyPI-compatible artifact id e.g. "apache-beam" """
     version: builtins.str
-    """Pypi compatible version string."""
+    """(Required) A PyPI-compatible version string, e.g. "2.59.0" """
     def __init__(
         self,
         *,
@@ -3365,16 +3428,21 @@ global___MavenPayload = MavenPayload
 
 @typing_extensions.final
 class DeferredArtifactPayload(google.protobuf.message.Message):
+    """Payload for a deferred artifact, where the interpretation of the data is
+    deferred to the creator. This allows custom artifact types not covered by
+    the standard artifact types.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     KEY_FIELD_NUMBER: builtins.int
     DATA_FIELD_NUMBER: builtins.int
     key: builtins.str
-    """A unique string identifier assigned by the creator of this payload. The creator may use this key to confirm
+    """(Required) A unique string identifier assigned by the creator of this payload. The creator may use this key to confirm
     whether they can parse the data.
     """
     data: builtins.bytes
-    """Data for deferred artifacts. Interpretation of bytes is delegated to the creator of this payload."""
+    """(Required) Data for deferred artifacts. Interpretation of bytes is delegated to the creator of this payload."""
     def __init__(
         self,
         *,
@@ -3387,11 +3455,15 @@ global___DeferredArtifactPayload = DeferredArtifactPayload
 
 @typing_extensions.final
 class ArtifactStagingToRolePayload(google.protobuf.message.Message):
+    """Payload for the staging_to role, used when an artifact needs to be staged
+    to a particular location. The staged name is relative to the staging directory.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     STAGED_NAME_FIELD_NUMBER: builtins.int
     staged_name: builtins.str
-    """A generated staged name (relative path under staging directory)."""
+    """(Required) A generated staged name (relative path under staging directory)."""
     def __init__(
         self,
         *,
@@ -3403,6 +3475,10 @@ global___ArtifactStagingToRolePayload = ArtifactStagingToRolePayload
 
 @typing_extensions.final
 class ArtifactInformation(google.protobuf.message.Message):
+    """Full descriptor of an artifact, including its type and role.
+    Used to describe dependencies of an Environment.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     TYPE_URN_FIELD_NUMBER: builtins.int
@@ -3410,11 +3486,17 @@ class ArtifactInformation(google.protobuf.message.Message):
     ROLE_URN_FIELD_NUMBER: builtins.int
     ROLE_PAYLOAD_FIELD_NUMBER: builtins.int
     type_urn: builtins.str
-    """A URN that describes the type of artifact"""
+    """(Required) A URN that describes the type of artifact (e.g. file, URL, embedded, PyPI, Maven).
+    See StandardArtifacts.Types for well-known URNs.
+    """
     type_payload: builtins.bytes
+    """(Optional) The payload for the artifact type, as determined by type_urn."""
     role_urn: builtins.str
-    """A URN that describes the role of artifact"""
+    """(Required) A URN that describes the role of the artifact (e.g. staging_to, go_worker_binary).
+    See StandardArtifacts.Roles for well-known URNs.
+    """
     role_payload: builtins.bytes
+    """(Optional) The payload for the artifact role, as determined by role_urn."""
     def __init__(
         self,
         *,
@@ -3560,13 +3642,15 @@ global___StandardEnvironments = StandardEnvironments
 
 @typing_extensions.final
 class DockerPayload(google.protobuf.message.Message):
-    """The payload of a Docker image"""
+    """Payload for a Docker container environment."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTAINER_IMAGE_FIELD_NUMBER: builtins.int
     container_image: builtins.str
-    """implicitly linux_amd64."""
+    """(Required) The Docker container image URL, e.g. "apache/beam_java_sdk:2.59.0"
+    implicitly linux_amd64.
+    """
     def __init__(
         self,
         *,
@@ -3578,6 +3662,10 @@ global___DockerPayload = DockerPayload
 
 @typing_extensions.final
 class ProcessPayload(google.protobuf.message.Message):
+    """Payload for a native process environment, where the SDK harness is launched as
+    a subprocess directly on the worker machine (not inside a container).
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -3601,14 +3689,22 @@ class ProcessPayload(google.protobuf.message.Message):
     COMMAND_FIELD_NUMBER: builtins.int
     ENV_FIELD_NUMBER: builtins.int
     os: builtins.str
-    """"linux", "darwin", .."""
+    """(Required) The operating system, e.g. "linux", "darwin".
+    "linux", "darwin", ..
+    """
     arch: builtins.str
-    """"amd64", .."""
+    """(Required) The CPU architecture, e.g. "amd64", "arm64".
+    "amd64", ..
+    """
     command: builtins.str
-    """process to execute"""
+    """(Required) The command to execute to start the SDK harness process.
+    process to execute
+    """
     @property
     def env(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
-        """Environment variables"""
+        """(Optional) Environment variables to set for the SDK harness process.
+        Environment variables
+        """
     def __init__(
         self,
         *,
@@ -3623,6 +3719,11 @@ global___ProcessPayload = ProcessPayload
 
 @typing_extensions.final
 class ExternalPayload(google.protobuf.message.Message):
+    """Payload for an external process environment, where the SDK harness is managed
+    by an external service rather than directly by the runner. The runner communicates
+    with the external worker pool via the provided gRPC endpoint.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing_extensions.final
@@ -3645,10 +3746,14 @@ class ExternalPayload(google.protobuf.message.Message):
     PARAMS_FIELD_NUMBER: builtins.int
     @property
     def endpoint(self) -> org.apache.beam.model.pipeline.v1.endpoints_pb2.ApiServiceDescriptor:
-        """Serving BeamFnExternalWorkerPool API."""
+        """(Required) The gRPC endpoint serving the BeamFnExternalWorkerPool API.
+        Serving BeamFnExternalWorkerPool API.
+        """
     @property
     def params(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
-        """Arbitrary extra parameters to pass"""
+        """(Optional) Arbitrary extra parameters to pass to the external worker pool.
+        Arbitrary extra parameters to pass
+        """
     def __init__(
         self,
         *,
@@ -3662,12 +3767,20 @@ global___ExternalPayload = ExternalPayload
 
 @typing_extensions.final
 class AnyOfEnvironmentPayload(google.protobuf.message.Message):
+    """Payload for an AnyOf environment, which presents a set of equivalent environments
+    that a runner may choose from. Each alternative is fully specified with its own
+    dependencies, capabilities, etc. This allows SDKs to express flexibility in
+    execution environment while preserving compatibility across runners.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ENVIRONMENTS_FIELD_NUMBER: builtins.int
     @property
     def environments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Environment]:
-        """Each is fully contained (with their own dependencies, capabilities, etc.)"""
+        """(Required) The list of fully-specified environments the runner may choose from.
+        Each is fully contained (with their own dependencies, capabilities, etc.)
+        """
     def __init__(
         self,
         *,
@@ -4028,6 +4141,10 @@ global___StandardDisplayData = StandardDisplayData
 
 @typing_extensions.final
 class LabelledPayload(google.protobuf.message.Message):
+    """A labelled display data payload, associating a human-readable label with a value.
+    Used as the payload for the StandardDisplayData.LABELLED URN.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     LABEL_FIELD_NUMBER: builtins.int

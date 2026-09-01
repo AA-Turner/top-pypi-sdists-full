@@ -1,4 +1,6 @@
 # tests/v2/pipeline/test_assign.py
+import pytest
+
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline._assign import assign
 from nameparser._pipeline._classify import classify
@@ -13,10 +15,10 @@ from nameparser._policy import (
 from nameparser._types import AmbiguityKind, Role
 
 _LEX = Lexicon(
-    titles=frozenset({"dr", "mr", "mrs", "sir"}),
+    titles=frozenset({"dr", "mr", "mrs", "sir", "sr"}),
     given_name_titles=frozenset({"sir"}),
     suffix_acronyms=frozenset({"phd", "md"}),
-    suffix_words=frozenset({"jr", "iii", "v"}),
+    suffix_words=frozenset({"jr", "iii", "v", "sr"}),
     particles=frozenset({"de", "la", "van"}),
     particles_ambiguous=frozenset({"van"}),
     conjunctions=frozenset({"and"}),
@@ -24,8 +26,9 @@ _LEX = Lexicon(
 )
 
 
-def _assigned(text: str, policy: Policy | None = None) -> ParseState:
-    state = ParseState(original=text, lexicon=_LEX,
+def _assigned(text: str, policy: Policy | None = None,
+              lexicon: Lexicon | None = None) -> ParseState:
+    state = ParseState(original=text, lexicon=lexicon or _LEX,
                        policy=policy or Policy())
     return assign(group(classify(segment(tokenize(
         extract_delimited(state))))))
@@ -62,6 +65,14 @@ def test_title_only() -> None:
     assert not _by_role(out, Role.GIVEN)
 
 
+def test_a_title_needs_a_following_piece() -> None:
+    # v1 parity, in the count group shares since #424: the last of two
+    # title words is the name, not a second title
+    out = _assigned("Dr. Mr.")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.GIVEN) == "Mr."
+
+
 def test_leading_ambiguous_particle_reads_as_given_with_ambiguity() -> None:
     out = _assigned("Van Johnson")
     assert _by_role(out, Role.GIVEN) == "Van"
@@ -70,6 +81,47 @@ def test_leading_ambiguous_particle_reads_as_given_with_ambiguity() -> None:
                for a in out.ambiguities)
     # unambiguous input: no ambiguity recorded
     assert not _assigned("John Smith").ambiguities
+
+
+@pytest.mark.parametrize("policy,role", [
+    (None, "given"),
+    (Policy(name_order=FAMILY_FIRST), "family"),
+    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "family"),
+])
+def test_leading_particle_detail_names_the_role_it_took(
+        policy: Policy | None, role: str) -> None:
+    # The fork is the same under every order -- particle or name --
+    # but which role the head piece actually took is the assignment's
+    # answer, so the user-facing detail has to read it off the token
+    # rather than hardcode "given", exactly as SUFFIX_OR_NAME does.
+    # kind is public API and stays PARTICLE_OR_GIVEN throughout: the
+    # fork really is "particle or given" even where the piece landed
+    # in FAMILY.
+    (amb,) = _assigned("Van Johnson", policy).ambiguities
+    assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+    assert amb.detail == (
+        f"leading 'Van' may be a family-name particle; "
+        f"read as a {role} name")
+
+
+def test_leading_particle_detail_follows_the_effective_order() -> None:
+    # Reading policy.name_order[0] instead of the token's own role
+    # would pass every case above, because there the two agree. They
+    # come apart on the script_orders path (#271): a wholly-Han name
+    # resolves family-first through _effective_order while name_order
+    # is untouched and still reads given-first. The head piece is the
+    # FAMILY name here, and the detail has to say so.
+    han = _LEX.add(particles={"毛"}, particles_ambiguous={"毛"})
+    out = _assigned("毛 泽东", lexicon=han)
+    assert out.policy.name_order[0] is Role.GIVEN
+    assert out.policy.script_orders[0][0] is Script.HAN
+    assert _by_role(out, Role.FAMILY) == "毛"
+    assert _by_role(out, Role.GIVEN) == "泽东"
+    (amb,) = out.ambiguities
+    assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+    assert amb.detail == (
+        "leading '毛' may be a family-name particle; "
+        "read as a family name")
 
 
 def test_family_comma() -> None:
@@ -212,7 +264,7 @@ def test_pure_katakana_piece_falls_back_to_name_order() -> None:
 
 def test_interpunct_divided_name_reads_positionally() -> None:
     # 威廉·莎士比亚 is William Shakespeare: a 间隔号-divided name is a
-    # transcription and keeps source order (spec 2026-07-30) -- the
+    # transcription and keeps source order (rule W4's Accepted) -- the
     # B7 is the marker, playing the role pure katakana plays in the
     # kana license
     out = _assigned("威廉·莎士比亚")
@@ -236,3 +288,136 @@ def test_script_with_no_table_entry_falls_back() -> None:
     out = _assigned("毛 泽东", hangul_only)
     assert _by_role(out, Role.GIVEN) == "毛"
     assert _by_role(out, Role.FAMILY) == "泽东"
+
+
+def test_all_title_post_comma_segment_leaves_segment_zero_positional() -> None:
+    # 'John Smith, Dr.' -- the comma is followed by nothing but a title,
+    # so it never said where the family name ends. Reading segment 0
+    # wholly as family throws away a split the writer gave us.
+    out = _assigned("John Smith, Dr.")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+
+
+def test_all_title_post_comma_segment_needs_two_pre_comma_pieces() -> None:
+    # 'Smith, Dr.' has nothing to split: one pre-comma piece stays FAMILY
+    # rather than becoming a lone GIVEN under the positional read.
+    out = _assigned("Smith, Dr.")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert _by_role(out, Role.GIVEN) == ""
+
+
+def test_post_comma_title_run_is_all_titles() -> None:
+    out = _assigned("John Smith, Mr. Dr.")
+    assert _by_role(out, Role.TITLE) == "Mr. Dr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+
+
+def test_a_title_and_a_suffix_after_the_comma_fix_no_family_either() -> None:
+    # the condition is "no name word", not "all titles": a title and a
+    # postnominal with nothing between them said nothing about where
+    # the family ends (the design-docs review found C1 silent on it)
+    out = _assigned("John Smith, Mr. Jr.")
+    assert _by_role(out, Role.TITLE) == "Mr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert _by_role(out, Role.SUFFIX) == "Jr."
+
+
+def test_the_positional_segment_zero_records_its_order() -> None:
+    # post_rules' family-first fold and its leading-piece scan key on
+    # "assign records no order after a family comma"; the positional
+    # read is the path that gives one (the test review found the fold
+    # missing 'de Mesnil Jean, Dr.' under a family-first order)
+    out = _assigned("John Smith, Dr.")
+    assert out.order is not None
+    out = _assigned("Smith, Dr. John")
+    assert out.order is None
+
+
+def test_partly_title_post_comma_segment_keeps_family_comma() -> None:
+    # 'Smith, Dr. John' still has a name after the title, so the comma
+    # DID fix the family: segment 0 stays wholly family.
+    out = _assigned("Smith, Dr. John")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+
+
+def test_non_title_post_comma_segment_is_untouched() -> None:
+    out = _assigned("John Smith, Jones")
+    assert _by_role(out, Role.FAMILY) == "John Smith"
+    assert _by_role(out, Role.GIVEN) == "Jones"
+
+
+def test_positional_segment_zero_reports_the_particle_fork() -> None:
+    # The comma no longer fixed the family, so the leading ambiguous
+    # particle IS a live fork again -- emitted at the site that decides
+    # it, per the ambiguity doctrine.
+    out = _assigned("Van Johnson, Dr.")
+    assert _by_role(out, Role.GIVEN) == "Van"
+    assert _by_role(out, Role.FAMILY) == "Johnson"
+    assert [a.kind for a in out.ambiguities] == \
+        [AmbiguityKind.PARTICLE_OR_GIVEN]
+
+
+def test_a_credential_run_after_a_family_comma_reads_as_suffixes() -> None:
+    # 'Smith, Jr.' -- the peel's whole-segment exception claimed this
+    # even with 'jr' out of TITLES, because is_leading_title also
+    # infers a title from the period-abbreviation shape. The slot after
+    # a family comma IS postnominal position, so a run that is nothing
+    # but suffix pieces is read as one before the peel gets a chance
+    # (#296) -- and the whole run, not the lone piece: 'Smith, Ph. D.
+    # Jr.' put the split credential in the given name (#325).
+    out = _assigned("Smith, Jr.")
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert _by_role(out, Role.SUFFIX) == "Jr."
+    assert _by_role(out, Role.TITLE) == ""
+    out = _assigned("Smith, Ph. D. Jr.")
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert _by_role(out, Role.SUFFIX) == "Ph. D. Jr."
+    assert _by_role(out, Role.GIVEN) == ""
+    out = _assigned("Smith, Jr. PhD")
+    assert _by_role(out, Role.SUFFIX) == "Jr. PhD"
+    assert _by_role(out, Role.TITLE) == ""
+
+
+def test_lone_post_comma_dual_word_reads_as_the_postnominal() -> None:
+    # 'sr' kept BOTH memberships; position is what decides, and this is
+    # the position that decides postnominal.
+    out = _assigned("Smith, Sr.")
+    assert _by_role(out, Role.SUFFIX) == "Sr."
+    assert _by_role(out, Role.TITLE) == ""
+
+
+def test_leading_dual_word_still_reads_as_the_title() -> None:
+    # The other half of the same fork, untouched: the peel's normal path.
+    out = _assigned("Sr. Garcia")
+    assert _by_role(out, Role.TITLE) == "Sr."
+    # assign leaves the one name word as the given; H1 (post_rules)
+    # makes it the family
+    assert _by_role(out, Role.GIVEN) == "Garcia"
+
+
+def test_lone_post_comma_title_is_not_a_suffix() -> None:
+    # 'Smith, Dr.' decides WITHOUT consulting the ordering: after the
+    # audit 'dr' is not suffix-tagged, so the suffix test simply declines
+    # and the title peel takes it as before.
+    out = _assigned("Smith, Dr.")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.SUFFIX) == ""
+
+
+def test_a_mixed_post_comma_run_keeps_the_walk_order() -> None:
+    # a title then a suffix word is read where each stands (v1's walk:
+    # leading titles peel, the rest is given / middle / suffix), and a
+    # name word anywhere in the run makes it a name, not a credential run
+    out = _assigned("Smith, Dr. Jr.")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.SUFFIX) == "Jr."
+    out = _assigned("Smith, John Jr.")
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.SUFFIX) == "Jr."

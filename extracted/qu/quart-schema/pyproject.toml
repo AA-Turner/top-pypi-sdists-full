@@ -1,6 +1,6 @@
 [project]
 name = "quart-schema"
-version = "0.24.0"
+version = "0.25.0"
 description = "A Quart extension to provide schema validation"
 authors = [
     { name = "pgjones", email = "philip.graham.jones@googlemail.com" },
@@ -27,7 +27,6 @@ include = [
 readme = "README.rst"
 repository = "https://gitlab.com/pgjones/quart-schema/"
 dependencies = [
-    "pyhumps >= 1.6.1",
     "quart >= 0.19.0",
     "typing_extensions; python_version < '3.11'",
 ]

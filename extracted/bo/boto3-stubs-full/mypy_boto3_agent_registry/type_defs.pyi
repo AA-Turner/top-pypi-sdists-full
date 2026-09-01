@@ -35,6 +35,7 @@ else:
 
 __all__ = (
     "A2aAgentCardDescriptorTypeDef",
+    "AgUiDescriptorTypeDef",
     "AgentSkillsAdditionalDataTypeDef",
     "AgentSkillsDefinitionDescriptorTypeDef",
     "AgentSkillsMdDescriptorTypeDef",
@@ -46,6 +47,7 @@ __all__ = (
     "DescriptorSourceTypeDef",
     "DescriptorsTypeDef",
     "DiscoverableRegistryRecordSummaryTypeDef",
+    "HttpDescriptorTypeDef",
     "ListDiscoverableRegistryRecordsRequestPaginateTypeDef",
     "ListDiscoverableRegistryRecordsRequestTypeDef",
     "ListDiscoverableRegistryRecordsResponseTypeDef",
@@ -96,6 +98,7 @@ class DiscoverableRegistryRecordSummaryTypeDef(TypedDict):
     updatedAt: datetime
     description: NotRequired[str]
     displayName: NotRequired[str]
+    descriptorTypes: NotRequired[list[str]]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -146,9 +149,15 @@ class A2aAgentCardDescriptorTypeDef(TypedDict):
     dataSchemaVersion: NotRequired[str]
     source: NotRequired[DescriptorSourceTypeDef]
 
+class AgUiDescriptorTypeDef(TypedDict):
+    source: NotRequired[DescriptorSourceTypeDef]
+
 class AgentSkillsMdDescriptorTypeDef(TypedDict):
     data: NotRequired[str]
     dataSchemaVersion: NotRequired[str]
+    source: NotRequired[DescriptorSourceTypeDef]
+
+class HttpDescriptorTypeDef(TypedDict):
     source: NotRequired[DescriptorSourceTypeDef]
 
 class McpServerDescriptorTypeDef(TypedDict):
@@ -170,6 +179,8 @@ class DescriptorsTypeDef(TypedDict):
     a2aAgentCard: NotRequired[A2aAgentCardDescriptorTypeDef]
     agentSkillsDefinition: NotRequired[AgentSkillsDefinitionDescriptorTypeDef]
     custom: NotRequired[CustomDescriptorTypeDef]
+    http: NotRequired[HttpDescriptorTypeDef]
+    agui: NotRequired[AgUiDescriptorTypeDef]
 
 class RegistryRecordSummaryTypeDef(TypedDict):
     registryArn: str

@@ -105,7 +105,8 @@ def sync_detailed(
 
     The token carries one grant bound to this workspace, scoped to the capabilities the
     caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables. Cache it in memory and refresh before ``expires_at``.
+    get workspace variables. Archived workspaces mint read-only tokens regardless of role.
+    Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 
@@ -151,7 +152,8 @@ def sync(
 
     The token carries one grant bound to this workspace, scoped to the capabilities the
     caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables. Cache it in memory and refresh before ``expires_at``.
+    get workspace variables. Archived workspaces mint read-only tokens regardless of role.
+    Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 
@@ -191,7 +193,8 @@ async def asyncio_detailed(
 
     The token carries one grant bound to this workspace, scoped to the capabilities the
     caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables. Cache it in memory and refresh before ``expires_at``.
+    get workspace variables. Archived workspaces mint read-only tokens regardless of role.
+    Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 
@@ -235,7 +238,8 @@ async def asyncio(
 
     The token carries one grant bound to this workspace, scoped to the capabilities the
     caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables. Cache it in memory and refresh before ``expires_at``.
+    get workspace variables. Archived workspaces mint read-only tokens regardless of role.
+    Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 

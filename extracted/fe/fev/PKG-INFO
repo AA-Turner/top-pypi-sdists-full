@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fev
-Version: 0.9.0
+Version: 0.10.0
 Summary: fev: Forecast evaluation library
 Project-URL: Homepage, https://github.com/autogluon/fev
 Project-URL: Issues, https://github.com/autogluon/fev/issues
@@ -351,3 +351,6 @@ If you find this package useful for your research, please consider citing the as
   primaryClass={cs.LG}
 }
 ```
+
+## Research code
+This repository contains research code intended for academic research and experimentation. It is not production-ready and should be reviewed, tested, and secured before use in production.

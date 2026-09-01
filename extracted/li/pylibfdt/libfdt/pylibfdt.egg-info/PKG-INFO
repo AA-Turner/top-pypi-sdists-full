@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pylibfdt
-Version: 1.7.2.post1
+Version: 1.7.2.post2
 Summary: Python binding for libfdt
 Author: Simon Glass <sjg@chromium.org>
 Description-Content-Type: text/plain

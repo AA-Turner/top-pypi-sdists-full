@@ -1,11 +1,11 @@
-use assert_fs::fixture::{FileWriteStr, PathChild};
 use prek_consts::env_vars::EnvVars;
 
 use crate::common::{TestEnv, cmd_snapshot};
 
 #[test]
-fn local_hook() -> anyhow::Result<()> {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+fn local_hook() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -16,12 +16,10 @@ fn local_hook() -> anyhow::Result<()> {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "});
-
-    context
-        .work_dir()
-        .child("hello.cabal")
-        .write_str(indoc::indoc! {r"
+    "})
+        .with_file(
+            "hello.cabal",
+            indoc::indoc! {r"
             cabal-version:       3.0
             name:                hello
             version:             0.1.0.0
@@ -31,18 +29,17 @@ fn local_hook() -> anyhow::Result<()> {
               main-is:             Main.hs
               default-language:    GHC2021
               build-depends:       base >= 4.19 && < 5
-        "})?;
-
-    context
-        .work_dir()
-        .child("Main.hs")
-        .write_str(indoc::indoc! {r#"
+        "},
+        )
+        .with_file(
+            "Main.hs",
+            indoc::indoc! {r#"
             module Main where
             main :: IO ()
             main = putStrLn "Hello Haskell!"
-        "#})?;
-
-    context.git_add_all();
+        "#},
+        )
+        .init_git();
 
     cmd_snapshot!(context, context.run().env(EnvVars::PREK_INTERNAL__SKIP_CABAL_UPDATE, "1"), @"
     success: true
@@ -70,13 +67,12 @@ fn local_hook() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[test]
 fn additional_dependencies() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -88,9 +84,8 @@ fn additional_dependencies() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     cmd_snapshot!(context, context.run().env(EnvVars::PREK_INTERNAL__SKIP_CABAL_UPDATE, "1"), @"
     success: true
@@ -108,7 +103,8 @@ fn additional_dependencies() {
 
 #[test]
 fn remote_hook() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: https://github.com/prek-ci/haskell-hooks
             rev: v1.0.0
@@ -116,9 +112,8 @@ fn remote_hook() {
               - id: hello
                 always_run: true
                 verbose: true
-    "});
-
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run().env(EnvVars::PREK_INTERNAL__SKIP_CABAL_UPDATE, "1"), @"
     success: true

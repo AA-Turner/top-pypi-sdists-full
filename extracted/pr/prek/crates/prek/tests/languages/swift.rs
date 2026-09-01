@@ -1,17 +1,10 @@
-use assert_fs::fixture::{FileWriteStr, PathChild, PathCreateDir};
-use prek_consts::PRE_COMMIT_HOOKS_YAML;
-use prek_consts::env_vars::{EnvVars, EnvVarsRead};
-
 use crate::common::{TestEnv, cmd_snapshot};
 
 /// Test that a local Swift hook with a system command works.
 #[test]
 fn local_hook_system_command() {
-    if !EnvVars.is_set(EnvVars::CI) {
-        return;
-    }
-
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -22,9 +15,8 @@ fn local_hook_system_command() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -43,11 +35,8 @@ fn local_hook_system_command() {
 /// Test that `language_version` is rejected for Swift.
 #[test]
 fn language_version_rejected() {
-    if !EnvVars.is_set(EnvVars::CI) {
-        return;
-    }
-
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -58,9 +47,8 @@ fn language_version_rejected() {
                 language_version: '6.0'
                 always_run: true
                 pass_filenames: false
-    "});
-
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: false
@@ -77,11 +65,8 @@ fn language_version_rejected() {
 /// Test that health check works after install.
 #[test]
 fn health_check() {
-    if !EnvVars.is_set(EnvVars::CI) {
-        return;
-    }
-
-    let context = TestEnv::new().with_config(indoc::indoc! {r#"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -92,9 +77,8 @@ fn health_check() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "#});
-
-    context.git_add_all();
+    "#})
+        .init_git();
 
     // First run - installs
     cmd_snapshot!(context, context.run(), @r"
@@ -127,65 +111,50 @@ fn health_check() {
 
 /// Test that a Swift Package.swift is built and the executable is available.
 #[test]
-fn local_package_build() -> anyhow::Result<()> {
-    if !EnvVars.is_set(EnvVars::CI) {
-        return Ok(());
-    }
-
-    let swift_hook = TestEnv::new();
-
-    // Create a minimal Swift package
-    swift_hook
-        .work_dir()
-        .child("Package.swift")
-        .write_str(indoc::indoc! {r#"
-        // swift-tools-version:6.0
-        import PackageDescription
-
-        let package = Package(
-            name: "prek-swift-test",
-            targets: [
-                .executableTarget(name: "prek-swift-test", path: "Sources")
-            ]
+fn local_package_build() {
+    let context = TestEnv::new().init_git();
+    let hook_repo = context
+        .create_hook_repo(
+            "swift-hook",
+            indoc::indoc! {r"
+                - id: swift-package-test
+                  name: swift-package-test
+                  entry: prek-swift-test
+                  language: swift
+            "},
         )
-    "#})?;
-    swift_hook.work_dir().child("Sources").create_dir_all()?;
-    swift_hook
-        .work_dir()
-        .child("Sources/main.swift")
-        .write_str(indoc::indoc! {r#"
-        print("Hello from Swift package!")
-    "#})?;
-    swift_hook
-        .work_dir()
-        .child(PRE_COMMIT_HOOKS_YAML)
-        .write_str(indoc::indoc! {r"
-        - id: swift-package-test
-          name: swift-package-test
-          entry: prek-swift-test
-          language: swift
-    "})?;
-    swift_hook.git_add_all();
-    swift_hook.git_commit("Initial commit");
-    swift_hook
-        .git()
-        .args(["tag", "v1.0", "-m", "v1.0"])
-        .output()?;
+        .with_file(
+            "Package.swift",
+            indoc::indoc! {r#"
+                // swift-tools-version:6.0
+                import PackageDescription
 
-    let context = TestEnv::new();
-
-    let hook_url = swift_hook.work_dir().to_str().unwrap();
-    let context = context.with_config(indoc::formatdoc! {r"
+                let package = Package(
+                    name: "prek-swift-test",
+                    targets: [
+                        .executableTarget(name: "prek-swift-test", path: "Sources")
+                    ]
+                )
+            "#},
+        )
+        .with_file(
+            "Sources/main.swift",
+            indoc::indoc! {r#"
+                print("Hello from Swift package!")
+            "#},
+        )
+        .build();
+    context.write_config(indoc::formatdoc! {r"
         repos:
-          - repo: {hook_url}
-            rev: v1.0
+          - repo: {hook_repo}
+            rev: v1.0.0
             hooks:
               - id: swift-package-test
                 verbose: true
                 always_run: true
                 pass_filenames: false
-    ", hook_url = hook_url});
-    context.git_add_all();
+    "});
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -199,6 +168,4 @@ fn local_package_build() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }

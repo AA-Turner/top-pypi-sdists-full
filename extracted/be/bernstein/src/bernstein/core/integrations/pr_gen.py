@@ -22,7 +22,7 @@ description belongs to this diff.
 The module reuses existing Bernstein state:
 
 * :class:`bernstein.core.persistence.session.SessionState` - run-level
-  goal, completed task ids and cumulative cost.
+  goal and completed task ids.
 * :class:`bernstein.core.persistence.session.WrapUpBrief` - per-session
   diff-stat and changes summary written on graceful stop.
 * :class:`bernstein.core.tasks.models.JanitorResult` - quality-gate
@@ -44,7 +44,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable, Mapping, Sequence
 
     from bernstein.core.review.receipt import ReviewReceipt
 
@@ -76,6 +76,7 @@ __all__ = [
     "build_pr_body",
     "build_pr_title",
     "build_provenance",
+    "describe_commit",
     "dominant_commit",
     "is_housekeeping_commit",
     "load_session_summary",
@@ -149,7 +150,27 @@ _HOUSEKEEPING_TYPES = frozenset({"style", "chore"})
 _CC_SUBJECT_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?!?:\s", re.IGNORECASE)
 
 # Markers for a commit that was never meant to describe anything.
-_WIP_SUBJECT_RE = re.compile(r"^\s*(?:\[wip\]|wip\b|fixup!|squash!|amend!)", re.IGNORECASE)
+_REBASE_MARKER_RE = re.compile(r"^\s*(?:fixup!|squash!|amend!)", re.IGNORECASE)
+_WIP_MARKER_RE = re.compile(r"^\s*(?:\[wip\]|wip\b)", re.IGNORECASE)
+
+# Subjects that provably say nothing about the change, so the renderer
+# describes the commit by what it touched instead of quoting them.
+#
+# The standing case is the fold-in commit an agent worktree writes,
+# ``[WIP] <session-id> partial work`` (agent_lifecycle.py). Its subject names
+# a session, not a change, and a squash merge copies the pull request body
+# onto the default branch — so the session identifier became the permanent
+# description of 71 commits on ``main`` in two weeks.
+#
+# Deliberately narrow. It matches that shape and a bare marker with nothing
+# after it, and nothing else: a WIP commit whose author wrote a real subject
+# still renders verbatim, because the subject is better than anything derived
+# from a diff. This is the rendering half only — ``is_housekeeping_commit``
+# still judges WIP commits by their churn (#4726), and this never consults it.
+_UNINFORMATIVE_SUBJECT_RE = re.compile(
+    r"^\s*(?:\[wip\]|wip)\s*(?::|-)?\s*(?:\S+\s+)?partial work\s*$|^\s*(?:\[wip\]|wip)\s*$",
+    re.IGNORECASE,
+)
 
 # The wording a repair commit uses whatever conventional-commit type it
 # claims. ``fix: resolve lint gate failures`` is typed ``fix`` and is still
@@ -440,8 +461,11 @@ def is_housekeeping_commit(commit: CommitRecord) -> bool:
     A commit is housekeeping when any of the following holds:
 
     * it is a merge commit, or it touches no files at all;
-    * its subject is a work-in-progress or rebase marker (``[WIP]``,
-      ``fixup!``, ``squash!``, ``amend!``);
+    * its subject is a rebase marker (``fixup!``, ``squash!``, ``amend!``);
+    * its subject carries a work-in-progress marker (``[WIP]``, ``wip``) *and*
+      it changes nothing under ``src/`` - the marker records when the commit
+      was made, not that it is upkeep, and a worktree fold routinely lands
+      real work behind it;
     * its conventional-commit type is ``style`` or ``chore``;
     * its subject names a formatter, a linter or a regeneration - the wording
       a repair commit uses whatever type it claims, which is how ``fix:
@@ -463,7 +487,16 @@ def is_housekeeping_commit(commit: CommitRecord) -> bool:
         return True
 
     subject = commit.subject.strip()
-    if not subject or _WIP_SUBJECT_RE.match(subject):
+    if not subject or _REBASE_MARKER_RE.match(subject):
+        return True
+
+    # A WIP marker records when the commit was made, not that it is upkeep.
+    # Folding an agent worktree in lands substantive work behind that prefix
+    # as a matter of course, so classifying on the marker alone drops the one
+    # commit that touched src/ out of the ranking entirely and hands the pull
+    # request's name to whatever small follow-up came after it. Judge it by
+    # what it changed: a WIP commit that alters no source is a checkpoint.
+    if _WIP_MARKER_RE.match(subject) and commit.src_churn == 0:
         return True
 
     conventional = _CC_SUBJECT_RE.match(subject)
@@ -891,30 +924,6 @@ def _format_gates(gates: tuple[GateResult, ...]) -> str:
     return "\n".join(lines)
 
 
-def _format_cost(cost: CostBreakdown) -> str:
-    """Render the cost section as a markdown list."""
-    if cost.total_usd == 0 and cost.total_tokens == 0:
-        return "- _No cost was recorded for this session._"
-
-    lines: list[str] = [
-        f"- **Total:** ${cost.total_usd:.2f}",
-        f"- **Tokens:** {cost.total_tokens:,}",
-    ]
-
-    if cost.total_tokens > 0 and cost.total_usd > 0:
-        rate = (cost.total_usd / cost.total_tokens) * 1_000_000
-        lines.append(f"- **Effective rate:** ${rate:.2f} / 1M tokens")
-    else:
-        lines.append("- **Effective rate:** n/a")
-
-    if cost.by_role:
-        by_role_sorted = sorted(cost.by_role.items(), key=lambda kv: -kv[1])
-        role_fragments = ", ".join(f"{role} ${usd:.2f}" for role, usd in by_role_sorted)
-        lines.append(f"- **By role:** {role_fragments}")
-
-    return "\n".join(lines)
-
-
 def _format_diff_stat(diff_stat: str) -> str:
     """Render the diff-stat, folded away, or a fallback line."""
     stripped = diff_stat.strip()
@@ -961,6 +970,54 @@ def _format_file_lines(files: Iterable[FileChange]) -> list[str]:
     return lines
 
 
+def _scope_of(paths: Sequence[str]) -> str:
+    """The deepest directory every one of ``paths`` sits under.
+
+    ``""`` when they share nothing but the repository root, which reads
+    better as "across the tree" than as an empty backtick pair.
+    """
+    if not paths:
+        return ""
+    split = [p.split("/")[:-1] for p in paths]
+    common: list[str] = []
+    # strict=False is the point: paths sit at different depths, and the common
+    # scope ends at the shallowest one.
+    for parts in zip(*split, strict=False):
+        if len(set(parts)) != 1:
+            break
+        common.append(parts[0])
+    return "/".join(common)
+
+
+def describe_commit(commit: CommitRecord) -> str:
+    """How a commit is named in the rendered body.
+
+    Its subject, unless the subject provably says nothing about the change —
+    then what it actually touched: scope plus churn. A reader of ``git log``
+    on the default branch gets "the agents package, 3 files, +120 / -8"
+    instead of a session identifier and the word "partial".
+
+    Ranking is untouched: which commit names the pull request is
+    ``rank_commits``' decision and stays exactly as #4726 left it. This only
+    changes how the chosen commits are written down.
+    """
+    subject = commit.subject.strip()
+    if not _UNINFORMATIVE_SUBJECT_RE.match(subject):
+        return subject
+    if not commit.files:
+        # Nothing to describe it by. Say so rather than fall back to the
+        # subject, which is what leaked the session identifier.
+        return "checkpoint, no file changes"
+    added = sum(f.added for f in commit.files)
+    removed = sum(f.removed for f in commit.files)
+    if len(commit.files) == 1:
+        only = commit.files[0]
+        return f"work in `{only.path}` (+{only.added} / -{only.removed})"
+    scope = _scope_of([f.path for f in commit.files])
+    where = f"in `{scope}`" if scope else "across the tree"
+    return f"work {where} ({len(commit.files)} files, +{added} / -{removed})"
+
+
 def _format_commit_changes(commits: tuple[CommitRecord, ...]) -> str:
     """Render the Change section from the branch's commits.
 
@@ -985,19 +1042,19 @@ def _format_commit_changes(commits: tuple[CommitRecord, ...]) -> str:
     lines: list[str] = []
     if ranked:
         lead, *rest = ranked
-        lines.append(f"{lead.subject.strip()} (`{lead.short_sha}`)")
+        lines.append(f"{describe_commit(lead)} (`{lead.short_sha}`)")
         lines.append("")
         lines.extend(_format_file_lines(lead.files))
         if rest:
             lines.append("")
             lines.append("Also in this branch:")
-            lines.extend(f"- {commit.subject.strip()} (`{commit.short_sha}`)" for commit in rest)
+            lines.extend(f"- {describe_commit(commit)} (`{commit.short_sha}`)" for commit in rest)
 
     if housekeeping:
         if lines:
             lines.append("")
         lines.append("Housekeeping, not what this pull request is about:")
-        lines.extend(f"- {commit.subject.strip()} (`{commit.short_sha}`)" for commit in housekeeping)
+        lines.extend(f"- {describe_commit(commit)} (`{commit.short_sha}`)" for commit in housekeeping)
 
     return "\n".join(lines)
 
@@ -1095,7 +1152,7 @@ def _format_headline(session: SessionSummary) -> str:
     """Render the one-line summary that opens the body.
 
     A reviewer opening a pull request asks three questions before any other:
-    how big is it, did the checks pass, what did it cost.  The line answers
+    how big is it and did the checks pass.  The line answers
     all three above the fold so the rest of the description is optional
     reading rather than a search.
     """
@@ -1111,9 +1168,6 @@ def _format_headline(session: SessionSummary) -> str:
     if session.gates:
         passed = len(session.gates) - len(failed)
         segments.append(f"**{passed}/{len(session.gates)} gates passed**")
-
-    if session.cost.total_usd > 0:
-        segments.append(f"**${session.cost.total_usd:.2f}**")
 
     if session.git_error:
         marker = "⚠️"
@@ -1135,8 +1189,11 @@ def build_pr_body(session: SessionSummary) -> str:
 
     The output is structured so downstream reviewers (and tooling) can
     reliably grep for section headers.  All core sections - Problem,
-    Change, Verification and Cost - are always present even when the
+    Change and Verification - are always present even when the
     underlying data is empty, so tests can rely on their presence.
+
+    What the run spent is deliberately absent, for the same reason the
+    status text is: it describes the run, and the page is public.
 
     Every section is projected from the change: the linked issue states the
     problem, the commits and their files state what the diff does, and the
@@ -1193,9 +1250,6 @@ def build_pr_body(session: SessionSummary) -> str:
             "",
         ]
     parts += [
-        "## Cost",
-        _format_cost(session.cost),
-        "",
         "---",
         f"_Generated from Bernstein session `{short_id}`._",
         "",
@@ -1287,6 +1341,7 @@ def attest_pr_description(
         verdict=DESCRIPTION_VERDICT,
         task_id=task_id,
         timestamp=timestamp if timestamp is not None else int(time.time()),
+        resolution_hash="sha256:912abcebddc909bb61712cad73e12236d0128a53e9e7fcac0ac33c58df0ea804",
     )
 
 

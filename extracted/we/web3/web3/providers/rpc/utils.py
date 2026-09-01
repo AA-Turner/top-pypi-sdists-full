@@ -1,7 +1,4 @@
-from typing import (
-    Sequence,
-    Type,
-)
+from collections.abc import Sequence
 
 from pydantic import (
     BaseModel,
@@ -72,14 +69,14 @@ def check_if_retry_on_failure(
 
 
 class ExceptionRetryConfiguration(BaseModel):
-    errors: Sequence[Type[BaseException]]
+    errors: Sequence[type[BaseException]]
     retries: int
     backoff_factor: float
     method_allowlist: Sequence[str]
 
     def __init__(
         self,
-        errors: Sequence[Type[BaseException]] = None,
+        errors: Sequence[type[BaseException]] = None,
         retries: int = 5,
         backoff_factor: float = 0.125,
         method_allowlist: Sequence[str] = None,

@@ -1,17 +1,17 @@
 use assert_fs::fixture::{ChildPath, FileWriteStr, PathChild, PathCreateDir};
-use prek_consts::PRE_COMMIT_HOOKS_YAML;
 
 use crate::common::{TestEnv, cmd_snapshot};
 
 #[test]
-fn local_hook() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-    context
-        .work_dir()
-        .child(".Rprofile")
-        .write_str(r#"stop("project .Rprofile should not be loaded")"#)?;
+fn local_hook() {
+    let context = TestEnv::new()
+        .with_file(
+            ".Rprofile",
+            r#"stop("project .Rprofile should not be loaded")"#,
+        )
+        .init_git();
 
-    let context = context.with_config(indoc::indoc! {r#"
+    context.write_config(indoc::indoc! {r#"
         repos:
           - repo: local
             hooks:
@@ -24,7 +24,7 @@ fn local_hook() -> anyhow::Result<()> {
                 pass_filenames: false
     "#});
 
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -52,19 +52,17 @@ fn local_hook() -> anyhow::Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[test]
 fn local_hook_with_absolute_additional_dependency() -> anyhow::Result<()> {
-    let context = TestEnv::new();
+    let context = TestEnv::new().init_git();
 
     write_local_r_package(context.work_dir(), "localdep")?;
-    let dependency_path = std::path::absolute(context.work_dir().child("localdep").path())?;
+    let dependency_path = std::path::absolute(context.child("localdep").path())?;
     let dependency = serde_json::to_string(&dependency_path)?;
 
-    let context = context.with_config(indoc::formatdoc! {r"
+    context.write_config(indoc::formatdoc! {r"
         repos:
           - repo: local
             hooks:
@@ -78,7 +76,7 @@ fn local_hook_with_absolute_additional_dependency() -> anyhow::Result<()> {
                 pass_filenames: false
     "});
 
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -98,30 +96,24 @@ fn local_hook_with_absolute_additional_dependency() -> anyhow::Result<()> {
 
 #[test]
 fn remote_repo_install() -> anyhow::Result<()> {
-    let context = TestEnv::new();
-    let hook_repo = context.create_repo("r-hook");
-
-    hook_repo
-        .path()
-        .child(PRE_COMMIT_HOOKS_YAML)
-        .write_str(indoc::indoc! {r"
+    let context = TestEnv::new().init_git();
+    let hook_repo = context
+        .create_hook_repo(
+            "r-hook",
+            indoc::indoc! {r"
             - id: r-remote
               name: r-remote
               language: r
               entry: Rscript hello.R
-        "})?;
-    hook_repo
-        .path()
-        .child("hello.R")
-        .write_str("localdep::hello()")?;
+        "},
+        )
+        .with_file("hello.R", "localdep::hello()");
     write_local_r_package(hook_repo.path(), "localdep")?;
     write_renv_project(hook_repo.path())?;
 
-    hook_repo.git_add_all();
-    hook_repo.git_commit("Add R hook");
-    hook_repo.git_tag("v1.0.0");
+    let hook_repo = hook_repo.build();
 
-    let context = context.with_config(indoc::formatdoc! {r"
+    context.write_config(indoc::formatdoc! {r"
         repos:
           - repo: {}
             rev: v1.0.0
@@ -131,9 +123,9 @@ fn remote_repo_install() -> anyhow::Result<()> {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    ", hook_repo.path().display()});
+    ", hook_repo});
 
-    context.git_add_all();
+    context.git().add(".");
 
     cmd_snapshot!(context, context.run(), @r"
     success: true
@@ -153,7 +145,8 @@ fn remote_repo_install() -> anyhow::Result<()> {
 
 #[test]
 fn language_version() {
-    let context = TestEnv::new().with_config(indoc::indoc! {r"
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
         repos:
           - repo: local
             hooks:
@@ -165,9 +158,8 @@ fn language_version() {
                 always_run: true
                 verbose: true
                 pass_filenames: false
-    "});
-
-    context.git_add_all();
+    "})
+        .init_git();
 
     cmd_snapshot!(context, context.run(), @r"
     success: false

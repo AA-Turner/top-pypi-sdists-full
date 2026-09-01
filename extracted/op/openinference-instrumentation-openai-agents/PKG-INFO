@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-openai-agents
-Version: 2.1.1
+Version: 2.1.2
 Summary: OpenInference OpenAI Agents Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-openai-agents
 Author-email: OpenInference Authors <oss@arize.com>

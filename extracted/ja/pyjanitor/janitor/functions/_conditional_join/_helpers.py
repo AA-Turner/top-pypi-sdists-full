@@ -82,6 +82,13 @@ def _keep_output(keep: str, left: np.ndarray, right: np.ndarray):
     return grouped.index, grouped._values
 
 
+def _accumulate_keep_positions(index: np.ndarray, keep: str) -> np.ndarray:
+    """Return the running first or last original row position."""
+    if keep == "first":
+        return np.minimum.accumulate(index)
+    return np.maximum.accumulate(index)
+
+
 def _separate_conditions_based_on_op(conditions: Sequence):
     """
     Create separate blocks (`equals`, `not_equals`, `le_or_ge`)
@@ -549,8 +556,14 @@ def _build_indices_positions(
     starts: np.ndarray | None = None,
     ends: np.ndarray | None = None,
 ):
-    """
-    Build indices for multiple joins
+    """Build public positional indices from compact join candidates.
+
+    ``left_index`` and ``right_index`` contain original dataframe index values.
+    ``starts``/``ends`` are optional half-open candidate boundaries and
+    ``positions`` maps each surviving candidate position into ``right_index``.
+    ``counts_array`` gives the surviving count for each left row; ``total`` is
+    the number of emitted pairs. The index arrays retain labels throughout;
+    only ``positions`` is positional indirection.
     """
     if keep == "all":
         left_index = janitor_rs.repeat_index(
@@ -598,8 +611,13 @@ def build_indices_matches(
     total: int,
     keep: str,
 ) -> dict:
-    """
-    Build indices for multiple joins, where `matches` exist
+    """Build indices while filtering candidates with a flat ``matches`` mask.
+
+    The mask is aligned with the candidate slices delimited by optional
+    ``starts`` and ``ends`` arrays (ends are exclusive). ``counts_array`` and
+    ``total`` describe surviving entries. The index arrays retain dataframe
+    labels while the mask and any positions tape remain positional. Empty
+    slices are valid and emit no pair.
     """
     if (keep == "all") and (starts is not None) and (ends is None):
         left = janitor_rs.repeat_index(
@@ -677,7 +695,11 @@ def build_indices_matches(
             index=left_index, counts=counts_array, length=total
         )
         right = janitor_rs.index_starts_only_keep_last(
-            index=right_index, starts=starts, matches=matches, length=total
+            index=right_index,
+            starts=starts,
+            counts=counts_array,
+            matches=matches,
+            length=total,
         )
     elif (keep == "last") and (starts is None) and (ends is not None):
         total = np.count_nonzero(counts_array)

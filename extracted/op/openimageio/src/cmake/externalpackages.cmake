@@ -90,6 +90,18 @@ endif ()
 checked_find_package (libuhdr
                       VERSION_MIN 1.3)
 
+# Static libtiff configs may reference Deflate::Deflate without importing it
+# (https://gitlab.com/libtiff/libtiff/-/work_items/871), so libdeflate must be
+# located before TIFF discovery. In particular, a previously auto-built static
+# TIFF rediscovered from the local deps cache needs this; the libdeflate found
+# during build_TIFF.cmake does not carry over to later reconfigures.
+if (NOT TARGET Deflate::Deflate)
+    checked_find_package (libdeflate
+                          VERSION_MIN 1.18)
+    alias_library_if_not_exists (Deflate::Deflate libdeflate::libdeflate_static)
+    alias_library_if_not_exists (Deflate::Deflate libdeflate::libdeflate_shared)
+endif ()
+
 checked_find_package (TIFF REQUIRED
                       VERSION_MIN 4.0
                       RECOMMEND_MIN 4.5
@@ -173,6 +185,8 @@ checked_find_package (Libheif VERSION_MIN 1.11
 
 checked_find_package (LibRaw
                       VERSION_MIN 0.20.0
+                      RECOMMEND_MIN 0.21.3
+                      RECOMMEND_MIN_REASON "0.21.3 for many security fixes"
                       PRINT LibRaw_r_LIBRARIES)
 
 checked_find_package (OpenJPEG VERSION_MIN 2.0

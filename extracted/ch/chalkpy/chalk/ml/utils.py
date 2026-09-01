@@ -30,10 +30,15 @@ MODEL_TRAIN_METADATA_RUN_NAME = f"{MODEL_METADATA_PREFIX}run_name__"
 MODEL_TRAIN_RUN_NAME_ENV_VAR = "CHALK_MODEL_TRAIN_RUN_NAME"
 
 MODEL_TRAIN_METADATA_RUN_ID = f"{MODEL_METADATA_PREFIX}run_id__"
+CHALK_TRAINING_RUN_ID_ENV_VAR = "CHALK_TRAINING_RUN_ID"
 
 
 def get_model_metadata_run_name_from_env():
     return os.getenv(MODEL_TRAIN_RUN_NAME_ENV_VAR, "")
+
+
+def get_model_training_run_id_from_env():
+    return os.getenv(CHALK_TRAINING_RUN_ID_ENV_VAR, "")
 
 
 class ModelType(str, Enum):

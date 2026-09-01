@@ -1,9 +1,3 @@
-/*
- * Problem data normalization (equilibration) of b and c vectors,
- * and solution normalization/un-normalization routines.
- * Matrix normalization (A, P) is in linsys/scs_matrix.c.
- */
-
 #include "normalize.h"
 
 #include "linalg.h"
@@ -43,22 +37,13 @@ void SCS(normalize_b_c)(ScsScaling *scal, scs_float *b, scs_float *c) {
     b[i] *= scal->D[i];
   }
 
-  /* sigma comes from the stacked-operator equilibration (the tau-slot
-   * scaling computed jointly with D, E by normalize_a_p), replacing the
-   * old one-shot clamped max-norm heuristic which left problems with
-   * extreme cost/rhs magnitudes badly imbalanced. Fall back to the
-   * heuristic if unset (defensive; normalize_a_p always sets it). */
-  if (scal->tau_scale > 0.) {
-    sigma = scal->tau_scale;
-  } else {
-    nm_c = SCS(norm_inf)(c, scal->n);
-    nm_b = SCS(norm_inf)(b, scal->m);
-    sigma = MAX(nm_c, nm_b);
-    sigma = sigma < MIN_NORMALIZATION_FACTOR ? 1.0 : sigma;
-    sigma =
-        sigma > MAX_NORMALIZATION_FACTOR ? MAX_NORMALIZATION_FACTOR : sigma;
-    sigma = SAFEDIV_POS(1.0, sigma);
-  }
+  /* calculate primal and dual scales */
+  nm_c = SCS(norm_inf)(c, scal->n);
+  nm_b = SCS(norm_inf)(b, scal->m);
+  sigma = MAX(nm_c, nm_b);
+  sigma = sigma < MIN_NORMALIZATION_FACTOR ? 1.0 : sigma;
+  sigma = sigma > MAX_NORMALIZATION_FACTOR ? MAX_NORMALIZATION_FACTOR : sigma;
+  sigma = SAFEDIV_POS(1.0, sigma);
 
   /* Scale b, c */
   SCS(scale_array)(c, sigma, scal->n);
@@ -77,9 +62,10 @@ void SCS(normalize_sol)(ScsScaling *scal, ScsSolution *sol) {
   for (i = 0; i < scal->n; ++i) {
     sol->x[i] /= (E[i] / scal->dual_scale);
   }
-  /* Fuse the y and s loops: both index D[i], halving D reads. */
   for (i = 0; i < scal->m; ++i) {
     sol->y[i] /= (D[i] / scal->primal_scale);
+  }
+  for (i = 0; i < scal->m; ++i) {
     sol->s[i] *= (D[i] * scal->dual_scale);
   }
 }
@@ -91,10 +77,26 @@ void SCS(un_normalize_sol)(ScsScaling *scal, ScsSolution *sol) {
   for (i = 0; i < scal->n; ++i) {
     sol->x[i] *= (E[i] / scal->dual_scale);
   }
-  /* Fuse the y and s loops: both index D[i], halving D reads. */
   for (i = 0; i < scal->m; ++i) {
     sol->y[i] *= (D[i] / scal->primal_scale);
+  }
+  for (i = 0; i < scal->m; ++i) {
     sol->s[i] /= (D[i] * scal->dual_scale);
   }
 }
 
+void SCS(un_normalize_primal)(ScsScaling *scal, scs_float *r) {
+  scs_int i;
+  scs_float *D = scal->D;
+  for (i = 0; i < scal->m; ++i) {
+    r[i] /= (D[i] * scal->dual_scale);
+  }
+}
+
+void SCS(un_normalize_dual)(ScsScaling *scal, scs_float *r) {
+  scs_int i;
+  scs_float *E = scal->E;
+  for (i = 0; i < scal->n; ++i) {
+    r[i] /= (E[i] * scal->primal_scale);
+  }
+}

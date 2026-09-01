@@ -6,13 +6,15 @@ extern "C" {
 #endif
 
 #include "glbopts.h"
+#include "scs.h"
 #include "scs_blas.h"
 #include "scs_work.h"
+#include <string.h>
 
 #ifdef USE_SPECTRAL_CONES
-#include "util_spectral_cones.h" /* for Newton_stats */
+#include "util_spectral_cones.h" // for newton_stats
 
-/* macro for time measurements of SpectralSCS */
+// macro for time measurements of SpectralSCS
 #ifdef SPECTRAL_TIMING_FLAG
 #define SPECTRAL_TIMING(action) action
 #else
@@ -30,21 +32,11 @@ struct SCS_CONE_WORK {
   ScsCone *k; /* original cone information */
   scs_int *cone_boundaries;
   scs_int cone_boundaries_len;
-  /* Per boundary entry: matrix dimension n if the block is a real PSD
-   * cone (svec length n(n+1)/2), else 0. PSD blocks admit a richer
-   * cone-invariant metric than a single scalar: any svec-diagonal
-   * weight of the rank-one form w_ij = delta_i * delta_j (a diagonal
-   * congruence X -> DXD). enforce_cone_boundaries fits this form for
-   * PSD blocks instead of collapsing them to one value. */
-  scs_int *cone_boundaries_psd_n;
-  /* scratch for PSD diagonal-congruence factors, length max PSD dim */
-  scs_float *psd_gamma;
   scs_int scaled_cones; /* boolean, whether the cones have been scaled */
   scs_float *s;         /* used for Moreau decomposition in projection */
   scs_int m;            /* total length of cone */
   /* box cone quantities */
   scs_float box_t_warm_start;
-  scs_float *r_box_inv; /* precomputed 1/r_box[j] for box cone Newton */
 
 #ifdef USE_LAPACK
   /* workspace for eigenvector decompositions: */
@@ -62,7 +54,7 @@ struct SCS_CONE_WORK {
   Value_index *work_ell1;
   scs_float *work_ell1_proj;
 
-  /* used for timing spectral vector cone and spectral matrix cone projections */
+  // used for timing spectral vector cone and spectral matrix cone projections
   SPECTRAL_TIMING(scs_float tot_time_mat_cone_proj;)
   SPECTRAL_TIMING(scs_float tot_time_vec_cone_proj;)
 
@@ -87,7 +79,7 @@ struct SCS_CONE_WORK {
 };
 
 void SCS(free_cone)(ScsCone *k);
-scs_int SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src);
+void SCS(deep_copy_cone)(ScsCone *dest, const ScsCone *src);
 ScsConeWork *SCS(init_cone)(ScsCone *k, scs_int m);
 char *SCS(get_cone_header)(const ScsCone *k);
 scs_int SCS(validate_cones)(const ScsData *d, const ScsCone *k);
@@ -96,8 +88,7 @@ scs_int SCS(proj_dual_cone)(scs_float *x, ScsConeWork *c,
 void SCS(finish_cone)(ScsConeWork *c);
 void SCS(set_r_y)(const ScsConeWork *c, scs_float scale, scs_float *r_y);
 void SCS(enforce_cone_boundaries)(const ScsConeWork *c, scs_float *vec,
-                                  scs_float (*f)(const scs_float *, scs_int),
-                                  scs_int psd_rank1);
+                                  scs_float (*f)(const scs_float *, scs_int));
 
 #ifdef __cplusplus
 }

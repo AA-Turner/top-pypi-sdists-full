@@ -28,10 +28,12 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "SupportServiceName",
+    "UploadStatusType",
 )
 
 DescribeCasesPaginatorName = Literal["describe_cases"]
 DescribeCommunicationsPaginatorName = Literal["describe_communications"]
+UploadStatusType = Literal["attachment-not-ready", "attachment-ready", "failed"]
 SupportServiceName = Literal["support"]
 ServiceName = Literal[
     "accessanalyzer",

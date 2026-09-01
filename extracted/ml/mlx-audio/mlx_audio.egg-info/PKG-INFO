@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-audio
-Version: 0.5.0
+Version: 0.5.1
 Summary: MLX-Audio is a package for inference of text-to-speech (TTS) and speech-to-speech (STS) models locally on your Mac using MLX
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License-Expression: MIT
@@ -21,6 +21,7 @@ Requires-Dist: tqdm>=4.67.1
 Requires-Dist: transformers>=5.14.0
 Provides-Extra: stt
 Requires-Dist: sentencepiece>=0.2.0; extra == "stt"
+Requires-Dist: zstandard>=0.23.0; extra == "stt"
 Provides-Extra: tts
 Requires-Dist: mistral-common[audio]; extra == "tts"
 Requires-Dist: sentencepiece>=0.2.0; extra == "tts"
@@ -38,6 +39,7 @@ Requires-Dist: setuptools<81; extra == "sts"
 Provides-Extra: all
 Requires-Dist: mistral-common[audio]; extra == "all"
 Requires-Dist: sentencepiece>=0.2.0; extra == "all"
+Requires-Dist: zstandard>=0.23.0; extra == "all"
 Requires-Dist: mlx-lm>=0.31.1; extra == "all"
 Requires-Dist: fastapi>=0.95.0; extra == "all"
 Requires-Dist: uvicorn[standard]>=0.22.0; extra == "all"
@@ -129,26 +131,27 @@ pip install -e ".[dev, server]"
 
 ```bash
 # Basic TTS generation
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text 'Hello, world!' --voice Chelsie
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text 'Hello, world!' --voice Vivian
 
 # With a different voice and language hint
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text 'Welcome to MLX-Audio!' --voice Ethan --lang_code English
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text 'Welcome to MLX-Audio!' --voice Ryan --lang_code English
 
 # Play audio immediately
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text 'Hello!' --voice Chelsie --play
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text 'Hello!' --voice Vivian --play
 
 # Save to a specific directory
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text 'Hello!' --voice Chelsie --output_path ./my_audio
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text 'Hello!' --voice Vivian --output_path ./my_audio
 
 # Stream audio during generation
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text 'Hello!' --voice Chelsie --stream
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text 'Hello!' --voice Vivian --stream
 
 # Stream audio during generation and save it to disk
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text 'Hello!' --voice Chelsie --stream --save
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text 'Hello!' --voice Vivian --stream --save
 
 # Join multiple generated segments into one file
-mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit --text $'Hello!\nHow are you?' --voice Chelsie --join_audio
+mlx_audio.tts.generate --model mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit --text $'Hello!\nHow are you?' --voice Vivian --join_audio
 ```
+
 
 By default, when generation yields multiple segments, mlx-audio saves numbered files such as `audio_000.wav` and `audio_001.wav`. Use `--join_audio` to save one combined file instead. When using `--stream`, add `--save` to write the streamed audio to disk.
 
@@ -158,12 +161,12 @@ By default, when generation yields multiple segments, mlx-audio saves numbered f
 from mlx_audio.tts.utils import load_model
 
 # Load model
-model = load_model("mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit")
+model = load_model("mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit")
 
 # Generate speech
 for result in model.generate(
     "Hello from MLX-Audio!",
-    voice="Chelsie",
+    voice="Vivian",
     lang_code="English",
 ):
     print(f"Generated {result.audio.shape[0]} samples")
@@ -216,6 +219,7 @@ for result in model.generate(
 | **Moonshine** | Useful Sensors' lightweight ASR | EN | [README](mlx_audio/stt/models/moonshine/README.md) |
 | **MMS** | Meta's massively multilingual ASR with adapters | 1000+ | [README](mlx_audio/stt/models/mms/README.md) |
 | **Granite Speech** | IBM's ASR + speech translation | EN, FR, DE, ES, PT, JA | [README](mlx_audio/stt/models/granite_speech/README.md) |
+| **Granite Speech 5.0 TurboCTC** | IBM's fast encoder-only CTC ASR | EN | [README](mlx_audio/stt/models/granite_speech5_ctc/README.md) |
 | **Qwen2-Audio** | Alibaba's multimodal audio understanding (ASR, captioning, emotion, translation) | Multiple | [mlx-community/Qwen2-Audio-7B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2-Audio-7B-Instruct-4bit) |
 | **MOSS-Music** | OpenMOSS music understanding and lyrics ASR | EN, ZH | [README](mlx_audio/stt/models/moss_music/README.md) |
 
@@ -254,10 +258,10 @@ Alibaba's state-of-the-art multilingual TTS with voice cloning, emotion control,
 ```python
 from mlx_audio.tts.utils import load_model
 
-model = load_model("mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16")
-results = list(model.generate(
+model = load_model("mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-bf16")
+results = list(model.generate_custom_voice(
     text="Hello, welcome to MLX-Audio!",
-    voice="Chelsie",
+    speaker="Vivian",
     language="English",
 ))
 
@@ -396,6 +400,22 @@ for item in result:
 ```
 
 See the [Qwen3-ASR README](mlx_audio/stt/models/qwen3_asr/README.md) for CLI usage, all models, and more examples.
+
+### Phonon-1
+
+Fermion Research's compact English Qwen3-ASR derivatives load directly from
+their public transport repositories:
+
+```python
+from mlx_audio.stt import load
+
+model = load("FermionResearch/Phonon-1")
+result = model.generate("audio.wav", language="English")
+print(result.text)
+```
+
+Available builds are `Phonon-1-Micro` (285 MB), `Phonon-1` (415 MB), and
+`Phonon-1-Big` (581 MB). See the [Phonon-1 README](mlx_audio/stt/models/phonon/README.md).
 
 ### VibeVoice-ASR
 

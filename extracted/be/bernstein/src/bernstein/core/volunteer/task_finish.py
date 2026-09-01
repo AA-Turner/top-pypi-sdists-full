@@ -76,6 +76,7 @@ the real digest.
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -100,7 +101,7 @@ from bernstein.core.volunteer.sandbox_profile import sandbox_env
 from bernstein.core.volunteer.wall_clock import run_under_wall_clock
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -109,6 +110,7 @@ if TYPE_CHECKING:
     from bernstein.core.security.result_receipt_bundle import ChainLink, TaskRef
     from bernstein.core.volunteer.claim import ClaimClient
     from bernstein.core.volunteer.manifest import VolunteerManifest
+    from bernstein.core.volunteer.runner import TaskDiff
     from bernstein.core.volunteer.sandbox_profile import VolunteerSandboxProfile
 
 #: A patch path that is not a usable repository-relative path at all:
@@ -341,6 +343,7 @@ def finish_volunteer_task(
     claim_comment_id: int | None = None,
     claim_fingerprint: str | None = None,
     pr_url: str | None = None,
+    budget_line_items: Sequence[Mapping[str, object]] = (),
 ) -> SignedResultBundle | VolunteerRefusal:
     """Enforce scope and gates, sign the result, and resolve the claim comment.
 
@@ -381,6 +384,7 @@ def finish_volunteer_task(
         gate_env=gate_env,
         gate_budget_seconds=gate_budget_seconds,
         created_at=created_at,
+        budget_line_items=budget_line_items,
     )
     if claim is not None and claim_repo is not None and claim_comment_id is not None:
         # A real per-worker identifier by default, derived fresh from the
@@ -407,6 +411,7 @@ def _finish_volunteer_task(
     gate_env: Mapping[str, str] | None = None,
     gate_budget_seconds: int | None = None,
     created_at: str | None = None,
+    budget_line_items: Sequence[Mapping[str, object]] = (),
 ) -> SignedResultBundle | VolunteerRefusal:
     """Enforce scope, re-run the project's gates, and sign the result.
 
@@ -435,6 +440,8 @@ def _finish_volunteer_task(
             given.
         created_at: Bundle timestamp.  Supply one to make a run reproducible
             byte-for-byte; the default is the current UTC second.
+        budget_line_items: Auditable donor-budget usage to bind into the
+            signed receipt.
 
     Returns:
         :class:`SignedResultBundle` when the patch is in scope and every gate
@@ -442,6 +449,7 @@ def _finish_volunteer_task(
         describing a failure.
     """
     if profile.manifest_sha256 != manifest.digest:
+        _clean_workspace(workspace)
         return VolunteerRefusal(
             reason=REASON_PROFILE_MANIFEST_MISMATCH,
             detail=(
@@ -453,6 +461,7 @@ def _finish_volunteer_task(
 
     refusal = enforce_allowed_paths(patch, manifest=manifest, workspace=workspace)
     if refusal is not None:
+        _clean_workspace(workspace)
         return refusal
 
     budget = profile.wall_clock_seconds if gate_budget_seconds is None else gate_budget_seconds
@@ -463,6 +472,7 @@ def _finish_volunteer_task(
         budget_seconds=budget,
     )
     if gate_refusal is not None:
+        _clean_workspace(workspace)
         return gate_refusal
 
     public_key = signing_key.public_key()
@@ -479,6 +489,7 @@ def _finish_volunteer_task(
         worker_keyid=keyid_from_public_key(public_key),
         worker_public_key_pem=export_public_key_pem(public_key).decode("ascii"),
         chain=provenance.chain,
+        budget_line_items=tuple(dict(item) for item in budget_line_items),
     )
     return SignedResultBundle(bundle=bundle, envelope=build_result_bundle(bundle, signing_key=signing_key))
 
@@ -589,3 +600,28 @@ def _decode(raw: bytes) -> str:
 def _utc_second() -> str:
     """Current UTC time to the second, in the spelling the bundle carries."""
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _clean_workspace(workspace: Path) -> None:
+    """Remove the worktree, best-effort and idempotent."""
+    if workspace.exists():
+        shutil.rmtree(workspace)
+
+
+def clean_room(diff: TaskDiff) -> None:
+    """Remove the worktree a volunteer run built.
+
+    Called after a refusal to clean up the runner's output, so that a donor's
+    machine is left clean regardless of whether the run passed or failed.  The
+    worktree is the runner's output, not the program's -- the output is the
+    signed bundle or the refusal record -- and discarding it here keeps the two
+    separate.
+
+    Idempotent: safe to call more than once on the same diff.
+
+    Args:
+        diff: The run's result from :func:`~bernstein.core.volunteer.runner.run_claimed_task`.
+    """
+    worktree_path = diff.worktree_path
+    if worktree_path.exists():
+        shutil.rmtree(worktree_path)

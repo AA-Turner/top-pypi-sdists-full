@@ -73,6 +73,7 @@ from bernstein.core.persistence.atomic_write import write_atomic_json
 __all__ = [
     "DEFAULT_RELAY_DIR",
     "GENESIS_PREV_HASH",
+    "MANAGER_RELAY_SECTION",
     "RELAY_VERSION",
     "RelayChainError",
     "RelayDecision",
@@ -81,10 +82,12 @@ __all__ = [
     "RelayNotFoundError",
     "RelayStore",
     "RelayValidationError",
+    "build_spawn_section",
     "canonicalise_relay",
     "compute_relay_hmac",
     "default_relay_key",
     "load_relay_key",
+    "spawn_section_for_workdir",
     "verify_chain",
 ]
 
@@ -702,6 +705,111 @@ class RelayStore:
             lines.append("_none_")
         lines.extend(["", "## Next action", "", doc.next_action or "_unset_", ""])
         return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Spawn-prompt section builder (issue #4678)
+# ---------------------------------------------------------------------------
+
+_SPAWN_SECTION_CAP = 4_000
+"""Maximum rendered bytes for the consensus section in a manager spawn prompt."""
+
+MANAGER_RELAY_SECTION = "consensus_relay"
+"""Section name both spawn paths must use, so one prompt does not differ from the other."""
+
+
+def spawn_section_for_workdir(workdir: Path) -> str:
+    """Return the manager relay section for ``workdir``, or ``""`` if there is none.
+
+    The two spawn paths resolve the same store and must not disagree about
+    where it lives or what the section is called, so the resolution lives
+    here rather than being spelled out at each call site.
+    """
+    return build_spawn_section(relay_root=workdir / ".sdd" / "runtime" / "consensus")
+
+
+def build_spawn_section(*, relay_root: Path | None = None, key: bytes | None = None) -> str:
+    """Render the latest relay entry as a bounded spawn-prompt section.
+
+    For manager-role spawns, this injects the prior cycle's decisions so
+    the new manager does not re-litigate settled questions.  The section
+    contains phase, decisions, open questions, and next action.
+
+    The section is HMAC-verified before inclusion.  If the chain is broken
+    the section is omitted and a debug notice is logged — never inject
+    content that does not verify.
+
+    The rendered output is size-capped at :data:`_SPAWN_SECTION_CAP` bytes.
+    When the cap is exceeded the section is truncated to fit.
+
+    Args:
+        relay_root: Override the relay store root path.
+            Defaults to the on-disk consensus directory.
+        key: Override the HMAC verification key.  When absent the key is
+            resolved through :func:`load_relay_key`.
+
+    Returns:
+        The consensus section string, or ``""`` when the store is empty,
+        unreadable, or chain verification fails.
+    """
+    try:
+        store = RelayStore(root=relay_root, key=key)
+        doc = store.head()
+    except (OSError, json.JSONDecodeError, RelayValidationError) as exc:
+        log.debug("build_spawn_section: relay store unreadable: %s", exc)
+        return ""
+    if doc is None:
+        return ""
+
+    # Verify the on-disk chain before trusting the content.
+    # ChainError is broad enough to cover both HMAC failures and
+    # prev_hash/link mismatches.
+    try:
+        store.verify()
+    except RelayChainError as exc:
+        log.debug("build_spawn_section: chain verification failed, omitting section: %s", exc)
+        return ""
+
+    # Render the decision-carrying fields only.
+    # ``export_markdown`` includes last_updated_ns and acknowledged which
+    # are non-deterministic and not useful in a spawn-prompt context.
+    lines: list[str] = [
+        "## Prior cycle consensus",
+        "",
+        f"- phase: {doc.phase}",
+        "",
+        "### Decisions",
+        "",
+    ]
+    if doc.decisions:
+        for d in doc.decisions:
+            lines.append(f"- **{d.title}** (confidence {d.confidence:.2f})")
+            if d.rationale:
+                lines.append(f"  - {d.rationale}")
+    else:
+        lines.append("_none_")
+
+    lines.extend(["", "### Open questions", ""])
+    if doc.open_questions:
+        for q in doc.open_questions:
+            lines.append(f"- {q}")
+    else:
+        lines.append("_none_")
+
+    lines.extend(["", "### Next action", "", doc.next_action or "_unset_"])
+
+    rendered = "\n".join(lines) + "\n"
+
+    if len(rendered.encode("utf-8")) > _SPAWN_SECTION_CAP:
+        # Truncate to the byte cap, keeping valid UTF-8.
+        rendered_bytes = rendered.encode("utf-8")
+        truncated_bytes = rendered_bytes[:_SPAWN_SECTION_CAP]
+        try:
+            rendered = truncated_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            rendered = truncated_bytes[: _SPAWN_SECTION_CAP - 3].decode("utf-8", errors="replace") + "..."
+
+    return rendered
 
 
 # ---------------------------------------------------------------------------

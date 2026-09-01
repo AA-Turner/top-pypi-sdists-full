@@ -10,6 +10,8 @@ tests/v2/test_layering.py).
 """
 from __future__ import annotations
 
+import bisect
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -22,6 +24,23 @@ from nameparser._types import AmbiguityKind, Role, Segmenter, Span
 # tokenize (separators/segmentation) and extract (close-quote
 # boundaries) cannot drift apart.
 COMMA_CHARS = frozenset({",", "\u060c", "\uff0c"})
+
+
+def comma_bucket(start: int, comma_offsets: Sequence[int]) -> int:
+    """Which comma-delimited part of the name a token starting at
+    `start` falls in: the number of commas before it.
+
+    Shared here for the reason COMMA_CHARS is, and the sharing is
+    load-bearing in the same way. segment BUILDS the segments with this
+    (comma_offsets is sorted and no offset ever equals a token start,
+    so bisect_left counts the commas before the token); classify asks
+    it to decide whether two tokens could be in one segment, which is
+    half of what stops a maiden marker run from spanning a boundary no
+    segment holds. Two tokens agree here iff segment would put them in
+    one segment, and that is an identity rather than a resemblance
+    only while both sides ask this function.
+    """
+    return bisect.bisect_left(comma_offsets, start)
 
 @dataclass(frozen=True, slots=True)
 class WorkToken:
@@ -45,6 +64,10 @@ class Structure(Enum):
 
 
 @dataclass(frozen=True, slots=True)
+# rules.md#A1: "parsing never fails on any input: where the text's
+# structure or a word's reading is genuinely uncertain, the parse
+# completes on the best reading and carries an ambiguity report
+# naming the doubt"
 class PendingAmbiguity:
     """An ambiguity recorded mid-pipeline by token INDEX; assemble
     materializes real Ambiguity objects over the final tokens.
@@ -74,14 +97,16 @@ class ParseState:
     pieces, still as sub-slices of the original, and every later index
     in the segment runs shifts by n); classify -> token tags; group ->
     pieces/piece_tags/dropped AND maiden token roles;
-    assign/post_rules -> the remaining token roles. Ambiguities are
-    recorded by every stage that DECIDES one -- extract (resolved to a
-    token index by tokenize), segment, script_segment, classify,
-    group, and assign -- since a fork whose branches are taken in
-    different stages needs an emitter in each. Post-group, segments
-    may retain indices of dropped tokens -- assign iterates pieces,
-    never segments. This ownership map is pinned by
-    tests/v2/pipeline/test_state.py.
+    assign -> the remaining token roles AND `order`, the effective
+    order it read them under; post_rules -> roles again, and the
+    ambiguity P6's attachment reports.
+    Ambiguities are recorded by every stage that DECIDES one --
+    extract (resolved to a token index by tokenize), segment,
+    script_segment, classify, group, assign, and post_rules -- since a
+    fork whose branches are taken in different stages needs an emitter
+    in each. Post-group, segments may retain indices of dropped tokens
+    -- assign iterates pieces, never segments. This ownership map is
+    pinned by tests/v2/pipeline/test_state.py.
 
     segmenter belongs to no stage: like original/lexicon/policy it is
     passed in at construction by Parser.parse and only ever READ (by
@@ -105,4 +130,17 @@ class ParseState:
     pieces: tuple[tuple[tuple[int, ...], ...], ...] = ()
     piece_tags: tuple[tuple[frozenset[str], ...], ...] = ()
     dropped: tuple[int, ...] = ()   # structural tokens (maiden markers)
+    #: The order `assign` actually READ the name under -- name_order,
+    #: or the script_orders entry that overrode it. None wherever no
+    #: positional read happened: after a family comma (which fixes the
+    #: family, so assign consults no order at all), and on every early
+    #: return in `_assign_main`, where a segment holds no name piece
+    #: to position. Recorded rather than recomputed downstream,
+    #: because the two can differ and a post_rules rule keyed on
+    #: `policy.name_order` would then disagree with the roles assign
+    #: already wrote (#395). Reaching that divergence needs a custom
+    #: lexicon -- every shipped particle is Latin, and Latin has no
+    #: script_orders entry -- which is why the test for it builds its
+    #: own (test_post_rules.py).
+    order: tuple[Role, Role, Role] | None = None
     ambiguities: tuple[PendingAmbiguity, ...] = ()

@@ -16,6 +16,7 @@ Usage::
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
         ListApprovalPoliciesPaginator,
+        ListAppsPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
         ListBrandsPaginator,
@@ -50,6 +51,7 @@ Usage::
         QuickSightClient,
         SearchActionConnectorsPaginator,
         SearchAnalysesPaginator,
+        SearchAppsPaginator,
         SearchDashboardsPaginator,
         SearchDataSetsPaginator,
         SearchDataSourcesPaginator,
@@ -69,6 +71,7 @@ Usage::
     list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
     list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
+    list_apps_paginator: ListAppsPaginator = client.get_paginator("list_apps")
     list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
     list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
     list_brands_paginator: ListBrandsPaginator = client.get_paginator("list_brands")
@@ -102,6 +105,7 @@ Usage::
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
     search_analyses_paginator: SearchAnalysesPaginator = client.get_paginator("search_analyses")
+    search_apps_paginator: SearchAppsPaginator = client.get_paginator("search_apps")
     search_dashboards_paginator: SearchDashboardsPaginator = client.get_paginator("search_dashboards")
     search_data_sets_paginator: SearchDataSetsPaginator = client.get_paginator("search_data_sets")
     search_data_sources_paginator: SearchDataSourcesPaginator = client.get_paginator("search_data_sources")
@@ -121,6 +125,7 @@ from .paginator import (
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListApprovalPoliciesPaginator,
+    ListAppsPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
     ListBrandsPaginator,
@@ -154,6 +159,7 @@ from .paginator import (
     ListUsersPaginator,
     SearchActionConnectorsPaginator,
     SearchAnalysesPaginator,
+    SearchAppsPaginator,
     SearchDashboardsPaginator,
     SearchDataSetsPaginator,
     SearchDataSourcesPaginator,
@@ -175,6 +181,7 @@ __all__ = (
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
     "ListApprovalPoliciesPaginator",
+    "ListAppsPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
     "ListBrandsPaginator",
@@ -209,6 +216,7 @@ __all__ = (
     "QuickSightClient",
     "SearchActionConnectorsPaginator",
     "SearchAnalysesPaginator",
+    "SearchAppsPaginator",
     "SearchDashboardsPaginator",
     "SearchDataSetsPaginator",
     "SearchDataSourcesPaginator",

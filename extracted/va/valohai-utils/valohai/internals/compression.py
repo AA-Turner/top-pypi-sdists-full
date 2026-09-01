@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import io
 import os
@@ -47,7 +49,9 @@ def guess_compressible(name: str) -> bool:
     if encoding:  # Likely a compression
         return False
 
-    if type and "compressed" in type:  # The mime type already says it's compressed
+    if (  # noqa: SIM103
+        type and "compressed" in type  # The mime type already says it's compressed
+    ):
         return False
 
     return True  # Okay, give it a shot!
@@ -74,7 +78,7 @@ class ZipArchive(BaseArchive, zipfile.ZipFile):
     def writestream(
         self,
         arcname: str,
-        data: Union[str, bytes, IO[bytes]],
+        data: str | bytes | IO[bytes],
         compress_type: int,
         compresslevel: int,
     ) -> None:
@@ -91,7 +95,7 @@ class ZipArchive(BaseArchive, zipfile.ZipFile):
             elif isinstance(data, bytes):
                 dest.write(data)
             else:
-                shutil.copyfileobj(data, dest, 524288)  # type: ignore[misc]
+                shutil.copyfileobj(data, dest, 524288)
         assert zinfo.file_size
 
     def put(self, archive_name: str, source: FilenameOrStream) -> None:
@@ -139,7 +143,7 @@ def open_archive(path: str) -> BaseArchive:
     if path.endswith(".tar"):
         return TarArchive.open(path, "w")
 
-    if path.endswith(".tgz") or path.endswith(".tar.gz"):
+    if path.endswith((".tgz", ".tar.gz")):
         return TarArchive.open(path, "w:gz")
 
     raise ValueError(f"Unrecognized compression format for {path}")

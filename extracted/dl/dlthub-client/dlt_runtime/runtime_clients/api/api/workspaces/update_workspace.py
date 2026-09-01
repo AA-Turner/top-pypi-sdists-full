@@ -11,6 +11,7 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.update_workspace_response_409 import UpdateWorkspaceResponse409
 from ...models.workspace_response import WorkspaceResponse
 from ...models.workspace_update_request import WorkspaceUpdateRequest
 from ...types import Response
@@ -45,6 +46,7 @@ def _parse_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | UpdateWorkspaceResponse409
     | WorkspaceResponse
     | None
 ):
@@ -73,6 +75,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = UpdateWorkspaceResponse409.from_dict(response.json())
+
+        return response_409
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -86,6 +93,7 @@ def _build_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | UpdateWorkspaceResponse409
     | WorkspaceResponse
 ]:
     return Response(
@@ -106,6 +114,7 @@ def sync_detailed(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | UpdateWorkspaceResponse409
     | WorkspaceResponse
 ]:
     """UpdateWorkspace
@@ -126,7 +135,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | UpdateWorkspaceResponse409 | WorkspaceResponse]
     """
 
     kwargs = _get_kwargs(
@@ -151,6 +160,7 @@ def sync(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | UpdateWorkspaceResponse409
     | WorkspaceResponse
     | None
 ):
@@ -172,7 +182,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | UpdateWorkspaceResponse409 | WorkspaceResponse
     """
 
     return sync_detailed(
@@ -192,6 +202,7 @@ async def asyncio_detailed(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | UpdateWorkspaceResponse409
     | WorkspaceResponse
 ]:
     """UpdateWorkspace
@@ -212,7 +223,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | UpdateWorkspaceResponse409 | WorkspaceResponse]
     """
 
     kwargs = _get_kwargs(
@@ -235,6 +246,7 @@ async def asyncio(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
+    | UpdateWorkspaceResponse409
     | WorkspaceResponse
     | None
 ):
@@ -256,7 +268,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | UpdateWorkspaceResponse409 | WorkspaceResponse
     """
 
     return (

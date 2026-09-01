@@ -308,6 +308,7 @@ __all__ = (
     "ServiceNowOAuthClientCredentialsConfigTypeDef",
     "ServiceNowServiceAuthorizationConfigTypeDef",
     "ServiceNowServiceDetailsTypeDef",
+    "SlackBidirectionalConfigurationTypeDef",
     "SlackChannelTypeDef",
     "SlackConfigurationTypeDef",
     "SlackTransmissionTargetTypeDef",
@@ -1041,6 +1042,10 @@ class ServiceNowOAuthClientCredentialsConfigTypeDef(TypedDict):
     clientSecret: str
     clientName: NotRequired[str]
     exchangeParameters: NotRequired[Mapping[str, str]]
+
+class SlackBidirectionalConfigurationTypeDef(TypedDict):
+    roleArn: str
+    enabled: NotRequired[bool]
 
 class SlackChannelTypeDef(TypedDict):
     channelId: str
@@ -1776,6 +1781,7 @@ class SlackConfigurationTypeDef(TypedDict):
     workspaceId: str
     workspaceName: str
     transmissionTarget: SlackTransmissionTargetTypeDef
+    bidirectional: NotRequired[SlackBidirectionalConfigurationTypeDef]
 
 class GetServiceOutputTypeDef(TypedDict):
     service: RegisteredServiceTypeDef

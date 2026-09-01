@@ -31,7 +31,7 @@ class SourceAdapterConfig(BaseModel):
     """
     SourceAdapterConfig
     """ # noqa: E501
-    adapter_type: StrictStr = Field(description="Adapter type: mux, iconik, generic_webhook")
+    adapter_type: StrictStr = Field(description="Adapter type. Webhook sources: mux, iconik, generic_webhook. Internal pull-based sources, which have no webhook adapter and are refresh-triggered: collection, which demotes a source collection's documents into this bucket as first-class objects (see source_collection_id and source_filters), and bucket, which fans a set of source buckets' objects into this bucket (see source_bucket_ids).")
     enabled: Optional[StrictBool] = True
     connection_id: Optional[StrictStr] = Field(default=None, description="Reference to an org-level StorageConnectionModel (conn_...). Credentials are resolved at runtime.")
     connection: Optional[ExternalConnection] = Field(default=None, description="Deprecated — use connection_id. Inline credentials for backward compat.")

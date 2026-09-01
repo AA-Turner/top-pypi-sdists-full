@@ -1,5 +1,6 @@
 """Contains all the data models used in inputs/outputs"""
 
+from .error_code import ErrorCode
 from .error_response_400 import ErrorResponse400
 from .error_response_400_extra import ErrorResponse400Extra
 from .error_response_401 import ErrorResponse401
@@ -19,6 +20,7 @@ from .workos_device_flow_start_response import WorkosDeviceFlowStartResponse
 from .workos_token_exchange_request import WorkosTokenExchangeRequest
 
 __all__ = (
+    "ErrorCode",
     "ErrorResponse400",
     "ErrorResponse400Extra",
     "ErrorResponse401",

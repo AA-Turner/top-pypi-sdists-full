@@ -877,6 +877,8 @@ class Orchestrator:
             self._spawner.set_merge_queue(self._merge_queue)
         if hasattr(self._spawner, "set_quality_gate_config"):
             self._spawner.set_quality_gate_config(self._quality_gate_config)
+        if hasattr(self._spawner, "set_run_id"):
+            self._spawner.set_run_id(self._run_id)
 
         # Convergence guard: blocks spawn waves when merge queue, active
         # agent count, error rate, or spawn rate exceed safe thresholds.
@@ -3058,6 +3060,19 @@ class Orchestrator:
         except OSError as exc:
             logger.warning("failed to write .finalized marker: %s", exc)
 
+    def _pace(self, seconds: float) -> None:
+        """Sleep between ticks. The run loop's only pacing seam.
+
+        ``time.sleep`` is one function object shared by the whole process,
+        so a test that patches it observes every sleep anything performs
+        while ``run()`` is on the stack - including CPython's own
+        ``subprocess.Popen`` reaping loop, whose 1ms/2ms/4ms/8ms busy-wait
+        lands in the record before the loop's first tick has paced at all.
+        Routing the loop's pacing through one method lets a test watch the
+        schedule this loop chooses and nothing else.
+        """
+        time.sleep(seconds)
+
     def run(self) -> None:
         """Run the orchestrator loop until stopped.
 
@@ -3132,6 +3147,63 @@ class Orchestrator:
                 )
         except Exception:
             logger.exception("Audit integrity check failed (non-fatal) - continuing startup")
+
+        # Run-scope code graph anchoring: build the graph once at run start
+        # and anchor its digest in the audit chain before any agents spawn.
+        # This ensures audit-chain integrity for graph-dependent operations
+        # and provides a verifiable record of the repository state at run time.
+        try:
+            from bernstein.core.knowledge.ast_symbol_graph import (
+                EDGE_ORIGIN_EXTRACTED,
+                EDGE_ORIGIN_INFERRED,
+                build_semantic_graph,
+                graph_digest,
+            )
+            from bernstein.core.orchestration.schedule_projection import SCHEDULE_PROJECTION_REV
+            from bernstein.core.security.audit import load_or_create_audit_key
+            from bernstein.core.security.audit_chain import AuditChainStore, record_code_graph_anchored
+
+            # Build the semantic graph once for this run (run-scoped cache)
+            graph = build_semantic_graph(self._workdir)
+            graph_digest_val = graph_digest(graph)
+            source_count = graph.source_file_count
+            indexed_count = graph.indexed_file_count
+            unparsed_count = len(getattr(graph, "unparsed_files", []))
+            all_edges = graph.edges
+            inferred_count = sum(1 for e in all_edges if e.origin == EDGE_ORIGIN_INFERRED)
+            extracted_count = sum(1 for e in all_edges if e.origin == EDGE_ORIGIN_EXTRACTED)
+
+            # Initialize provider audit chain if not already done
+            if self._provider_audit_chain is None:
+                hmac_key = load_or_create_audit_key(self._workdir / ".sdd")
+                self._provider_audit_chain = AuditChainStore(self._workdir / ".sdd" / "audit", key=hmac_key)
+
+            # Anchor the code graph digest in the audit chain
+            record_code_graph_anchored(
+                chain=self._provider_audit_chain,
+                run_id=self._run_id,
+                graph_digest=graph_digest_val,
+                graph_version=SCHEDULE_PROJECTION_REV,
+                source_file_count=source_count,
+                indexed_file_count=indexed_count,
+                unparsed_file_count=unparsed_count,
+                inferred_edge_count=inferred_count,
+                extracted_edge_count=extracted_count,
+                actor="orchestrator",
+            )
+            logger.info(
+                "Code graph anchored in audit chain: digest=%s, source=%d, indexed=%d, "
+                "unparsed=%d, inferred=%d, extracted=%d",
+                graph_digest_val[:16],
+                source_count,
+                indexed_count,
+                unparsed_count,
+                inferred_count,
+                extracted_count,
+            )
+        except Exception as exc:
+            logger.warning("Code graph anchoring failed (non-fatal): %s", sanitize_log(str(exc)))
+
         # Zombie cleanup: terminate orphaned agent processes from prior crashed runs.
         try:
             from bernstein.core.zombie_cleanup import scan_and_cleanup_zombies
@@ -3175,15 +3247,15 @@ class Orchestrator:
             server_failures = getattr(self, "_consecutive_server_failures", 0)
             if server_failures > 0:
                 # Backoff: 5s, 10s, 15s, 20s, 30s (capped)
-                time.sleep(min(5.0 * server_failures, 30.0))
+                self._pace(min(5.0 * server_failures, 30.0))
             elif tick_result is not None and (
                 tick_result.spawned or tick_result.verified or tick_result.retried or tick_result.open_tasks > 0
             ):
                 self._idle_multiplier = 1
-                time.sleep(self._config.poll_interval_s)
+                self._pace(self._config.poll_interval_s)
             else:
                 self._idle_multiplier = min(self._idle_multiplier * 2, 8)
-                time.sleep(min(self._config.poll_interval_s * self._idle_multiplier, 30.0))
+                self._pace(min(self._config.poll_interval_s * self._idle_multiplier, 30.0))
 
             # Hot-reload bernstein.yaml config (mutable fields only)
             self._maybe_reload_config()
@@ -3285,8 +3357,51 @@ class Orchestrator:
             logger.warning("Failed to seal journal head into lineage spine: %s", sanitize_log(str(exc)))
             logger.warning("Run receipt not written for run %s: journal-head seal failed", self._run_id)
         else:
+            # Here rather than beside the seal call above: the receipt binds
+            # the spine head as it stands when the receipt is built, so rows
+            # appended after the seal are still covered -- the intent-capsule
+            # seal already relies on that. Inside the try, a provenance
+            # failure would be reported as a seal failure and would withhold
+            # the receipt, which inverts what each one is worth.
+            self._record_run_branch_provenance(hmac_key)
             self._seal_intent_capsules(hmac_key)
             self._write_run_receipt()
+
+    def _record_run_branch_provenance(self, hmac_key: bytes) -> None:
+        """Record a lineage row per path this run's branch added (issue #2789).
+
+        The merge boundary in ``spawner_merge`` covers work that arrives
+        through the orchestrator's own merge. Work also reaches a run branch
+        by direct commit and by a supervisor folding a worktree in outside
+        the orchestrator, and a hook on the merge alone leaves those runs
+        with a spine holding nothing the run produced -- the same shape of
+        gap, one path over.
+
+        Failures are logged, never raised: the branch is durable in git and
+        every row is re-derivable from it, so a provenance write that fails
+        must not fail a run that already completed.
+        """
+        try:
+            from bernstein.core.git.git_basic import is_git_repo, resolve_default_branch
+            from bernstein.core.lineage.merge_provenance import record_run_branch_artifacts
+
+            # A workdir that is not a work tree has no branch to read, so
+            # there is nothing to record. Stating that here keeps every such
+            # run from spawning git only to have it fail, and from logging a
+            # warning about a condition that is ordinary rather than wrong.
+            if not is_git_repo(self._workdir):
+                return
+
+            record_run_branch_artifacts(
+                worktree_root=self._workdir,
+                actor="orchestrator",
+                lineage_root=self._workdir / ".sdd" / "lineage",
+                run_id=self._run_id,
+                hmac_key=hmac_key,
+                default_branch=resolve_default_branch(self._workdir),
+            )
+        except Exception as exc:
+            logger.warning("Run-branch provenance not recorded for run %s: %s", self._run_id, sanitize_log(str(exc)))
 
     def _write_run_receipt(self) -> None:
         """Write the signed run receipt at finalization (issue #2924).
@@ -4873,6 +4988,10 @@ class Orchestrator:
         if not all_files:
             return False
 
+        held_by: dict[str, str] = {}
+        lock_timestamps: dict[str, float] = {}
+        conflict = False
+
         # In-memory ownership check - filters out dead agents explicitly.
         for fpath in all_files:
             owner_id = self._file_ownership.get(fpath)
@@ -4884,7 +5003,8 @@ class Orchestrator:
                         fpath,
                         owner_id,
                     )
-                    return True
+                    held_by[fpath] = owner_id
+                    conflict = True
 
         # Persistent lock check (survives crashes via FileLockManager TTL).
         conflicts = self._lock_manager.check_conflicts(all_files)
@@ -4896,8 +5016,48 @@ class Orchestrator:
                     lock.agent_id,
                     lock.task_id,
                 )
+                held_by[fpath] = lock.agent_id
+                lock_timestamps[lock.agent_id] = min(lock.locked_at, lock_timestamps.get(lock.agent_id, lock.locked_at))
+                conflict = True
+
+        if conflict:
+            detector = self._loop_detector
+            if detector:
+                waiting_agent = self.resolve_waiting_agent(batch[0].parent_task_id if batch else None)
+                if waiting_agent:
+                    detector.record_lock_wait(
+                        waiting_agent_id=waiting_agent,
+                        wanted_files=all_files,
+                        held_by=held_by,
+                        lock_timestamps=lock_timestamps if lock_timestamps else None,
+                    )
             return True
+
         return False
+
+    def resolve_waiting_agent(self, parent_task_id: str | None) -> str | None:
+        """Return the agent id waiting on ``parent_task_id``, or ``None``.
+
+        Recording a wait and clearing it must key on the same id, or the
+        wait-for graph keeps an entry nothing can ever remove -- the leak
+        this wiring exists to avoid. One resolver, called from both sides,
+        is what keeps them from drifting apart.
+
+        Returns ``None`` rather than substituting a task id when no agent
+        owns the task: a task id can never close a cycle in a graph whose
+        every target is an agent id, so an invented node is a permanent
+        non-participant, not a conservative default.
+        """
+        if not parent_task_id:
+            return None
+        owner = self._task_to_session.get(parent_task_id)
+        if owner:
+            return owner
+        for sessions in (self._agents, self._batch_sessions):
+            for session in sessions.values():
+                if parent_task_id in session.task_ids:
+                    return session.id
+        return None
 
     def _should_auto_decompose(self, task: Task) -> bool:
         """Delegate to task_lifecycle.should_auto_decompose."""

@@ -102,7 +102,7 @@ def sync_detailed(
 
     Gets the plan for an organization.
 
-    Returns the plan type and trial status.
+    Returns the plan type, limits, and trial status.
 
     Requires READ permission on the organization level.
 
@@ -145,7 +145,7 @@ def sync(
 
     Gets the plan for an organization.
 
-    Returns the plan type and trial status.
+    Returns the plan type, limits, and trial status.
 
     Requires READ permission on the organization level.
 
@@ -182,7 +182,7 @@ async def asyncio_detailed(
 
     Gets the plan for an organization.
 
-    Returns the plan type and trial status.
+    Returns the plan type, limits, and trial status.
 
     Requires READ permission on the organization level.
 
@@ -223,7 +223,7 @@ async def asyncio(
 
     Gets the plan for an organization.
 
-    Returns the plan type and trial status.
+    Returns the plan type, limits, and trial status.
 
     Requires READ permission on the organization level.
 

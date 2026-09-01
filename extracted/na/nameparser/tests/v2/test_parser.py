@@ -1,5 +1,6 @@
 import dataclasses
 import pickle
+import re
 import unicodedata
 
 import pytest
@@ -43,7 +44,7 @@ def test_parse_rejects_non_str_with_decode_hint() -> None:
 
 
 def test_degenerate_inputs_are_total() -> None:
-    # spec §5a table
+    # the quote-pair defaults table (rule N2's conventions)
     assert not parse("")
     assert not parse("   ")
     assert parse("").original == ""
@@ -147,6 +148,16 @@ def test_family_first_given_last_places_middle_between() -> None:
     assert (pn.family, pn.middle, pn.given) == ("Zeng", "Xiao", "Long")
 
 
+def test_ambiguous_particle_middle_defeats_both_family_first_orders() -> None:
+    # the vocabulary layer joins the ambiguous particle "van" forward
+    # before the positional layer runs, so a name whose middle word
+    # collides with it parses identically under either family-first
+    # order -- the caution in customize.rst rests on this
+    for order in (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST):
+        pn = Parser(policy=Policy(name_order=order)).parse("Nguyen Van Minh")
+        assert (pn.family, pn.middle, pn.given) == ("Nguyen", "", "Van Minh")
+
+
 def test_multiple_unbalanced_delimiters_each_reported() -> None:
     # T4: the extract scan continues past the first unmatched opener;
     # each one is reported and treated as literal text
@@ -243,6 +254,26 @@ def test_ambiguous_acronym_detail_names_the_role_it_got() -> None:
     assert "family name" not in n.ambiguities[0].detail
 
 
+def test_leading_particle_detail_names_the_role_it_got() -> None:
+    # the same requirement as the acronym above, for the other kind:
+    # `detail` is public output, so the role it names has to survive
+    # assembly into ParsedName under a non-default order, not just be
+    # right where _assign builds it
+    fam_first = Parser(policy=Policy(name_order=FAMILY_FIRST))
+    n = fam_first.parse("Van Johnson")
+    assert (n.family, n.given) == ("Van", "Johnson")
+    (amb,) = n.ambiguities
+    assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+    assert amb.detail == (
+        "leading 'Van' may be a family-name particle; "
+        "read as a family name")
+    # the default order is untouched by that change
+    (default,) = parse("Van Johnson").ambiguities
+    assert default.detail == (
+        "leading 'Van' may be a family-name particle; "
+        "read as a given name")
+
+
 def test_trailing_roman_numeral_reports_the_fork() -> None:
     # a trailing single letter is a name part unless it happens to be a
     # roman numeral, in which case it is silently reclassified -- and
@@ -258,22 +289,172 @@ def test_trailing_roman_numeral_reports_the_fork() -> None:
     assert parse("John Q. V").ambiguities == ()
 
 
+#: The words the _group-emitter tests below spell, apart from the
+#: by-construction test, which invents its own. The emitter asks two
+#: DIFFERENT things of two different words. Measured against
+#: "Freiherr von Richthofen", one membership dropped at a time:
+#:
+#:   leading word ('Freiherr')  titles & PARTICLES, and the two halves
+#:       buy different things. Without `particles` there is no CHAIN --
+#:       'von' is the leading name piece again (given='von',
+#:       family='Richthofen') and _assign reports the fork. Without
+#:       `titles` the chain still happens (family='von Richthofen') but
+#:       this emitter's `all(title(x) for x in range(k))` guard fails,
+#:       so the REPORT is lost and _assign reports a fork about
+#:       'Freiherr' instead. The merge sits outside that guard.
+#:       Its `particles_ambiguous` membership is irrelevant either way,
+#:       pinned by control 3 in the test below.
+#:   chained word ('von')       PARTICLES_AMBIGUOUS. Drop it and the
+#:       chain still happens (family='von Richthofen') but no fork is
+#:       reported -- an unambiguous particle is not a decision.
+#:
+#: The distinction matters because this file used to assert
+#: `titles & particles_ambiguous` for the LEADING word, which is the
+#: wrong set. It reads as correct only because the two intersections are
+#: the same three words today. #360 moves words between the may-be-given
+#: and never-given halves of the particle vocabulary; both halves are
+#: subsets of `particles`, so it cannot empty `titles & particles` and
+#: cannot orphan this emitter.
+#:
+#: Both roles are supplied rather than borrowed, because reachability is
+#: a property of the EMITTER, not of the shipped word lists: a caller may
+#: configure the overlap themselves, and no `Lexicon` invariant forbids
+#: it -- constructing one emits no warning. Supplying only the leading
+#: half would leave the tests coupled to #360 through the chained word,
+#: which is the bug the first cut of this commit shipped.
+#:
+#: What the SHIPPED vocabulary reaches is a separate claim, pinned in
+#: tests/v2/cases.py's "Freiherr von Richthofen" row. Note that row
+#: tracks the PARSE, not the memberships: moving `freiherr` between the
+#: particle halves leaves it green, and only a change to the leading
+#: word's `titles`/`particles` membership, or to `von`'s ambiguous one,
+#: moves it.
+_TITLE_PARTICLES = frozenset({"freiherr", "do", "st"})
+
+#: The words those tests CHAIN. Disjoint from the leading set on purpose
+#: -- the two roles need different memberships, and holding them apart is
+#: what keeps that legible.
+_CHAINED_PARTICLES = frozenset({"von", "van"})
+
+
+def _overlap_parser(policy: Policy | None = None) -> Parser:
+    """A Parser whose lexicon gives each word the memberships its ROLE
+    needs, whatever the shipped data says today: the leading words become
+    titles and particles, the chained words ambiguous particles.
+
+    `particles` covers both because `_SUBSET_FIELDS` requires
+    `particles_ambiguous <= particles`; the leading words are deliberately
+    NOT made ambiguous, since that membership does nothing for them and
+    asserting it is how the wrong set got written down in the first place.
+    """
+    lex = Lexicon.default().add(
+        titles=_TITLE_PARTICLES,
+        particles=_TITLE_PARTICLES | _CHAINED_PARTICLES,
+        particles_ambiguous=_CHAINED_PARTICLES,
+    )
+    return Parser(lexicon=lex, policy=policy or Policy())
+
+
+def test_the_chained_emitter_is_reachable_by_construction() -> None:
+    """_group's PARTICLE_OR_GIVEN emitter fires when a piece that is both a
+    title and a PARTICLE sits ahead of the chained particle.
+
+    Asserted against a lexicon built here, so what it pins is the emitter
+    rather than today's word lists. Three controls carry the weight, one
+    per membership the claim rests on: drop the leading word's `particles`
+    and the chain is gone; drop the chained word's `particles_ambiguous`
+    and the report is gone; drop the leading word's `particles_ambiguous`
+    and nothing moves at all -- which is the whole correction, since
+    asserting THAT membership is what this file used to do.
+
+    If this test fails, the emitter is gone or broken, or one of the two
+    words this test builds has lost a membership it supplies itself. An
+    empty `titles & particles_ambiguous` in the SHIPPED vocabulary does
+    not fail it and does not mean the emitter is unreachable.
+    """
+    word = "zzoverlap"
+    base = Lexicon.default().add(
+        particles=_CHAINED_PARTICLES, particles_ambiguous=_CHAINED_PARTICLES)
+    overlap = base.add(titles={word}, particles={word})
+    text = f"{word} van Johnson"
+
+    # the emitter, reached by construction
+    chained = Parser(lexicon=overlap).parse(text)
+    assert (chained.given, chained.family) == ("", "van Johnson")
+    (amb,) = chained.ambiguities
+    assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+    assert amb.detail == (
+        "'van' was chained onto the following name piece; "
+        "it is also a given name in other names")
+
+    # control 1 -- leading word a plain title, NOT a particle: no chain
+    # at all, and _assign reports the other side of the same fork.
+    title_only = Parser(lexicon=base.add(titles={word})).parse(text)
+    assert (title_only.given, title_only.family) == ("van", "Johnson")
+    assert [a.detail for a in title_only.ambiguities] == [
+        "leading 'van' may be a family-name particle; read as a given name"]
+
+    # control 2 -- overlap intact but the CHAINED word unambiguous: the
+    # chain still fires, so the parse matches, and the only difference is
+    # that there is no decision left to report. Without this control the
+    # assertion above could not tell "the emitter ran" from "the chain
+    # happened to produce this grouping".
+    unambiguous = dataclasses.replace(
+        overlap, particles_ambiguous=overlap.particles_ambiguous - {"van"})
+    quiet = Parser(lexicon=unambiguous).parse(text)
+    assert (quiet.given, quiet.family) == (chained.given, chained.family)
+    assert quiet.ambiguities == ()
+
+    # control 3 -- the leading word made ambiguous as well, which is the
+    # membership the deleted guard test asserted. Byte-identical to the
+    # treatment, fork included: it buys the emitter nothing. This is the
+    # executable half of the correction; without it the claim that
+    # `titles & particles` is the right set lives only in a comment, and
+    # a fixture supplying all three sets could never contradict it.
+    also_ambiguous = overlap.add(particles_ambiguous={word})
+    same = Parser(lexicon=also_ambiguous).parse(text)
+    assert (same.given, same.family) == (chained.given, chained.family)
+    assert [a.detail for a in same.ambiguities] == [amb.detail]
+
+
 def test_ambiguous_particle_reports_both_branches_of_its_fork() -> None:
-    # "Van Johnson" reads Van as a given name and says so. A leading
-    # title shifts Van off index 0, the prefix-chain merge fires, and
-    # Van becomes a particle instead -- the SAME fork, called the other
-    # way. The two branches are taken in different stages (_assign vs
-    # _group), so only the one with an emitter used to report.
-    given_reading = parse("Van Johnson")
-    assert given_reading.given == "Van"
+    # "von Richthofen" reads von as a given name and says so. Put a
+    # piece in front of it that is BOTH a title and a particle and von
+    # is no longer the name's leading piece, the prefix-chain merge
+    # fires, and von becomes a particle instead -- the SAME fork,
+    # called the other way. The two branches are taken in different
+    # stages (_assign vs _group), so only the one with an emitter used
+    # to report.
+    #
+    # Spelled with 'Freiherr' rather than the 'Dr.' this test used
+    # until 2.2: an ordinary title is now transparent to the
+    # leading-particle exception (#367), so "Dr. Van Johnson" takes the
+    # _assign branch like everything else. `freiherr`/`st`/`do` -- a
+    # title that could also be the name's own first piece -- is what
+    # still reaches _group's emitter. This is the canonical spelling of
+    # that, not the only one: "St Van Johnson", "Do St Johnson" and
+    # "Dr. Do van Johnson" reach it as well.
+    #
+    # Parsed through _overlap_parser so the memberships are supplied
+    # rather than borrowed -- see _TITLE_PARTICLES.
+    p = _overlap_parser()
+    given_reading = p.parse("von Richthofen")
+    assert given_reading.given == "von"
     assert [a.kind for a in given_reading.ambiguities] == \
         [AmbiguityKind.PARTICLE_OR_GIVEN]
 
-    particle_reading = parse("Dr. Van Johnson")
-    assert particle_reading.family == "Van Johnson"
+    particle_reading = p.parse("Freiherr von Richthofen")
+    assert particle_reading.family == "von Richthofen"
     assert [a.kind for a in particle_reading.ambiguities] == \
         [AmbiguityKind.PARTICLE_OR_GIVEN]
-    assert [t.text for t in particle_reading.ambiguities[0].tokens] == ["Van"]
+    assert [t.text for t in particle_reading.ambiguities[0].tokens] == ["von"]
+    # and the branch the title no longer takes: "Dr. Van Johnson" is
+    # now byte-identical to the bare "Van Johnson", fork included
+    titled, bare = p.parse("Dr. Van Johnson"), p.parse("Van Johnson")
+    assert (titled.given, titled.family) == (bare.given, bare.family) \
+        == ("Van", "Johnson")
+    assert [a.detail for a in titled.ambiguities] == \
+        [a.detail for a in bare.ambiguities]
 
 
 def test_unambiguous_particle_chain_reports_nothing() -> None:
@@ -281,31 +462,303 @@ def test_unambiguous_particle_chain_reports_nothing() -> None:
     assert parse("Dr. de la Vega").ambiguities == ()
 
 
+def test_bound_given_name_that_is_also_a_particle() -> None:
+    # The one case #367 regressed, restored by #369 for the right
+    # reason. Through 2.1 it read correctly only because the title
+    # displaced 'abu' out of the leading position and the prefix chain
+    # claimed 'Bakar' -- a side effect of the #367 bug, not a rule. Now
+    # the bound given-name join reads it: "Sheik" is a given-name
+    # title, which licenses the join with one word to spare
+    # (rules.md#P5), so the particle never enters into it -- and a
+    # bound word read as the bound word is not a fork, so the
+    # PARTICLE_OR_GIVEN report the chain used to emit is gone. The
+    # same precedence, untitled, is what "Abu Bakar Salim" has always
+    # had; where the reserve blocks the join, P4 and its report stand.
+    titled = parse("Sheik Abu Bakar")
+    assert (titled.given, titled.ambiguities) == ("Abu Bakar", ())
+    assert parse("Abu Bakar Salim").ambiguities == ()
+    assert [a.kind for a in parse("Abu Bakar").ambiguities] == \
+        [AmbiguityKind.PARTICLE_OR_GIVEN]
+
+
+def test_a_given_name_title_licenses_the_bound_given_join() -> None:
+    # rules.md#P5 (#369): the contrast #367's release note draws --
+    # "Sheik abdul salam", whose lead is a bound given name and NOT a
+    # particle -- now joins the same way, and for the same reason. A
+    # plain title does not license it: "Dr." addresses by family, so
+    # the second word stays the family name.
+    licensed = parse("Sheik abdul salam")
+    assert (licensed.title, licensed.given, licensed.family) == \
+        ("Sheik", "abdul salam", "")
+    plain = parse("Dr. abdul salam")
+    assert (plain.title, plain.given, plain.family) == \
+        ("Dr.", "abdul", "salam")
+    # and the pair's report: a bound word read as the bound word is
+    # not a fork, so the pick 'Sheik John Ma' reports is not reported
+    # for 'Sheik abdul Ma' (decisions.md#P5, the #369 precedent)
+    assert parse("Sheik abdul Ma").ambiguities == ()
+    assert [a.kind for a in parse("Sheik John Ma").ambiguities] == \
+        [AmbiguityKind.SUFFIX_OR_NAME]
+
+
+def test_the_bound_given_reserve_spares_the_family_assign_will_keep() -> None:
+    # #401: the reserve asks whether a family name survives the join,
+    # and the only right answer is the one assign gives. 'V' is the
+    # suffix there, so there is no word to spare -- and behind a
+    # given-name title (#369's licence) the same count declines.
+    n = parse("abdul Smith V")
+    assert (n.given, n.family, n.suffix) == ("abdul", "Smith", "V")
+    assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SUFFIX_OR_NAME]
+    licensed = parse("Sir abdul V")
+    assert (licensed.given, licensed.family, licensed.suffix) == \
+        ("abdul", "", "V")
+
+
+def test_the_bound_given_join_leaves_a_suffix_where_it_stands() -> None:
+    # #421: the join declines a suffix piece, so an inner suffix goes
+    # where it goes for any given name -- 'John Jr Smith Berg' reads
+    # middle 'Jr Smith' -- and the split credential is a suffix again,
+    # which is 1.4.0's reading restored.
+    n = parse("abdul Jr Smith Berg")
+    assert (n.given, n.middle, n.family, n.suffix) == \
+        ("abdul", "Jr Smith", "Berg", "")
+    n = parse("abdul Ph. D. Smith Berg")
+    assert (n.given, n.middle, n.family, n.suffix) == \
+        ("abdul", "Smith", "Berg", "Ph. D.")
+    # after a family comma the decline holds under the LENIENT reserve
+    n = parse("Berg, abdul Jr Smith")
+    assert (n.given, n.middle, n.family, n.suffix) == \
+        ("abdul", "Smith", "Berg", "Jr")
+
+
+def test_the_reserve_declines_and_assign_reads_the_unjoined_pieces() -> None:
+    # 'abdul J. V': the reserve reads the V as the suffix it would be
+    # behind the joined pair, declines, and assign then sees the
+    # unjoined pieces and reads the V as the family -- exactly as it
+    # reads 'John J. V'. Decided, not accidental (decisions.md#P5).
+    for text in ("abdul J. V", "John J. V"):
+        n = parse(text)
+        assert (n.middle, n.family, n.suffix) == ("J.", "V", "")
+    # and behind a merged credential, which assign drops from its walk
+    # so the V is last in it, the family survives
+    n = parse("abdul Smith V Ph. D.")
+    assert (n.given, n.family, n.suffix) == ("abdul", "Smith", "V, Ph. D.")
+
+
+def test_the_reserve_spares_the_family_the_acronym_fork_would_take() -> None:
+    # #425: with a suffix word between the pair and a bare ambiguous
+    # acronym, assign peels the acronym (three pieces, words to spare)
+    # and then the suffix, and the family the join left was never
+    # there. The reserve now runs assign's peel over the joined view
+    # and declines, so these read as their ordinary-given twins.
+    for bound, plain in (("abdul Smith Jr Ma", "John Smith Jr Ma"),
+                         ("abdul Rahman PhD MA", "John Rahman PhD MA")):
+        n, m = parse(bound), parse(plain)
+        assert (n.family, n.suffix) == (m.family, m.suffix)
+        assert n.family != ""
+    n = parse("abu Bakar Jr Ed")
+    assert (n.family, n.suffix) == ("Bakar", "Jr, Ed")
+    # and the join never turns a suffix into a name: unjoined, the
+    # acronym is a credential with words to spare, so 'abdul Smith
+    # Ma' reads as 'John Smith Ma' does (1.4.0 parity restored)
+    n, m = parse("abdul Smith Ma"), parse("John Smith Ma")
+    assert (n.family, n.suffix) == (m.family, m.suffix) == ("Smith", "Ma")
+
+
+def test_a_joined_pair_is_never_peeled_as_a_title() -> None:
+    # The conjunction merge derives a title tag for 'Sheikh and Ahmad';
+    # the bound join takes the piece (a mid-name title word is a name
+    # word, as 1.4.0 read it) and the pair must stay the given name,
+    # not inherit the tag and be peeled as a leading title.
+    n = parse("abdul Sheikh and Ahmad Bakar")
+    assert (n.title, n.given, n.family) == \
+        ("", "abdul Sheikh and Ahmad", "Bakar")
+    # the title-word class: name words to P5, as v1 read them --
+    # parity restored for the post-comma shape, never lost for the
+    # main-walk one
+    n = parse("abdul Sir Smith Berg")
+    assert (n.given, n.middle, n.family) == ("abdul Sir", "Smith", "Berg")
+    n = parse("Berg, abdul Sir")
+    assert (n.given, n.family) == ("abdul Sir", "Berg")
+
+
+def test_the_licence_does_not_lift_the_equality() -> None:
+    # Behind a given-name title the reserve needs one name piece, so
+    # "changes no suffix reading" is the only thing between 'Sir abdul
+    # J. V' and a join that turns the V from a name word into the
+    # suffix (#369 had joined it). It reads exactly as 'Sir John J. V'
+    # does.
+    for text in ("Sir abdul J. V", "Sir John J. V"):
+        n = parse(text)
+        assert (n.middle, n.family, n.suffix) == ("J.", "V", "")
+
+
+def test_the_chain_and_the_walk_stop_where_the_peel_begins() -> None:
+    # #424: the third and fourth sites that asked "is this a suffix?"
+    # with the initial-vetoed test. Each reads as its ordinary twin
+    # ('John Smith V', 'John Smith Ma') reads.
+    for text, family, suffix in (
+            ("John van der Berg V", "van der Berg", "V"),
+            ("John van der Berg X", "van der Berg", "X"),
+            ("abdul van der Berg V", "van der Berg", "V"),
+            ("John van der Berg Ma", "van der Berg", "Ma")):
+        n = parse(text)
+        assert (n.family, n.suffix) == (family, suffix), text
+    n = parse("John née Jones Smith V")
+    assert (n.maiden, n.suffix) == ("Jones Smith", "V")
+    n = parse("Jane Smith née Jones V")
+    assert (n.family, n.maiden, n.suffix) == ("Smith", "Jones", "V")
+    # the numeral must read as the suffix as the take leaves the name
+    # too: an initial before the marker vetoes the fork, so the walk
+    # keeps the V as maiden text rather than hand it to the family
+    n = parse("J. née Jones Smith V")
+    assert (n.family, n.maiden, n.suffix) == ("", "Jones Smith V", "")
+    # an unlisted abbreviation is as transparent to the leading
+    # particle as a listed title (H2 meets #367), so the acronym fork
+    # counts the same pieces in group and in assign
+    for abbrev in ("Xyz.", "Dr."):
+        n = parse(f"{abbrev} van Berg MA")
+        assert (n.given, n.family, n.suffix) == ("van", "Berg", "MA"), abbrev
+        n = parse(f"{abbrev} van Johnson")
+        assert (n.given, n.family) == ("van", "Johnson"), abbrev
+        n = parse(f"{abbrev} abdul John Smith")
+        assert (n.given, n.middle) == ("abdul John", ""), abbrev
+    # behind a title-and-particle word the chain takes the name's first
+    # word (#367), and the acronym it leaves has no words to spare for
+    # assign: the chain keeps it rather than leave it as the family
+    n = parse("Freiherr von Berg MA")
+    assert (n.title, n.family, n.suffix) == ("Freiherr", "von Berg MA", "")
+    # the numeral keeps its three pieces behind the same word, and the
+    # chain, now the one name piece, reads as 'Dr. Smith V' reads
+    n = parse("Freiherr von Richthofen V")
+    assert (n.given, n.family, n.suffix) == ("", "von Richthofen", "V")
+    n = parse("Dr. Smith V")
+    assert (n.given, n.family, n.suffix) == ("", "Smith", "V")
+    # the walk takes the numeral only: an acronym between the maiden
+    # name and the numeral is maiden text
+    n = parse("Jane Smith née Jones Ma V")
+    assert (n.maiden, n.suffix) == ("Jones Ma", "V")
+
+
+def test_the_numeral_fork_fires_on_the_last_piece_only() -> None:
+    # The shared peel's own contract, pinned at the stage that owns
+    # it: a numeral with a suffix behind it is a name word, for an
+    # ordinary given name and the bound pair alike.
+    for text, family in (("John Smith V Jr", "V"),
+                         ("abdul Smith V Jr", "V")):
+        n = parse(text)
+        assert (n.family, n.suffix) == (family, "Jr")
+
+
+@pytest.mark.parametrize("bound", ["abd", "abu"])
+@pytest.mark.parametrize("numeral", ["I", "X"])
+def test_every_bound_word_spares_the_family_before_every_numeral(
+        bound: str, numeral: str) -> None:
+    # The release log's claim: I and X as well as V, and the bound
+    # words that are ALSO suffix vocabulary ('abd') or an ambiguous
+    # particle ('abu') -- the dual-vocabulary paths where a veto could
+    # hide. Two name words behind the bound word, so the join fires.
+    n = parse(f"{bound} Allah Smith {numeral}")
+    assert (n.given, n.family, n.suffix) == (f"{bound} Allah", "Smith", numeral)
+
+
+@pytest.mark.parametrize("title", [
+    "Sir", "Sheikh", "King", "الشيخ", "Dr.", "Mr.", "Mr. Sir", "Sir Dr.",
+    "Sir and Dame", "Mr. and Mrs.", "Sheik and Mrs"])
+def test_the_p5_licence_and_h1_read_a_title_run_the_same_way(
+        title: str) -> None:
+    # The licence's one invariant, as a contract: P5 lifts the reserve
+    # behind a title run exactly when H1 keeps the one word after that
+    # run a given name. Both key the run through _title_key; if either
+    # side's key construction drifted, a run P5 licensed that H1 then
+    # read as title-plus-family would hand the joined pair to the
+    # family. So "no family" must agree, run by run.
+    assert (parse(f"{title} John").family == "") == \
+        (parse(f"{title} abdul rahman").family == "")
+
+
+# The first three reach the chain loop and decline inside it: the piece
+# after the particle is a suffix, so the scan never advances and merge()
+# is a no-op -- nothing was chained, no fork taken. They are spelled with
+# a title that is ALSO a particle ('Do', 'St'), because that is what
+# still puts an ambiguous particle off the name's leading position since
+# #367. The last three are the same strings with a plain title, which
+# now decline one step earlier -- the particle IS the leading name piece
+# and the loop skips it -- and are kept so the pair stays visible: two
+# different reasons, one output, and neither may start reporting a fork.
 @pytest.mark.parametrize("text", [
-    "Dr. Van Jr.",      # the piece after the particle is a suffix, so
-    "Dr. Van MD",       # the chain scan never advances and merge() is
-    "Dr. Do Jr.",       # a no-op -- nothing was chained, no fork taken
+    "Do Van Jr.", "Do Van MD", "St Van Jr.",
+    "Dr. Van Jr.", "Dr. Van MD", "Dr. Do Jr.",
 ])
 def test_no_op_prefix_chain_is_not_a_fork(text: str) -> None:
-    assert parse(text).ambiguities == ()
+    assert _overlap_parser().parse(text).ambiguities == ()
 
 
 def test_a_fork_is_reported_by_exactly_one_stage() -> None:
     # the no-op merge left the particle a lone leading piece, which is
-    # _assign's trigger, so both stages reported the same token
-    n = parse("Dr. Van Jr Smith")
+    # _assign's trigger, so both stages reported the same token.
+    # 'Do' rather than the 'Dr.' this used until 2.2, for the reason
+    # above: with a plain title the chain loop never fires at all now,
+    # so the double-report it guards against is out of reach there.
+    n = _overlap_parser().parse("Do Van Jr Smith")
     assert n.given == "Van"
     assert len(n.ambiguities) == 1
 
 
 def test_chained_particle_detail_does_not_claim_a_role() -> None:
     # _group runs before assignment, so it cannot know which field the
-    # chained piece lands in -- "Dr. Van Johnson de la Cruz" puts it in
-    # GIVEN. The detail must describe the decision, not guess a role.
-    n = parse("Dr. Van Johnson de la Cruz")
-    assert n.given == "Van Johnson"
+    # chained piece lands in -- "Freiherr von Richthofen de la Cruz"
+    # puts it in GIVEN, while the bare "Freiherr von Richthofen" above
+    # puts it in FAMILY. The detail must describe the decision, not
+    # guess a role.
+    n = _overlap_parser().parse("Freiherr von Richthofen de la Cruz")
+    assert n.given == "von Richthofen"
     (amb,) = n.ambiguities
     assert "family name" not in amb.detail
+
+
+@pytest.mark.parametrize("policy", [
+    Policy(),
+    Policy(name_order=FAMILY_FIRST),
+    Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+])
+def test_chained_particle_detail_is_order_invariant(policy: Policy) -> None:
+    # _group's emitter is the reason the docs can scope leading-particle
+    # DESTINATIONS to the default order without qualifying this text:
+    # it names no field, and the chain it reports is a grouping-stage
+    # decision taken before any role exists. "Freiherr von Richthofen"
+    # takes the chained branch under every order, so the string is the
+    # same one three times -- pin it, or the invariant is only an
+    # intention. ("Dr. Van Johnson" carried this until 2.2; #367 made a
+    # plain title transparent, so it no longer chains at all.)
+    n = _overlap_parser(policy).parse("Freiherr von Richthofen")
+    assert (n.given, n.family) == ("", "von Richthofen")
+    (amb,) = n.ambiguities
+    assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+    assert amb.detail == (
+        "'von' was chained onto the following name piece; "
+        "it is also a given name in other names")
+
+    # The shape above is the one #367 did NOT move, so pin the one it
+    # did in the same three orders: a plain title is transparent, so
+    # "Dr. Van Johnson" is byte-identical to the bare "Van Johnson"
+    # under every name_order, and the fork comes from _assign -- whose
+    # detail DOES name the role, unlike the grouping-stage text above.
+    # through _overlap_parser as well: 'Van' has to be an ambiguous
+    # particle for _assign to report anything here, and that membership
+    # is exactly what #360 may move
+    p = _overlap_parser(policy)
+    titled = p.parse("Dr. Van Johnson")
+    bare = p.parse("Van Johnson")
+    assert titled.title == "Dr."
+    assert (titled.given, titled.middle, titled.family) == \
+        (bare.given, bare.middle, bare.family)
+    (titled_amb,) = titled.ambiguities
+    assert titled_amb.detail == bare.ambiguities[0].detail
+    role = "family" if policy.name_order[0] is Role.FAMILY else "given"
+    assert titled_amb.detail == (
+        f"leading 'Van' may be a family-name particle; "
+        f"read as a {role} name")
 
 
 def test_each_suffix_or_name_branch_describes_itself() -> None:
@@ -370,11 +823,19 @@ def test_revise_preserves_particle_tags() -> None:
     assert r.initials() == "J. V. S."   # particles contribute no initial
 
 
-def test_revise_keeps_multiword_suffix_one_credential() -> None:
+def test_revise_takes_a_spaced_credential_literally() -> None:
+    # The Ph./D. merge is a HEAD-POSITION rule (#371) and a field value
+    # has no head: revise() runs a full sub-parse of the string it is
+    # given, so "Ph. D." there is two separate suffix pieces -- `Ph.`
+    # by vocabulary, `D.` as an initial -- which the suffix view
+    # renders comma-joined, rather than one healed credential.
+    # Deliberate -- the merge exists for a credential someone TYPED
+    # after a name, and a caller who writes the spaced form into the
+    # suffix field gets it read as two suffix items.
     p = Parser()
     n = p.parse("John Smith Ph.D.")
     r = p.revise(n, suffix="Ph. D.")
-    assert r.suffix == "Ph. D."         # replace() would render "Ph., D."
+    assert r.suffix == "Ph., D."
 
 
 def test_revise_views_match_a_fresh_parse() -> None:
@@ -415,6 +876,42 @@ def test_revise_strips_the_fold_marker() -> None:
     p = Parser(policy=Policy(middle_as_family=True))
     r = p.revise(p.parse("Juan Perez"), family="Gabriel García Márquez")
     assert r.family == "Gabriel García Márquez"
+
+
+def test_revise_clears_a_stale_unjoined_mark() -> None:
+    # UNJOINED_TAG says a particle stands alone in its PART, so an edit
+    # that re-roles tokens invalidates it -- the harvest splices a
+    # sub-parse's tokens into one field, and a particle marked alone
+    # there can land beside a name word. Recomputed rather than
+    # stripped (the fold marker above is stripped, which is only right
+    # for one direction). Without this, an identity revise drifted:
+    # base 'Toro' became 'del Toro' and initials 'T.' became 'd. T.'
+    p = Parser()
+    r = p.parse("Mr. do Jr. del Toro")
+    assert (r.family, r.family_base, r.family_particles) == (
+        "del Toro", "Toro", "del")
+    again = p.revise(r, family=r.family)
+    assert (again.family, again.family_base, again.family_particles) == (
+        "del Toro", "Toro", "del")
+    assert again.initials() == r.initials()
+
+
+def test_revise_sets_a_missing_unjoined_mark() -> None:
+    # The other direction, and the one that made rules.md#R2's
+    # invariant false through this path: "St" alone parses as a TITLE
+    # (a word in both the title and particle vocabularies), so the
+    # sub-parse marks nothing, and the harvest then re-roles a bare
+    # particle into FAMILY. The recompute marks it there, so a
+    # non-empty family still has a non-empty base. Spelled with "Do"
+    # until #296's audit took 'do' out of TITLES; "Do" alone is a
+    # marked given name now, which is the other path (kept below).
+    p = Parser()
+    revised = p.revise(p.parse("Juan de la Vega"), family="St")
+    assert revised.family == "St"
+    assert revised.family_base == "St"
+    assert revised.family_particles == ""
+    revised = p.revise(p.parse("Juan de la Vega"), family="Do")
+    assert (revised.family, revised.family_base) == ("Do", "Do")
 
 
 def test_revise_sub_parse_structural_behavior() -> None:
@@ -811,3 +1308,192 @@ def test_stacked_activation_warns_only_for_uncovered_scripts() -> None:
                    if "segment_scripts activates" in str(w.message))
     assert "hiragana" in message
     assert "hangul" not in message
+
+
+#: The corpus names a maiden clause can be appended to without the
+#: clause itself being the variable: Latin script, no comma (a clause
+#: behind a comma is post-comma text, rules.md#M2's Accepted row), and
+#: no marker already present.
+_LATIN = re.compile(r"^[\x00-\u024f]*$")
+
+
+def _clause_free_latin_corpus_names() -> list[str]:
+    from nameparser import DEFAULT_NICKNAME_DELIMITERS
+    from nameparser._pipeline._vocab import maiden_marker_run
+    from nameparser.config.maiden_markers import MAIDEN_MARKERS
+
+    from ._differential_fixtures import _CORPUS_NAMES
+    # "Does this name already carry a marker" is the parser's own
+    # question, so it is asked with the parser's own predicate rather
+    # than by word membership. A word test cannot see a PHRASE entry:
+    # no word of 'z domu' is a marker, so 'Maria Kowalska z domu Nowak'
+    # sat in this corpus with a maiden clause of its own and the
+    # appended one was not the only variable
+    # (mechanisms.md#ONE-PREDICATE-PER-QUESTION -- a test guard is as
+    # able to write the mirroring condition as a stage is).
+    #
+    # The strip stays, and runs BEFORE the predicate: a marker glued to
+    # a delimiter character is still a marker, and neither the
+    # predicate nor the vocabulary strips a bracket, so '(geb.' must
+    # lose it before being asked. Stripping only the period admitted
+    # every corpus name that brackets its marker, and once rules.md#M3
+    # read such a clause as the maiden name, six of them had a maiden
+    # clause of their own. The strip turns away TEN names in all: those
+    # six, plus four that M3 declines and that would have been safe to
+    # keep -- the one-word '(Nee)', '(Nee) (Jones)' and '(née)', and
+    # '(née Jr.)', which S1 takes before M3 sees it. Textual, and so
+    # deliberately conservative in exactly that direction.
+    #
+    # Every count in this comment quantifies over the corpus, so one
+    # added corpus row falsifies it silently. Recount rather than
+    # adjust:
+    # The body must sit flush left: `python -c` compiles it as a module,
+    # so an indented first line raises IndentationError on paste.
+    # uv run python -c "
+    # import re, sys; sys.path.insert(0, 'tests')
+    # from nameparser import DEFAULT_NICKNAME_DELIMITERS as D
+    # from nameparser._pipeline._vocab import maiden_marker_run as run
+    # from nameparser.config.maiden_markers import MAIDEN_MARKERS as M
+    # from v2._differential_fixtures import _CORPUS_NAMES
+    # base = [n for n in _CORPUS_NAMES if re.match(r'^[\x00-\u024f]*$', n) and ',' not in n]
+    # strip = ''.join({c for p in D for c in p}) + '.'
+    # words = lambda n, f: [f(w) for w in n.split()]
+    # keep = lambda f: [n for n in base if not any(w in M for w in words(n, f))]
+    # old = keep(lambda w: w.lower().rstrip('.'))
+    # new = keep(lambda w: w.lower().strip(strip))
+    # ws = lambda n: words(n, lambda w: w.lower().strip(strip))
+    # pred = [n for n in base if not any(run(ws(n)[i:], M) for i in range(len(ws(n))))]
+    # print(len(old), len(new), len(pred), sorted(set(old) - set(new)), sorted(set(new) - set(pred)))"
+    #
+    # Delimiter characters come from the shipped set rather than a
+    # literal, so a pair added there cannot quietly reopen this.
+    strip = "".join({ch for pair in DEFAULT_NICKNAME_DELIMITERS
+                     for ch in pair}) + "."
+
+    def marked(name: str) -> bool:
+        words = [word.lower().strip(strip) for word in name.split()]
+        return any(maiden_marker_run(words[i:], MAIDEN_MARKERS)
+                   for i in range(len(words)))
+
+    return [name for name in _CORPUS_NAMES
+            if _LATIN.match(name) and "," not in name and not marked(name)]
+
+
+def test_the_clause_free_corpus_is_not_empty() -> None:
+    """The invariant below is parametrized over a FILTERED corpus, and
+    an empty parametrization passes as a skip rather than failing --
+    the shape #329 left behind. The filter has been widened twice
+    already -- the delimiter strip, then the move from word
+    membership to the marker predicate, which a phrase entry made
+    necessary -- and the one-liner in that filter's comment recounts
+    every stage: 646 names before either, 636 after the strip, 632
+    once the predicate decides. Recounted 2026-08-27 by pasting it,
+    and recounted AGAIN in the review round, which is the point of
+    shipping the one-liner: the first recount was taken before the
+    last of #445's rules-corpus rows existed and came out one low at
+    every stage. #445 adds five rows in all, of which three clear the
+    marker predicate ('Garcia', 'Smith', 'Smith (Jones)'), so every
+    stage moves by three -- and the first two figures were already
+    one low before any of it, a corpus row having landed without the
+    recount this comment asks for. So the floor is what says a future
+    widening emptied it. Deliberately far below today's count: this
+    asks whether the filter still selects a corpus, not what the
+    corpus holds."""
+    assert len(_clause_free_latin_corpus_names()) > 100
+
+
+@pytest.mark.parametrize("name", _clause_free_latin_corpus_names())
+def test_a_maiden_clause_changes_nothing_else(name: str) -> None:
+    """The grouping rules count and join only the words that remain
+    once the marker and the maiden name leave (rules.md#M2, #418), so
+    appending a clause adds a maiden name and moves no other field.
+
+    Over the corpus rather than by example, because the defect was an
+    appended-clause shape on names that are otherwise ordinary ('John
+    e Smith', 'Lt.Gov. juan e garcia'), which no corpus carries in
+    that form and which the differential gate therefore cannot see.
+    Before the marker pass moved ahead of the joins, seven of these
+    names failed this.
+
+    One skip, and it is M2's own boundary: a corpus name that parses
+    to no name word ('', '(', '()') gives the appended marker nothing
+    to stand behind, so M2 leaves it a word. A name that is only a
+    NICKNAME is in that class too, which is why the test below asks
+    about five fields and not about `nickname`: '(Bud)' parses to a
+    nickname alone, and '(Bud) née Jones' reads given 'née', family
+    'Jones' and no maiden at all -- the marker stayed a word, so
+    there is no clause to assert. A title-only or suffix-only name is
+    NOT in that class -- 'Coach née Jones' reads maiden 'Jones' --
+    and is asserted like any other. #410's lone-residual shape used
+    to be skipped here too -- 'Dr. Jane' read family 'Jane' and 'Dr.
+    Jane née Smith' given 'Jane' -- and no longer moves, so the
+    assertion now covers every name that reaches the marker with
+    something to stand behind.
+
+    One class of name moves ON PURPOSE, and is asserted MOVING rather
+    than skipped: rules.md#M4 makes the clause decide a name that
+    holds exactly one name word, because a marker announces a former
+    surname and only means anything beside a current one. Fourteen
+    of these names are in that class ('Smith', 'Smith Jr.', "'Smitty'
+    Jones Jr.", 'John V', 'de' ...), and the flip they assert is
+    exactly given -> family with every other field standing still --
+    which is the whole of what #445 changed, checked over the corpus
+    rather than at the six rows cases.py carries.
+
+    The `flips` predicate below is a second reading of M4's guard, and
+    that is a maintenance cost taken deliberately rather than the
+    silent-drift hazard it resembles: it fails LOUDLY in both
+    directions -- narrow M4 and the flip assertion fails, widen it and
+    the stands-still assertion does. What it buys is the carve-out
+    witness. Review offered the cheaper form, asserting only that
+    (given, family) is either unchanged or moved wholesale, with no
+    predicate at all; under that form a name whose word the vocabulary
+    claims would be free to flip, and dropping the `vocab:bound-given`
+    carve-out would stop failing here on 'abdul'. The corpus is the
+    only place that name is asked.
+    """
+    base = parse(name)
+    if not (base.given or base.middle or base.family
+            or base.title or base.suffix):
+        pytest.skip("nothing before the marker at all: M2 leaves it a word")
+    # M4's guard, read off the base parse: one GIVEN token, no other
+    # name word, no title (a titled name is H1's), and neither
+    # carve-out tag. Tokens rather than fields because the rule counts
+    # tokens -- a joined 'de la Vega' in `given` is one field and
+    # three of them.
+    givens = [t for t in base.tokens if t.role is Role.GIVEN]
+    flips = (len(givens) == 1 and not base.middle and not base.family
+             and not base.title
+             and not ({"initial", "vocab:bound-given"} & givens[0].tags))
+    with_clause = parse(name + " née Jones")
+    assert with_clause.maiden == "Jones"
+    moved = ("title", "middle", "suffix", "nickname") if flips else (
+        "title", "given", "middle", "family", "suffix", "nickname")
+    if flips:
+        assert (with_clause.family, with_clause.given) == (base.given, ""), (
+            f"{name!r}: one name word beside a maiden clause is the "
+            f"family name (rules.md#M4), but it reads family "
+            f"{with_clause.family!r} / given {with_clause.given!r}")
+    for field in moved:
+        assert getattr(with_clause, field) == getattr(base, field), (
+            f"{name!r}: {field} reads {getattr(base, field)!r} alone and "
+            f"{getattr(with_clause, field)!r} with a maiden clause")
+
+
+def test_a_phrase_marker_outranks_the_word_it_starts_with() -> None:
+    # Longest first, and the row cases.py cannot hold: a Case carries a
+    # Policy or a Locale, never a Lexicon, so the one marker fork that
+    # needs two entries at once lives here.
+    #
+    # 'geb' ships and 'geb von' is the caller's addition. The phrase
+    # must win where it matches -- maiden 'Braun', the particle being
+    # part of the marker -- and the bare word must still match
+    # everywhere else. Shortest-first would take 'geb' in both and read
+    # the first as maiden 'von Braun', which is also what the default
+    # vocabulary reads, so the control below is what makes the first
+    # assertion mean anything.
+    configured = Parser(lexicon=Lexicon.default().add(
+        maiden_markers=["geb von"]))
+    assert configured.parse("Jane Smith geb von Braun").maiden == "Braun"
+    assert configured.parse("Jane Smith geb Braun").maiden == "Braun"
+    assert parse("Jane Smith geb von Braun").maiden == "von Braun"

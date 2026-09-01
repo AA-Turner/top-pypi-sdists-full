@@ -43,6 +43,44 @@ use crate::{SyntaxKind, SyntaxNode, SyntaxToken, TokenText};
 
 use super::support;
 
+fn children_either<L: AstNode, R: AstNode>(
+    parent: &SyntaxNode,
+) -> impl Iterator<Item = Either<L, R>> {
+    parent.children().filter_map(|child| {
+        L::cast(child.clone())
+            .map(Either::Left)
+            .or_else(|| R::cast(child).map(Either::Right))
+    })
+}
+
+impl ast::Param {
+    pub fn mode_and_name(&self) -> impl Iterator<Item = Either<ast::ParamMode, ast::ParamName>> {
+        children_either(self.syntax())
+    }
+}
+
+impl ast::Do {
+    pub fn language_and_body(&self) -> impl Iterator<Item = Either<ast::DoLanguage, ast::Literal>> {
+        children_either(self.syntax())
+    }
+}
+
+impl ast::CustomOp {
+    pub fn tokens(&self) -> impl Iterator<Item = SyntaxToken> + '_ {
+        self.syntax()
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CastKind {
+    Cast,
+    DoubleColon,
+    Treat,
+    TypeLiteral,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LitKind {
     BitString(SyntaxToken),
@@ -55,6 +93,8 @@ pub enum LitKind {
     NationalString(SyntaxToken),
     Null(SyntaxToken),
     NumericNumber(SyntaxToken),
+    Off(SyntaxToken),
+    On(SyntaxToken),
     PositionalParam(SyntaxToken),
     String(SyntaxToken),
     True(SyntaxToken),
@@ -66,6 +106,55 @@ impl ast::SourceFile {
         find_newline(&self.syntax().text().to_string())
             .map(|(_, line_ending)| line_ending)
             .unwrap_or_default()
+    }
+}
+
+impl ast::TransactionMode {
+    pub fn comma_after(&self) -> Option<SyntaxToken> {
+        for element in self.syntax().siblings_with_tokens(Direction::Next).skip(1) {
+            match element {
+                NodeOrToken::Token(token)
+                    if matches!(token.kind(), SyntaxKind::COMMENT | SyntaxKind::WHITESPACE) => {}
+                NodeOrToken::Token(token) if token.kind() == SyntaxKind::COMMA => {
+                    return Some(token);
+                }
+                _ => return None,
+            }
+        }
+        None
+    }
+}
+
+impl ast::Type {
+    pub fn arg_list(&self) -> Option<ast::ArgList> {
+        match self {
+            ast::Type::BitType(ty) => ty.arg_list(),
+            ast::Type::BitVaryingType(ty) => ty.arg_list(),
+            ast::Type::CharacterType(ty) => ty.arg_list(),
+            ast::Type::PathType(ty) => ty.arg_list(),
+            ast::Type::VarcharType(ty) => ty.arg_list(),
+            ast::Type::ArrayType(_)
+            | ast::Type::DoubleType(_)
+            | ast::Type::IntervalType(_)
+            | ast::Type::TimeType(_)
+            | ast::Type::TimestampType(_) => None,
+        }
+    }
+}
+
+impl ast::CastExpr {
+    pub fn kind(&self) -> Option<CastKind> {
+        if self.cast_token().is_some() {
+            Some(CastKind::Cast)
+        } else if self.treat_token().is_some() {
+            Some(CastKind::Treat)
+        } else if self.colon_colon().is_some() {
+            Some(CastKind::DoubleColon)
+        } else if self.ty().is_some() && self.literal().is_some() {
+            Some(CastKind::TypeLiteral)
+        } else {
+            None
+        }
     }
 }
 
@@ -83,6 +172,8 @@ impl ast::Literal {
             SyntaxKind::NATIONAL_STRING => LitKind::NationalString(token),
             SyntaxKind::NULL_KW => LitKind::Null(token),
             SyntaxKind::NUMERIC_NUMBER => LitKind::NumericNumber(token),
+            SyntaxKind::OFF_KW => LitKind::Off(token),
+            SyntaxKind::ON_KW => LitKind::On(token),
             SyntaxKind::POSITIONAL_PARAM => LitKind::PositionalParam(token),
             SyntaxKind::STRING => LitKind::String(token),
             SyntaxKind::TRUE_KW => LitKind::True(token),
@@ -359,10 +450,7 @@ impl ast::PrefixExpr {
 
 impl ast::PostfixExpr {
     pub fn op(&self) -> Option<PostfixOp> {
-        let lhs = self.expr()?;
-
-        let siblings = lhs.syntax().siblings_with_tokens(Direction::Next).skip(1);
-        for child in siblings {
+        for child in self.syntax().children_with_tokens() {
             match child {
                 NodeOrToken::Token(token) => {
                     let op = match token.kind() {
@@ -434,6 +522,29 @@ impl ast::FieldExpr {
     }
 }
 
+impl ast::IndexAccessor {
+    #[inline]
+    pub fn index(&self) -> Option<ast::Expr> {
+        support::child(self.syntax())
+    }
+}
+
+impl ast::SliceAccessor {
+    #[inline]
+    pub fn start(&self) -> Option<ast::Expr> {
+        let colon = self.colon_token()?;
+        support::children(self.syntax())
+            .find(|expr: &ast::Expr| expr.syntax().text_range().end() <= colon.text_range().start())
+    }
+
+    #[inline]
+    pub fn end(&self) -> Option<ast::Expr> {
+        let colon = self.colon_token()?;
+        support::children(self.syntax())
+            .find(|expr: &ast::Expr| expr.syntax().text_range().start() >= colon.text_range().end())
+    }
+}
+
 impl ast::IndexExpr {
     #[inline]
     pub fn base(&self) -> Option<ast::Expr> {
@@ -495,6 +606,31 @@ impl ast::ForeignKeyConstraint {
     }
 }
 
+fn second_minus_token(node: &SyntaxNode) -> Option<SyntaxToken> {
+    node.children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter(|token| token.kind() == SyntaxKind::MINUS)
+        .nth(1)
+}
+
+impl ast::EdgeAny {
+    pub fn end_minus_token(&self) -> Option<SyntaxToken> {
+        second_minus_token(self.syntax())
+    }
+}
+
+impl ast::EdgeLeft {
+    pub fn end_minus_token(&self) -> Option<SyntaxToken> {
+        second_minus_token(self.syntax())
+    }
+}
+
+impl ast::EdgeRight {
+    pub fn end_minus_token(&self) -> Option<SyntaxToken> {
+        second_minus_token(self.syntax())
+    }
+}
+
 impl ast::XmlPiFn {
     #[inline]
     pub fn target(&self) -> Option<ast::XmlPiTarget> {
@@ -551,16 +687,49 @@ impl ast::ReturningOption {
 
 impl ast::CompoundSelect {
     #[inline]
-    pub fn lhs(&self) -> Option<ast::SelectVariant> {
+    pub fn lhs_operand(&self) -> Option<ast::CompoundSelectOperand> {
         support::children(&self.syntax).next()
+    }
+
+    #[inline]
+    pub fn rhs_operand(&self) -> Option<ast::CompoundSelectOperand> {
+        support::children(&self.syntax).nth(1)
+    }
+
+    #[inline]
+    pub fn lhs(&self) -> Option<ast::SelectVariant> {
+        self.lhs_operand()?.select_variant()
     }
     #[inline]
     pub fn rhs(&self) -> Option<ast::SelectVariant> {
-        support::children(&self.syntax).nth(1)
+        self.rhs_operand()?.select_variant()
     }
     #[inline]
     pub fn op(&self) -> Option<ast::CompoundOp> {
         support::child(&self.syntax)
+    }
+}
+
+impl ast::CompoundSelectOperand {
+    /// The select this operand ultimately wraps, looking through any
+    /// parenthesized expressions the parser tagged as `ParenExpr`.
+    pub fn select_variant(&self) -> Option<ast::SelectVariant> {
+        match self {
+            ast::CompoundSelectOperand::SelectVariant(select) => Some(select.clone()),
+            ast::CompoundSelectOperand::ParenExpr(paren) => {
+                let mut node = paren.syntax().clone();
+                loop {
+                    let child = node.children().find(|child| {
+                        ast::SelectVariant::can_cast(child.kind())
+                            || ast::ParenExpr::can_cast(child.kind())
+                    })?;
+                    if let Some(select) = ast::SelectVariant::cast(child.clone()) {
+                        return Some(select);
+                    }
+                    node = child;
+                }
+            }
+        }
     }
 }
 
@@ -623,7 +792,7 @@ fn is_quoted(node: &SyntaxNode) -> bool {
 }
 
 // TODO: return a NewType wrapper around String?
-pub(crate) fn normalize_name_node(node: &SyntaxNode) -> String {
+pub fn normalize_name_node(node: &SyntaxNode) -> String {
     let mut tokens = node
         .children_with_tokens()
         .filter_map(|el| el.into_token())
@@ -675,7 +844,14 @@ pub(crate) fn normalize_name_node(node: &SyntaxNode) -> String {
         .unwrap_or_else(|| raw.to_ascii_lowercase())
 }
 
-impl ast::CharType {
+impl ast::VarcharType {
+    #[inline]
+    pub fn text(&self) -> TokenText<'_> {
+        text_of_first_token(self.syntax())
+    }
+}
+
+impl ast::CharacterType {
     #[inline]
     pub fn text(&self) -> TokenText<'_> {
         text_of_first_token(self.syntax())
@@ -836,6 +1012,73 @@ impl ast::CreateConversion {
 impl ast::ExtractFieldName {
     pub fn text(&self) -> String {
         normalize_name_node(self.syntax())
+    }
+}
+
+impl ast::JsonNullOnNull {
+    #[inline]
+    pub fn on_null_token(&self) -> Option<SyntaxToken> {
+        self.syntax()
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .filter(|token| token.kind() == SyntaxKind::NULL_KW)
+            .nth(1)
+    }
+}
+
+impl ast::JsonTable {
+    pub fn document_expr(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    pub fn path_expr(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::JsonTablePlanJoin {
+    pub fn lhs(&self) -> Option<ast::JsonTablePlan> {
+        support::children(self.syntax()).next()
+    }
+
+    pub fn rhs(&self) -> Option<ast::JsonTablePlan> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::JsonExistsFn {
+    #[inline]
+    pub fn document(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn path(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::JsonQueryFn {
+    #[inline]
+    pub fn document(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn path(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::JsonValueFn {
+    #[inline]
+    pub fn document(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn path(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
     }
 }
 
@@ -1040,6 +1283,9 @@ impl ast::TableConstraint {
                     .constraint_name_clause()
                     .and_then(|clause| clause.constraint_name())
             }
+            ast::TableConstraint::NotNullConstraint(not_null_constraint) => not_null_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
             ast::TableConstraint::PrimaryKeyConstraint(primary_key_constraint) => {
                 primary_key_constraint
                     .constraint_name_clause()
@@ -1102,6 +1348,16 @@ impl ast::SelectVariant {
     }
 }
 
+impl ast::ParamList {
+    pub fn all_params(&self) -> impl Iterator<Item = ast::Param> {
+        self.params().chain(
+            self.aggregate_order_by()
+                .into_iter()
+                .flat_map(|order_by| order_by.params()),
+        )
+    }
+}
+
 impl ast::HasParamList {
     #[inline]
     pub fn param_list(&self) -> Option<ast::ParamList> {
@@ -1144,6 +1400,41 @@ where
     }
 }
 
+impl ast::HasPathRef for ast::Aggregate {}
+impl ast::HasPathRef for ast::CollationRef {}
+impl ast::HasPathRef for ast::ConfigParameterRef {}
+impl ast::HasPathRef for ast::ConstraintNameRef {}
+impl ast::HasPathRef for ast::ConversionRef {}
+impl ast::HasPathRef for ast::DomainRef {}
+impl ast::HasPathRef for ast::FunctionNameRef {}
+impl ast::HasPathRef for ast::IndexRef {}
+impl ast::HasPathRef for ast::Op {}
+impl ast::HasPathRef for ast::OpClassRef {}
+impl ast::HasPathRef for ast::OpFamilyRef {}
+impl ast::HasPathRef for ast::PathType {}
+impl ast::HasPathRef for ast::PercentType {}
+impl ast::HasPathRef for ast::ProcedureNameRef {}
+impl ast::HasPathRef for ast::PropertyGraphRef {}
+impl ast::HasPathRef for ast::QualifiedColumnNameRef {}
+impl ast::HasPathRef for ast::RelationNameRef {}
+impl ast::HasPathRef for ast::RoutineNameRef {}
+impl ast::HasPathRef for ast::SequenceRef {}
+impl ast::HasPathRef for ast::StatisticsRef {}
+impl ast::HasPathRef for ast::TableNameRef {}
+impl ast::HasPathRef for ast::TextSearchConfigurationRef {}
+impl ast::HasPathRef for ast::TextSearchDictionaryRef {}
+impl ast::HasPathRef for ast::TextSearchParserRef {}
+impl ast::HasPathRef for ast::TextSearchTemplateRef {}
+impl ast::HasPathRef for ast::TypeNameRef {}
+impl ast::HasPathRef for ast::ViewRef {}
+
+impl ast::HasSelectTail for ast::Select {}
+impl ast::HasSelectTail for ast::SelectInto {}
+impl ast::HasSelectTail for ast::ParenSelect {}
+impl ast::HasSelectTail for ast::CompoundSelect {}
+impl ast::HasSelectTail for ast::Values {}
+impl ast::HasSelectTail for ast::Table {}
+
 impl ast::HasWithClause for ast::Select {}
 impl ast::HasWithClause for ast::SelectInto {}
 impl ast::HasWithClause for ast::Insert {}
@@ -1161,6 +1452,7 @@ fn name() {
     assert_snapshot!(extract_name(r#"select 1 "foo""#), @"foo");
     assert_snapshot!(extract_name(r#"select 1 "Foo""#), @"Foo");
     assert_snapshot!(extract_name(r#"select 1 "FOO""#), @"FOO");
+    assert_snapshot!(extract_name(r#"select 1 "foo""bar""#), @r#"foo"bar"#);
     assert_snapshot!(extract_name(r#"select 1 U&"\0066\006f\006f""#), @"foo");
     assert_snapshot!(extract_name(r#"select 1 U&"@0066@006f@006f" uescape '@'"#), @"foo");
 
@@ -1378,6 +1670,7 @@ fn cast_expr() {
     use insta::assert_snapshot;
 
     let cast = extract_expr("select cast('123' as int)");
+    assert_eq!(cast.kind(), Some(CastKind::Cast));
     assert!(cast.expr().is_some());
     assert_snapshot!(cast.expr().unwrap().syntax(), @"'123'");
     assert!(cast.ty().is_some());
@@ -1389,7 +1682,11 @@ fn cast_expr() {
     assert!(cast.ty().is_some());
     assert_snapshot!(cast.ty().unwrap().syntax(), @"pg_catalog.int4");
 
+    let cast = extract_expr("select treat('123' as int)");
+    assert_eq!(cast.kind(), Some(CastKind::Treat));
+
     let cast = extract_expr("select int '123'");
+    assert_eq!(cast.kind(), Some(CastKind::TypeLiteral));
     assert!(cast.expr().is_some());
     assert_snapshot!(cast.expr().unwrap().syntax(), @"'123'");
     assert!(cast.ty().is_some());
@@ -1402,6 +1699,7 @@ fn cast_expr() {
     assert_snapshot!(cast.ty().unwrap().syntax(), @"pg_catalog.int4");
 
     let cast = extract_expr("select '123'::int");
+    assert_eq!(cast.kind(), Some(CastKind::DoubleColon));
     assert!(cast.expr().is_some());
     assert_snapshot!(cast.expr().unwrap().syntax(), @"'123'");
     assert!(cast.ty().is_some());

@@ -35,6 +35,7 @@ __all__ = (
     "AnchorTypeType",
     "AnonymousUserDashboardEmbeddingConfigurationDisabledFeatureType",
     "AnonymousUserDashboardEmbeddingConfigurationEnabledFeatureType",
+    "AppVisibilityType",
     "ApplicableToTypeType",
     "ArcThicknessOptionsType",
     "ArcThicknessType",
@@ -194,6 +195,7 @@ __all__ = (
     "ListActionConnectorsPaginatorName",
     "ListAnalysesPaginatorName",
     "ListApprovalPoliciesPaginatorName",
+    "ListAppsPaginatorName",
     "ListAssetBundleExportJobsPaginatorName",
     "ListAssetBundleImportJobsPaginatorName",
     "ListBrandsPaginatorName",
@@ -290,6 +292,8 @@ __all__ = (
     "RowLevelPermissionPolicyType",
     "SearchActionConnectorsPaginatorName",
     "SearchAnalysesPaginatorName",
+    "SearchAppsFilterNameType",
+    "SearchAppsPaginatorName",
     "SearchDashboardsPaginatorName",
     "SearchDataSetsPaginatorName",
     "SearchDataSourcesPaginatorName",
@@ -486,6 +490,7 @@ AnchorOptionType = Literal["NOW"]
 AnchorTypeType = Literal["TODAY"]
 AnonymousUserDashboardEmbeddingConfigurationDisabledFeatureType = Literal["SHARED_VIEW"]
 AnonymousUserDashboardEmbeddingConfigurationEnabledFeatureType = Literal["SHARED_VIEW"]
+AppVisibilityType = Literal["PRIVATE", "PUBLIC"]
 ApplicableToTypeType = Literal["GROUP"]
 ArcThicknessOptionsType = Literal["LARGE", "MEDIUM", "SMALL"]
 ArcThicknessType = Literal["LARGE", "MEDIUM", "SMALL", "WHOLE"]
@@ -979,6 +984,7 @@ LineInterpolationType = Literal["LINEAR", "SMOOTH", "STEPPED"]
 ListActionConnectorsPaginatorName = Literal["list_action_connectors"]
 ListAnalysesPaginatorName = Literal["list_analyses"]
 ListApprovalPoliciesPaginatorName = Literal["list_approval_policies"]
+ListAppsPaginatorName = Literal["list_apps"]
 ListAssetBundleExportJobsPaginatorName = Literal["list_asset_bundle_export_jobs"]
 ListAssetBundleImportJobsPaginatorName = Literal["list_asset_bundle_import_jobs"]
 ListBrandsPaginatorName = Literal["list_brands"]
@@ -1153,6 +1159,14 @@ RowLevelPermissionFormatVersionType = Literal["VERSION_1", "VERSION_2"]
 RowLevelPermissionPolicyType = Literal["DENY_ACCESS", "GRANT_ACCESS"]
 SearchActionConnectorsPaginatorName = Literal["search_action_connectors"]
 SearchAnalysesPaginatorName = Literal["search_analyses"]
+SearchAppsFilterNameType = Literal[
+    "APP_ID",
+    "APP_NAME",
+    "DIRECT_QUICKSIGHT_OWNER",
+    "DIRECT_QUICKSIGHT_SOLE_OWNER",
+    "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",
+]
+SearchAppsPaginatorName = Literal["search_apps"]
 SearchDashboardsPaginatorName = Literal["search_dashboards"]
 SearchDataSetsPaginatorName = Literal["search_data_sets"]
 SearchDataSourcesPaginatorName = Literal["search_data_sources"]
@@ -1779,6 +1793,7 @@ PaginatorName = Literal[
     "list_action_connectors",
     "list_analyses",
     "list_approval_policies",
+    "list_apps",
     "list_asset_bundle_export_jobs",
     "list_asset_bundle_import_jobs",
     "list_brands",
@@ -1812,6 +1827,7 @@ PaginatorName = Literal[
     "list_users",
     "search_action_connectors",
     "search_analyses",
+    "search_apps",
     "search_dashboards",
     "search_data_sets",
     "search_data_sources",

@@ -836,18 +836,26 @@ class StatementStitcher:
             if longer_entry is None:
                 continue
 
-            if shorter_entry is None:
-                # No shorter period data for this concept — keep the longer value as-is.
-                continue
-
             longer_val = longer_entry.get('value')
-            shorter_val = shorter_entry.get('value')
+            shorter_val = shorter_entry.get('value') if shorter_entry is not None else None
 
-            if longer_val is None or shorter_val is None:
-                continue
-
-            # Skip non-numeric values
-            if not isinstance(longer_val, (int, float)) or not isinstance(shorter_val, (int, float)):
+            # Nothing to subtract: the concept is absent from the shorter period, or
+            # either side is missing or non-numeric. Keeping the longer value would
+            # leave a CUMULATIVE figure sitting under a discrete-quarter label, because
+            # the period is relabelled below whether or not this concept was converted.
+            # Meta's FY2024 "Deferred income taxes" is the case: the 10-K tags it
+            # DeferredIncomeTaxesAndTaxCredits while the Q3 10-Q uses
+            # DeferredIncomeTaxExpenseBenefit, so the 9-month operand is filed under a
+            # different concept and the unchanged 12-month $(4.738)B was presented as
+            # Q4 (GH #1179). A quarter that cannot be derived is dropped, so the cell
+            # reads empty instead of wrong.
+            derivable = (
+                shorter_entry is not None
+                and isinstance(longer_val, (int, float))
+                and isinstance(shorter_val, (int, float))
+            )
+            if not derivable:
+                del self.data[concept_key][longer_pid]
                 continue
 
             discrete_val = longer_val - shorter_val
@@ -1071,8 +1079,18 @@ def stitch_statements(
     # Traditional approach without using entity info
     else:
         for xbrl in xbrl_list:
-            # Get statement data for the specified type
-            statement = xbrl.find_statement(statement_type)
+            # Get statement data for the specified type.  This must be
+            # get_statement_by_type() and not find_statement(): the latter
+            # returns a (statements, role, statement_type) tuple of index
+            # entries, which carries neither 'periods' nor 'data' and which
+            # StatementStitcher cannot read.  Skip filings that lack this
+            # statement type, matching the optimal-periods path above.
+            try:
+                statement = xbrl.get_statement_by_type(
+                    statement_type, include_dimensions=include_dimensions
+                )
+            except StatementNotFoundError:
+                continue
             if statement:
                 statements.append(statement)
 

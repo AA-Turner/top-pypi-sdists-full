@@ -38,6 +38,8 @@ __all__ = (
     "EstimateStatusType",
     "EventStreamDestinationStatusType",
     "EventStreamStateType",
+    "EventSubscriptionSegmentStatusType",
+    "EventSubscriptionStateType",
     "EventTriggerLogicalOperatorType",
     "FeatureTypeType",
     "FieldContentTypeType",
@@ -60,6 +62,7 @@ __all__ = (
     "ListRecommendersPaginatorName",
     "ListRuleBasedMatchesPaginatorName",
     "ListSegmentDefinitionsPaginatorName",
+    "ListSegmentSubscriptionEventsPaginatorName",
     "ListUploadJobsPaginatorName",
     "LogicalOperatorType",
     "MarketoConnectorOperatorType",
@@ -83,10 +86,12 @@ __all__ = (
     "RuleBasedMatchingStatusType",
     "S3ConnectorOperatorType",
     "SalesforceConnectorOperatorType",
+    "ScheduleConfigurationUnitType",
     "ScopeType",
     "SegmentSnapshotStatusType",
     "SegmentSortDataTypeType",
     "SegmentSortOrderType",
+    "SegmentSubscriptionStatusType",
     "SegmentTypeType",
     "ServiceName",
     "ServiceNowConnectorOperatorType",
@@ -97,6 +102,8 @@ __all__ = (
     "StatusReasonType",
     "StatusType",
     "StringDimensionTypeType",
+    "SubscriptionEventType",
+    "SubscriptionEventTypeType",
     "TaskTypeType",
     "TrainingMetricNameType",
     "TriggerTypeType",
@@ -133,6 +140,8 @@ AttributeDimensionTypeType = Literal[
     "INCLUSIVE",
     "LESS_THAN",
     "LESS_THAN_OR_EQUAL",
+    "LIST_CONTAINS",
+    "LIST_CONTAINS_ALL",
     "NOT_BETWEEN",
     "ON",
 ]
@@ -172,6 +181,8 @@ DiversityCapTypeType = Literal["PERCENTAGE", "VALUE"]
 EstimateStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 EventStreamDestinationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 EventStreamStateType = Literal["RUNNING", "STOPPED"]
+EventSubscriptionSegmentStatusType = Literal["FAILED", "RUNNING", "STARTING", "STOPPED"]
+EventSubscriptionStateType = Literal["RUNNING", "STOPPED", "UNHEALTHY"]
 EventTriggerLogicalOperatorType = Literal["ALL", "ANY", "NONE"]
 FeatureTypeType = Literal["CATEGORICAL", "TEXTUAL"]
 FieldContentTypeType = Literal["EMAIL_ADDRESS", "NAME", "NUMBER", "PHONE_NUMBER", "STRING"]
@@ -214,6 +225,7 @@ ListRecommenderSchemasPaginatorName = Literal["list_recommender_schemas"]
 ListRecommendersPaginatorName = Literal["list_recommenders"]
 ListRuleBasedMatchesPaginatorName = Literal["list_rule_based_matches"]
 ListSegmentDefinitionsPaginatorName = Literal["list_segment_definitions"]
+ListSegmentSubscriptionEventsPaginatorName = Literal["list_segment_subscription_events"]
 ListUploadJobsPaginatorName = Literal["list_upload_jobs"]
 LogicalOperatorType = Literal["AND", "OR"]
 MarketoConnectorOperatorType = Literal[
@@ -318,10 +330,12 @@ SalesforceConnectorOperatorType = Literal[
     "VALIDATE_NON_ZERO",
     "VALIDATE_NUMERIC",
 ]
+ScheduleConfigurationUnitType = Literal["HOURLY"]
 ScopeType = Literal["DOMAIN", "PROFILE"]
 SegmentSnapshotStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 SegmentSortDataTypeType = Literal["DATE", "NUMBER", "STRING"]
 SegmentSortOrderType = Literal["ASC", "DESC"]
+SegmentSubscriptionStatusType = Literal["FAILED", "RUNNING", "STARTING", "STOPPED"]
 SegmentTypeType = Literal["CLASSIC", "ENHANCED"]
 ServiceNowConnectorOperatorType = Literal[
     "ADDITION",
@@ -378,6 +392,7 @@ StatisticType = Literal[
     "MAXIMUM",
     "MAX_OCCURRENCE",
     "MINIMUM",
+    "RECENT_OCCURRENCES",
     "SUM",
 ]
 StatusReasonType = Literal["INTERNAL_FAILURE", "VALIDATION_FAILURE"]
@@ -385,6 +400,8 @@ StatusType = Literal[
     "CANCELLED", "COMPLETE", "FAILED", "IN_PROGRESS", "NOT_STARTED", "RETRY", "SPLIT"
 ]
 StringDimensionTypeType = Literal["BEGINS_WITH", "CONTAINS", "ENDS_WITH", "EXCLUSIVE", "INCLUSIVE"]
+SubscriptionEventType = Literal["JOINED", "LEFT"]
+SubscriptionEventTypeType = Literal["LIVE", "SCHEDULE"]
 TaskTypeType = Literal["Arithmetic", "Filter", "Map", "Mask", "Merge", "Truncate", "Validate"]
 TrainingMetricNameType = Literal[
     "coverage",
@@ -428,8 +445,11 @@ CustomerProfilesServiceName = Literal["customer-profiles"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -604,6 +624,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -716,6 +737,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -733,6 +755,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -867,6 +890,7 @@ PaginatorName = Literal[
     "list_recommenders",
     "list_rule_based_matches",
     "list_segment_definitions",
+    "list_segment_subscription_events",
     "list_upload_jobs",
 ]
 RegionName = Literal[

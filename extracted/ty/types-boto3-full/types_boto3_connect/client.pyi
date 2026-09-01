@@ -386,6 +386,8 @@ from .type_defs import (
     GetContactAttributesResponseTypeDef,
     GetContactMetricsRequestTypeDef,
     GetContactMetricsResponseTypeDef,
+    GetCrossRegionRoutingRequestTypeDef,
+    GetCrossRegionRoutingResponseTypeDef,
     GetCurrentMetricDataRequestTypeDef,
     GetCurrentMetricDataResponseTypeDef,
     GetCurrentUserDataRequestTypeDef,
@@ -686,6 +688,7 @@ from .type_defs import (
     UpdateContactRoutingDataRequestTypeDef,
     UpdateContactScheduleRequestTypeDef,
     UpdateContactTaskTemplateRequestTypeDef,
+    UpdateCrossRegionRoutingRequestTypeDef,
     UpdateDataTableAttributeRequestTypeDef,
     UpdateDataTableAttributeResponseTypeDef,
     UpdateDataTableMetadataRequestTypeDef,
@@ -2574,6 +2577,17 @@ class ConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_contact_metrics)
         """
 
+    def get_cross_region_routing(
+        self, **kwargs: Unpack[GetCrossRegionRoutingRequestTypeDef]
+    ) -> GetCrossRegionRoutingResponseTypeDef:
+        """
+        Retrieves the current cross-region routing configuration for an Amazon Connect
+        Global Resiliency instance enabled for global routing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_cross_region_routing.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_cross_region_routing)
+        """
+
     def get_current_metric_data(
         self, **kwargs: Unpack[GetCurrentMetricDataRequestTypeDef]
     ) -> GetCurrentMetricDataResponseTypeDef:
@@ -4290,6 +4304,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_task_template.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_contact_task_template)
+        """
+
+    def update_cross_region_routing(
+        self, **kwargs: Unpack[UpdateCrossRegionRoutingRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the cross-region routing configuration for an Amazon Connect Global
+        Resiliency instance enabled for global routing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_cross_region_routing.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_cross_region_routing)
         """
 
     def update_data_table_attribute(

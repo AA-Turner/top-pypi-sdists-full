@@ -1,12 +1,6 @@
-/*
- * Utility functions: platform-specific timers, deep copy helpers for
- * ScsData/ScsSettings, memory deallocation, and default settings.
- */
-
 #include "util.h"
 
 #include "glbopts.h"
-#include <string.h>
 #include "linsys.h"
 #include "scs_matrix.h"
 
@@ -77,38 +71,25 @@ scs_float SCS(tocq)(SCS(timer) * t) {
 
 #endif
 
-scs_int SCS(deep_copy_data)(ScsData *dest, const ScsData *src) {
-  memset(dest, 0, sizeof(*dest));
+void SCS(deep_copy_data)(ScsData *dest, const ScsData *src) {
   dest->n = src->n;
   dest->m = src->m;
-  if (!SCS(copy_matrix)(&(dest->A), src->A) ||
-      !SCS(copy_matrix)(&(dest->P), src->P)) {
-    return 0;
-  }
+  SCS(copy_matrix)(&(dest->A), src->A);
+  SCS(copy_matrix)(&(dest->P), src->P);
   dest->b = (scs_float *)scs_calloc(dest->m, sizeof(scs_float));
-  dest->c = (scs_float *)scs_calloc(dest->n, sizeof(scs_float));
-  if (!dest->b || !dest->c) {
-    return 0;
-  }
   memcpy(dest->b, src->b, dest->m * sizeof(scs_float));
+  dest->c = (scs_float *)scs_calloc(dest->n, sizeof(scs_float));
   memcpy(dest->c, src->c, dest->n * sizeof(scs_float));
-  return 1;
 }
 
-scs_int SCS(deep_copy_stgs)(ScsSettings *dest, const ScsSettings *src) {
+void SCS(deep_copy_stgs)(ScsSettings *dest, const ScsSettings *src) {
   memcpy(dest, src, sizeof(ScsSettings));
   /* MATLAB does something weird with strdup, so use strcpy instead */
   char *tmp;
   if (src->write_data_filename) {
     /* sizeof(char) = 1 */
     tmp = (char *)scs_malloc(strlen(src->write_data_filename) + 1);
-    if (tmp) {
-      strcpy(tmp, src->write_data_filename);
-    }
-    if (!tmp) {
-      dest->write_data_filename = SCS_NULL;
-      return 0;
-    }
+    strcpy(tmp, src->write_data_filename);
     dest->write_data_filename = tmp;
   } else {
     dest->write_data_filename = SCS_NULL;
@@ -117,18 +98,11 @@ scs_int SCS(deep_copy_stgs)(ScsSettings *dest, const ScsSettings *src) {
   if (src->log_csv_filename) {
     /* sizeof(char) = 1 */
     tmp = (char *)scs_malloc(strlen(src->log_csv_filename) + 1);
-    if (tmp) {
-      strcpy(tmp, src->log_csv_filename);
-    }
-    if (!tmp) {
-      dest->log_csv_filename = SCS_NULL;
-      return 0;
-    }
+    strcpy(tmp, src->log_csv_filename);
     dest->log_csv_filename = tmp;
   } else {
     dest->log_csv_filename = SCS_NULL;
   }
-  return 1;
 }
 
 void SCS(free_data)(ScsData *d) {
@@ -169,11 +143,7 @@ void scs_set_default_settings(ScsSettings *stgs) {
   stgs->warm_start = WARM_START;
   stgs->acceleration_lookback = ACCELERATION_LOOKBACK;
   stgs->acceleration_interval = ACCELERATION_INTERVAL;
-  stgs->acceleration_type_1 = ACCELERATION_TYPE_1;
-  stgs->acceleration_regularization = AA_REGULARIZATION;
-  stgs->acceleration_relaxation = AA_RELAXATION;
   stgs->adaptive_scale = ADAPTIVE_SCALE;
-  stgs->adaptive_diag_scale = ADAPTIVE_DIAG_SCALE;
   stgs->write_data_filename = WRITE_DATA_FILENAME;
   stgs->log_csv_filename = LOG_CSV_FILENAME;
   stgs->time_limit_secs = TIME_LIMIT_SECS;

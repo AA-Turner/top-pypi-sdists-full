@@ -16,17 +16,21 @@ class CreateWorkspaceApiKeyResponse409:
     """Conflict Exception
 
     Attributes:
+        code (str | Unset): Machine-readable error code; see ``ErrorCode`` for known values.
         detail (str | Unset):
         extra (Any | Unset): Additional error details (free-form)
         status_code (int | Unset):
     """
 
+    code: str | Unset = UNSET
     detail: str | Unset = UNSET
     extra: Any | Unset = UNSET
     status_code: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        code = self.code
+
         detail = self.detail
 
         extra = self.extra
@@ -36,6 +40,8 @@ class CreateWorkspaceApiKeyResponse409:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
+        if code is not UNSET:
+            field_dict["code"] = code
         if detail is not UNSET:
             field_dict["detail"] = detail
         if extra is not UNSET:
@@ -48,6 +54,8 @@ class CreateWorkspaceApiKeyResponse409:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        code = d.pop("code", UNSET)
+
         detail = d.pop("detail", UNSET)
 
         extra = d.pop("extra", UNSET)
@@ -55,6 +63,7 @@ class CreateWorkspaceApiKeyResponse409:
         status_code = d.pop("status_code", UNSET)
 
         create_workspace_api_key_response_409 = cls(
+            code=code,
             detail=detail,
             extra=extra,
             status_code=status_code,
